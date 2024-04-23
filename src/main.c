@@ -5,39 +5,34 @@
 #include "layer_norm.h"
 #include "embedding.h"
 #include "attention.h"
+#include "blocks.h"
 
 #define True 1
 #define False 0
 
 int main() {
-    attention_t *attn = Attention(768, 12, 64);
-    attn->description(attn);
+    self_attention_t *self_attn = SelfAttention(768, 12, 64, True);
+    self_attn->description(self_attn);
 
     int x_shape[3] = {64, 64, 768 * 3};
     tensor_t *X = randn(x_shape, 3);
-
-    
-    tensor_t *out = attn->forward(attn, X);
-
+    tensor_t *out = self_attn->forward(self_attn, X);
 
     printf("X:\n");
-    // print_tensor(X, 0);
     print_shape(X);
 
     printf("out:\n");
-    // print_tensor(out, 0);
     print_shape(out);
 
     int global_grad_shape[3] = {64, 64, 768};
     tensor_t *global_grad = ones(global_grad_shape, 3);
-    tensor_t *out_grad = attn->backward(attn, global_grad);
+    tensor_t *out_grad = self_attn->backward(self_attn, global_grad);
 
     printf("out.grad:\n");
-    // print_tensor(out_grad, 0);
     print_shape(out_grad);
 
-    attn->free_layer(attn);
-    attn = NULL;
+    self_attn->free_layer(self_attn);
+    self_attn = NULL;
     free_tensor(X);
     free_tensor(out_grad);
     free_tensor(out);

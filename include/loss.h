@@ -44,6 +44,7 @@ typedef struct cross_entropy_loss {
     tensor_t *(*forward)(struct cross_entropy_loss *, const tensor_t *, const tensor_t *);
     tensor_t *(*backward)(struct cross_entropy_loss *, tensor_t *);
     void (*description)(const struct cross_entropy_loss *);
+    int (*num_parameters)(const struct cross_entropy_loss *);
     void (*free_layer)(struct cross_entropy_loss *);
 } cross_entropy_loss_t;
 

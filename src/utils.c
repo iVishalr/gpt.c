@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
 #include <cblas.h>
 
@@ -76,6 +77,7 @@ tensor_t *create(const int *shape, const int n) {
 
     tensor->ndims = n;
     tensor->length = total_elements;
+    tensor->requires_grad = 0;
     return tensor;
 }
 
@@ -114,6 +116,7 @@ tensor_t *create_calloc(const int *shape, const int n)
 
     tensor->ndims = n;
     tensor->length = total_elements;
+    tensor->requires_grad = 0;
     return tensor;
 }
 
@@ -250,8 +253,7 @@ void *tensor_copy(tensor_t *dest, const tensor_t *src) {
         return NULL;
     }
 
-    for (int i = 0; i < src->length; i++)
-        dest->t[i] = src->t[i];
+    memcpy(dest->t, src->t, src->length * sizeof(float));
     
     for (int i = 0; i < src->ndims; i++)
         dest->shape[i] = src->shape[i];

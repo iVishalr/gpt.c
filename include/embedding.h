@@ -43,9 +43,10 @@ typedef struct embedding {
     tensor_t *W;
     tensor_t *dW;
     tensor_t *cache;
-    tensor_t *(*forward)(struct embedding *, const tensor_t *);
+    tensor_t *(*forward)(struct embedding *, tensor_t *);
     tensor_t *(*backward)(struct embedding *, tensor_t *);
     void (*description)(const struct embedding *);
+    int (*num_parameters)(const struct embedding *);
     void (*free_layer)(struct embedding *);
     int num_embeddings;
     int embedding_dim;

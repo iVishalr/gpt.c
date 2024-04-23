@@ -3,7 +3,7 @@
 #include <math.h>
 #include "embedding.h"
 
-tensor_t *forward_embedding(embedding_t *embedding, const tensor_t *x) {
+tensor_t *forward_embedding(embedding_t *embedding, tensor_t *x) {
     
     if (embedding == NULL) {
         printf("Expected required arugment *embedding to be of type embedding_t ptr, but got NULL.\n");
@@ -27,13 +27,16 @@ tensor_t *forward_embedding(embedding_t *embedding, const tensor_t *x) {
     int out_shape[1024];
     int index = 0;
     int collapsed_dims = 1;
+    
     for (int i = 0; i < x->ndims; i++) {
         out_shape[index++] = x->shape[i];
         collapsed_dims *= x->shape[i];
     }
     collapsed_dims /= x->shape[x->ndims - 1];
     out_shape[index] = embedding->embedding_dim;
+    
     tensor_t *out = zeros(out_shape, index + 1);
+    out->requires_grad = 1;
 
     int row_size = embedding->embedding_dim;
     for (int i = 0; i < collapsed_dims; i++) {
@@ -45,9 +48,12 @@ tensor_t *forward_embedding(embedding_t *embedding, const tensor_t *x) {
         }
     }
 
-    embedding->cache = create_tensor(x->shape, x->ndims);
-    tensor_copy(embedding->cache, x);
-    print_shape(out);
+    if (x->requires_grad > 0) {
+        embedding->cache = x;
+    } else {
+        embedding->cache = create_tensor(x->shape, x->ndims);
+        tensor_copy(embedding->cache, x);
+    }
     return out;
 }
 
@@ -83,6 +89,14 @@ tensor_t *backward_embedding(embedding_t * embedding, tensor_t *global_grad) {
     return out;
 }
 
+int num_parameters_embedding(const embedding_t *embedding) {
+    if (embedding == NULL)
+        return 0;
+
+    int total_parameters = embedding->W->length;
+    return total_parameters;
+}
+
 void description_embedding(const embedding_t *embedding) {
     if (embedding == NULL)
         return;
@@ -113,13 +127,16 @@ embedding_t *Embedding(int num_embeddings, int embedding_dim) {
     embedding_t *embedding = (embedding_t *)malloc(sizeof(embedding_t));
     embedding->num_embeddings = num_embeddings;
     embedding->embedding_dim = embedding_dim;
-    embedding->cache = NULL;
-    embedding->dW = NULL;
-    embedding->description = description_embedding;
-    embedding->free_layer = free_layer_embedding;
+    
     int wshape[2] = {num_embeddings, embedding_dim};
+
     embedding->W = randn(wshape, 2);
+    embedding->dW = NULL;
+    embedding->cache = NULL;
     embedding->forward = forward_embedding;
     embedding->backward = backward_embedding;
+    embedding->description = description_embedding;
+    embedding->num_parameters = num_parameters_embedding;
+    embedding->free_layer = free_layer_embedding;
     return embedding;
 }

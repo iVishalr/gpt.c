@@ -5,7 +5,7 @@
 #include <cblas.h>
 #include "attention.h"
 
-tensor_t *forward_attention(attention_t *attn, const tensor_t *x) {
+tensor_t *forward_attention(attention_t *attn, tensor_t *x) {
 
     if (attn == NULL) {
         printf("Expected required arugment *attn to be of type attention_t ptr, but got NULL.\n");
@@ -62,8 +62,8 @@ tensor_t *forward_attention(attention_t *attn, const tensor_t *x) {
     hs = C / n_heads;
     float scale = 1.0f / sqrtf(hs);
 
-    int qkv_transpose_shape[4] = {B, n_heads, T, hs};
     tensor_t *q, *k, *v; 
+    int qkv_transpose_shape[4] = {B, n_heads, T, hs};
     q = create_tensor(qkv_transpose_shape, 4);
     k = create_tensor(qkv_transpose_shape, 4);
     v = create_tensor(qkv_transpose_shape, 4);
@@ -106,6 +106,7 @@ tensor_t *forward_attention(attention_t *attn, const tensor_t *x) {
     tensor_t *out, *_out; 
     out = create_tensor(out_shape, 3);
     _out = create_tensor(out_shape, 3);
+    out->requires_grad = 1;
 
     for (int i = 0; i < B * n_heads; i++) {
         for (int j = 0; j < T; j++) {
@@ -158,7 +159,11 @@ tensor_t *forward_attention(attention_t *attn, const tensor_t *x) {
     attn->cache[2] = v;
     attn->cache[3] = preatt;
     attn->cache[4] = att;
+    
+    if (x->requires_grad > 0)
+        free_tensor(x);
     free_tensor(_out);
+    
     return out;
 }
 
@@ -330,9 +335,6 @@ void description_attention(const attention_t *attn) {
 }   
 
 int num_parameters_attention(const attention_t *attn) {
-    if (attn == NULL)
-        return 0;
-
     return 0;
 }   
 

@@ -63,7 +63,7 @@ void kaiming_uniform(tensor_t *t, float a, const char *mode, const char *non_lin
     }
 }
 
-tensor_t *forward_linear(linear_t *linear, const tensor_t *x) {
+tensor_t *forward_linear(linear_t *linear, tensor_t *x) {
     
     if (linear == NULL) {
         printf("Expected required arugment *linear to be of type linear_t ptr, but got NULL.\n");
@@ -82,32 +82,28 @@ tensor_t *forward_linear(linear_t *linear, const tensor_t *x) {
     // b: (out_features)
     // y = x @ W.T + b
     // y: (B * T, in_features) @ (in_features, out_features) -> (B * T, out_features) + (out_features)
-    
-    int b_size = linear->b ? linear->b->shape[0] : 0;
-    
-    int collapsed_dims = 1;
-    for (int i = 0; i < x->ndims - 1; i++)
-        collapsed_dims *= x->shape[i];
+        
+    int B, T, in_features;
+    B = x->shape[0];
+    T = x->shape[1];
+    in_features = x->shape[2];
 
     tensor_t *out, *ret;
 
-    int out_shape[1024];
-    for (int i = 0; i < x->ndims - 1; i++)
-        out_shape[i] = x->shape[i];
-    out_shape[x->ndims - 1] = linear->out_features;
-
+    int out_shape[3] = {B, T, linear->out_features};
     out = create_tensor(out_shape, x->ndims);
+    out->requires_grad = 1;
 
     ret = matmul(
         CblasRowMajor, CblasNoTrans, CblasTrans, 
-        collapsed_dims, linear->out_features, linear->in_features, 
+        B * T, linear->out_features, linear->in_features, 
         1.0f, x, linear->in_features, 
         linear->W, linear->in_features, 
         0.0f, out, linear->out_features
     );
 
     if (ret == NULL) {
-        printf("An error occured when performing matrix multiplication with shapes: [..., %d, %d] @ [%d, %d] -> [..., %d, %d]\n", collapsed_dims, linear->in_features, linear->in_features, linear->out_features, collapsed_dims, linear->out_features);
+        printf("An error occured when performing matrix multiplication with shapes: [..., %d, %d] @ [%d, %d] -> [..., %d, %d]\n", B * T, linear->in_features, linear->in_features, linear->out_features, B * T, linear->out_features);
         free_tensor(out);
         out = NULL;
         return NULL;
@@ -115,20 +111,22 @@ tensor_t *forward_linear(linear_t *linear, const tensor_t *x) {
 
     // add bias to out tensor (B * T, out_features) + (out_features)
     if (linear->b) {
-        int rows = 1;
-        for (int i = 0; i < out->ndims - 1; i++)
-            rows *= out->shape[i];
-        
-        for (int row = 0; row < rows; row++){
-            for (int i = 0; i < b_size; i++) {
-                out->t[row * b_size + i] += linear->b->t[i];
+        int row_size = linear->out_features;
+        for (int row = 0; row < B * T; row++){
+            for (int j = 0; j < row_size; j++) {
+                out->t[row * row_size + j] += linear->b->t[j];
             }
         }
     }
 
     // cache the input to the layer
-    linear->cache = create_tensor(x->shape, x->ndims);
-    tensor_copy(linear->cache, x);
+    if (x->requires_grad > 0) {
+        linear->cache = x;
+    } else {
+        linear->cache = create_tensor(x->shape, x->ndims);
+        tensor_copy(linear->cache, x);
+    }
+
     return out;
 }
 
@@ -191,13 +189,14 @@ tensor_t *backward_linear(linear_t *linear, tensor_t *global_grad) {
     tensor_t *dout, *ret;
     dout = zeros(linear->cache->shape, linear->cache->ndims);
 
-    int collapsed_dims = 1;
-    for (int i = 0; i < dout->ndims - 1; i++)
-        collapsed_dims *= dout->shape[i];
+    int B, T, out_features;
+    B = global_grad->shape[0];
+    T = global_grad->shape[1];
+    out_features = global_grad->shape[2];
 
     ret = matmul(
         CblasRowMajor, CblasNoTrans, CblasNoTrans,
-        collapsed_dims, linear->in_features, linear->out_features,
+        B * T, linear->in_features, linear->out_features,
         1.0f, global_grad, linear->out_features, 
         linear->W, linear->in_features, 
         1.0f, dout, linear->in_features
@@ -215,13 +214,9 @@ tensor_t *backward_linear(linear_t *linear, tensor_t *global_grad) {
     }
 
     // backprop into dW
-    collapsed_dims = 1;
-    for (int i = 0; i < global_grad->ndims - 1; i++)
-        collapsed_dims *= global_grad->shape[i];
-
     ret = matmul(
         CblasRowMajor, CblasTrans, CblasNoTrans,
-        linear->out_features, linear->in_features, collapsed_dims,
+        linear->out_features, linear->in_features, B * T,
         1.0f, global_grad, linear->out_features, 
         linear->cache, linear->in_features, 
         1.0f, linear->dW, linear->in_features
@@ -231,7 +226,7 @@ tensor_t *backward_linear(linear_t *linear, tensor_t *global_grad) {
     linear->cache = NULL;
 
     if (ret == NULL) {
-        printf("An error occured when computing gradients towards weights to the layer. [%d, %d] @ [%d, %d] -> [%d, %d]\n", linear->out_features, collapsed_dims, collapsed_dims, linear->in_features, linear->out_features, linear->in_features);
+        printf("An error occured when computing gradients towards weights to the layer. [%d, %d] @ [%d, %d] -> [%d, %d]\n", linear->out_features, B * T, B * T, linear->in_features, linear->out_features, linear->in_features);
         free_tensor(dout);
         free_tensor(global_grad);
         dout = NULL;
@@ -241,10 +236,10 @@ tensor_t *backward_linear(linear_t *linear, tensor_t *global_grad) {
 
     // backprop into db
     if (linear->use_bias > 0) {
-        int db_size = linear->db->shape[linear->db->ndims - 1];
-        for (int i = 0; i < collapsed_dims; i++) {
-            for (int j = 0; j < db_size; j++) {
-                linear->db->t[j] += global_grad->t[i * db_size + j];
+        int row_size = linear->db->shape[linear->db->ndims - 1];
+        for (int i = 0; i < B * T; i++) {
+            for (int j = 0; j < row_size; j++) {
+                linear->db->t[j] += global_grad->t[i * row_size + j];
             }
         }
     }

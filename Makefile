@@ -30,8 +30,8 @@
 # 	rm -rf $(BUILD) a.out
 
 CC = gcc
-# CFLAGS = -O3 -Ofast -Wno-unused-result
-CFLAGS = -Wno-unused-result -O0 -ggdb3
+CFLAGS = -O3 -Ofast -Wno-unused-result
+# CFLAGS = -Wno-unused-result -O0 -ggdb3
 INCLUDES = -I include/ -I /opt/OpenBLAS/include/
 LDLIBS = -lm -lopenblas
 LDFLAGS = -L /opt/OpenBLAS/lib

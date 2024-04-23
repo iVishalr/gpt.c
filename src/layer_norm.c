@@ -5,7 +5,7 @@
 
 #define DEFAULT_EPS 1e-5f
 
-tensor_t *forward_layer_norm(layer_norm_t *norm, const tensor_t *x) {
+tensor_t *forward_layer_norm(layer_norm_t *norm, tensor_t *x) {
     
     if (norm == NULL) {
         printf("Expected required arugment *norm to be of type layer_norm_t ptr, but got NULL.\n");
@@ -24,7 +24,6 @@ tensor_t *forward_layer_norm(layer_norm_t *norm, const tensor_t *x) {
 
     norm->cache[0] = create_tensor(cache_shape, x->ndims - 1); // (B,T)
     norm->cache[1] = create_tensor(cache_shape, x->ndims - 1); // (B,T)
-    norm->cache[2] = create_tensor(x->shape, x->ndims); // (B, T, C)
 
     int collapsed_dims = 1, row_size = x->shape[x->ndims - 1];
     for (int i = 0; i < x->ndims - 1; i++)
@@ -59,7 +58,13 @@ tensor_t *forward_layer_norm(layer_norm_t *norm, const tensor_t *x) {
         norm->cache[0]->t[i] = mean;
         norm->cache[1]->t[i] = rstd;
     }
-    tensor_copy(norm->cache[2], x);
+
+    if (x->requires_grad > 0) {
+        norm->cache[2] = x;
+    } else {
+        norm->cache[2] = create_tensor(x->shape, x->ndims); // (B, T, C)
+        tensor_copy(norm->cache[2], x);
+    }
     return out;
 }
 
@@ -188,6 +193,15 @@ void description_layer_norm(const layer_norm_t *norm) {
         printf("\tb [%s]: %d\n", b_shape, norm->b->length);
 }
 
+int num_parameters_layer_norm(const layer_norm_t *norm) {
+    if (norm == NULL)
+        return 0;
+
+    int total_parameters = norm->W->length;
+    total_parameters += norm->use_bias > 0 ? norm->b->length : 0;
+    return total_parameters;
+}
+
 void free_layer_layer_norm(layer_norm_t *norm) {
     if (norm == NULL)
         return;
@@ -211,10 +225,6 @@ layer_norm_t *LayerNorm(int in_features, const float eps, const int use_bias) {
 
     layer_norm_t *norm = (layer_norm_t *)malloc(sizeof(layer_norm_t));
 
-    norm->forward = forward_layer_norm;
-    norm->backward = backward_layer_norm;
-    norm->description = description_layer_norm;
-    norm->free_layer = free_layer_layer_norm;
     norm->cache[0] = NULL;
     norm->cache[1] = NULL;
     norm->cache[2] = NULL;
@@ -232,5 +242,11 @@ layer_norm_t *LayerNorm(int in_features, const float eps, const int use_bias) {
 
     norm->dW = NULL;
     norm->db = NULL;
+
+    norm->forward = forward_layer_norm;
+    norm->backward = backward_layer_norm;
+    norm->description = description_layer_norm;
+    norm->num_parameters = num_parameters_layer_norm;
+    norm->free_layer = free_layer_layer_norm;
     return norm;
 }

@@ -41,7 +41,7 @@ extern "C" {
 
 typedef struct gelu {
     tensor_t *cache;
-    tensor_t *(*forward)(struct gelu *, const tensor_t *);
+    tensor_t *(*forward)(struct gelu *, tensor_t *);
     tensor_t *(*backward)(struct gelu *, tensor_t *);
     void (*description)(const struct gelu *);
     void (*free_layer)(struct gelu *);
@@ -49,7 +49,7 @@ typedef struct gelu {
 
 typedef struct softmax {
     tensor_t *cache;
-    tensor_t *(*forward)(struct softmax *, const tensor_t *);
+    tensor_t *(*forward)(struct softmax *, tensor_t *);
     tensor_t *(*backward)(struct softmax *, tensor_t *);
     void (*description)(const struct softmax *);
     void (*free_layer)(struct softmax *);

@@ -42,7 +42,7 @@ extern "C" {
 typedef struct attention {
     tensor_t *buffer;
     tensor_t *cache[5];
-    tensor_t *(*forward)(struct attention *, const tensor_t *);
+    tensor_t *(*forward)(struct attention *, tensor_t *);
     tensor_t *(*backward)(struct attention *, tensor_t *);
     void (*description)(const struct attention *);
     int (*num_parameters)(const struct attention *);

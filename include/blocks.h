@@ -50,7 +50,7 @@ typedef struct mlp {
     gelu_t *gelu;
     linear_t *c_proj;
     
-    tensor_t *(*forward)(struct mlp *, const tensor_t *);
+    tensor_t *(*forward)(struct mlp *, tensor_t *);
     tensor_t *(*backward)(struct mlp *, tensor_t *);
     
     void (*description)(const struct mlp *);
@@ -68,8 +68,8 @@ typedef struct self_attention {
     attention_t *attn;
     linear_t *c_proj;
 
-    tensor_t *(*forward)(struct mlp *, const tensor_t *);
-    tensor_t *(*backward)(struct mlp *, tensor_t *);
+    tensor_t *(*forward)(struct self_attention *, tensor_t *);
+    tensor_t *(*backward)(struct self_attention *, tensor_t *);
 
     void (*description)(const struct self_attention *);
     int (*num_parameters)(const struct self_attention *);

@@ -45,7 +45,7 @@ typedef struct linear {
     tensor_t *dW;
     tensor_t *db;
     tensor_t *cache;
-    tensor_t *(*forward)(struct linear *, const tensor_t *);
+    tensor_t *(*forward)(struct linear *, tensor_t *);
     tensor_t *(*backward)(struct linear *, tensor_t *);
     void (*description)(const struct linear *);
     int (*num_parameters)(const struct linear *);

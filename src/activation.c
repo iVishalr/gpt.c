@@ -6,7 +6,7 @@
 
 #define GELU_SCALING_FACTOR sqrtf(2.0f / M_PI)
 
-tensor_t *forward_gelu(gelu_t *gelu, const tensor_t *x) {
+tensor_t *forward_gelu(gelu_t *gelu, tensor_t *x) {
     
     if (gelu == NULL) {
         printf("Expected required arugment *gelu to be of type gelu_t ptr, but got NULL.\n");
@@ -19,6 +19,7 @@ tensor_t *forward_gelu(gelu_t *gelu, const tensor_t *x) {
     }
 
     tensor_t *out = create_tensor(x->shape, x->ndims);
+    out->requires_grad = 1;
 
     for (int i = 0; i < x->length; i++) {
         float x_i = x->t[i];
@@ -26,8 +27,12 @@ tensor_t *forward_gelu(gelu_t *gelu, const tensor_t *x) {
         out->t[i] = 0.5f * x_i * (1.0f + tanhf(GELU_SCALING_FACTOR * (x_i + cube)));
     }
 
-    gelu->cache = create_tensor(x->shape, x->ndims);
-    tensor_copy(gelu->cache, x);
+    if (x->requires_grad > 0) {
+        gelu->cache = x;
+    } else {
+        gelu->cache = create_tensor(x->shape, x->ndims);
+        tensor_copy(gelu->cache, x);
+    }
     return out;
 }
 
@@ -59,7 +64,6 @@ tensor_t *backward_gelu(gelu_t *gelu, tensor_t *global_grad) {
     free_tensor(global_grad);
     gelu->cache = NULL;
     global_grad = NULL;
-
     return dout;
 }
 
@@ -84,11 +88,10 @@ gelu_t *GELU() {
     gelu->backward = backward_gelu;
     gelu->description = description_gelu;
     gelu->free_layer = free_layer_gelu;
-
     return gelu;
 }
 
-tensor_t *forward_softmax(softmax_t *softmax, const tensor_t *x) {
+tensor_t *forward_softmax(softmax_t *softmax, tensor_t *x) {
     
     if (softmax == NULL) {
         printf("Expected required arugment *softmax to be of type softmax_t ptr, but got NULL.\n");
@@ -101,6 +104,7 @@ tensor_t *forward_softmax(softmax_t *softmax, const tensor_t *x) {
     }
 
     tensor_t *out = create_tensor(x->shape, x->ndims);
+    out->requires_grad = 1;
 
     int collapsed_dims = 1;
     for (int i = 0; i < x->ndims - 1; i++) 
@@ -125,8 +129,12 @@ tensor_t *forward_softmax(softmax_t *softmax, const tensor_t *x) {
         }
     }
 
-    // softmax->cache = create_tensor(x->shape, x->ndims);
-    // tensor_copy(softmax->cache, x);
+    if (x->requires_grad > 0)
+        softmax->cache = x;
+    else {
+        softmax->cache = create_tensor(x->shape, x->ndims);
+        tensor_copy(softmax->cache, x);
+    }
     return out;
 }
 

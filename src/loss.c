@@ -119,6 +119,10 @@ tensor_t *backward_cross_entropy_loss(cross_entropy_loss_t *loss, tensor_t *glob
     return out;
 }
 
+int num_parameters_cross_entropy_loss(const cross_entropy_loss_t *loss) {
+    return 0;
+}
+
 void description_cross_entropy_loss(const cross_entropy_loss_t *loss) {
     printf("CrossEntropyLoss()\n");
 }
@@ -139,6 +143,7 @@ cross_entropy_loss_t *CrossEntropyLoss() {
     loss->forward = forward_cross_entropy_loss;
     loss->backward = backward_cross_entropy_loss;
     loss->description = description_cross_entropy_loss;
+    loss->num_parameters = num_parameters_cross_entropy_loss;
     loss->free_layer = free_layer_cross_entropy_loss;
     return loss;
 }

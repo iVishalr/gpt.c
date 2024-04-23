@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include "blocks.h"
 
-tensor_t *forward_mlp(mlp_t *mlp, const tensor_t *x) {
+tensor_t *forward_mlp(mlp_t *mlp, tensor_t *x) {
 
     if (mlp == NULL) {
         printf("Expected required arugment *mlp to be of type mlp_t ptr, but got NULL.\n");
@@ -14,7 +14,7 @@ tensor_t *forward_mlp(mlp_t *mlp, const tensor_t *x) {
         return NULL;
     }
 
-    const tensor_t *out = x;
+    tensor_t *out = x;
     out = mlp->c_fc->forward(mlp->c_fc, out);
     out = mlp->gelu->forward(mlp->gelu, out);
     out = mlp->c_proj->forward(mlp->c_proj, out);
