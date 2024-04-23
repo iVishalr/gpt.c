@@ -45,6 +45,7 @@ typedef struct attention {
     tensor_t *(*forward)(struct attention *, const tensor_t *);
     tensor_t *(*backward)(struct attention *, tensor_t *);
     void (*description)(const struct attention *);
+    int (*num_parameters)(const struct attention *);
     void (*free_layer)(struct attention *);
     int n_embd;
     int n_heads;

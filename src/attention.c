@@ -329,6 +329,13 @@ void description_attention(const attention_t *attn) {
     printf("n_heads: %d\n", attn->n_heads);
 }   
 
+int num_parameters_attention(const attention_t *attn) {
+    if (attn == NULL)
+        return 0;
+
+    return 0;
+}   
+
 void free_layer_attention(attention_t *attn) {
     if (attn == NULL)
         return;
@@ -368,6 +375,7 @@ attention_t *Attention(int n_embd, int n_heads, int block_size) {
     attn->forward = forward_attention;
     attn->backward = backward_attention;
     attn->description = description_attention;
+    attn->num_parameters = num_parameters_attention;
     attn->free_layer = free_layer_attention;
     return attn;
 }

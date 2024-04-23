@@ -282,6 +282,19 @@ void description_linear(const linear_t *linear) {
         printf("  b [%s]: %d\n", b_shape, linear->b->length);
 }
 
+int num_parameters_linear(const linear_t *linear) {
+    if (linear == NULL)
+        return 0;
+
+    int total_parameters = 0;
+    total_parameters += linear->W->length;
+    
+    if (linear->use_bias > 0)
+        total_parameters += linear->b->length;
+
+    return total_parameters;
+}
+
 void free_layer_linear(linear_t *linear) {
     if (linear == NULL) 
         return;
@@ -339,5 +352,6 @@ linear_t *Linear(const int in_features, const int out_features, const int use_bi
     linear->backward = backward_linear;
     linear->description = description_linear;
     linear->free_layer = free_layer_linear;
+    linear->num_parameters = num_parameters_linear;
     return linear;
 }

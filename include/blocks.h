@@ -1,6 +1,6 @@
 /**
- * \file            linear.h
- * \brief           Header file for Linear layer
+ * \file            blocks.h
+ * \brief           Header file for creating various building blocks for transformer
  */
 
 /*
@@ -33,29 +33,51 @@
 
 #pragma once
 
-#include "utils.h"
+#include "linear.h"
+#include "attention.h"
+#include "activation.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef struct linear {
-    tensor_t *W;
-    tensor_t *b;
-    tensor_t *dW;
-    tensor_t *db;
-    tensor_t *cache;
-    tensor_t *(*forward)(struct linear *, const tensor_t *);
-    tensor_t *(*backward)(struct linear *, tensor_t *);
-    void (*description)(const struct linear *);
-    int (*num_parameters)(const struct linear *);
-    void (*free_layer)(struct linear *);
+typedef struct mlp {
     int in_features;
-    int out_features;
     int use_bias;
-} linear_t;
+    int expansion_factor;
+    
+    linear_t *c_fc;
+    gelu_t *gelu;
+    linear_t *c_proj;
+    
+    tensor_t *(*forward)(struct mlp *, const tensor_t *);
+    tensor_t *(*backward)(struct mlp *, tensor_t *);
+    
+    void (*description)(const struct mlp *);
+    int (*num_parameters)(const struct mlp *);
+    void (*free_layer)(struct mlp *);
+} mlp_t;
 
-linear_t *Linear(const int in_features, const int out_features, const int use_bias);
+typedef struct self_attention {
+    int n_embd;
+    int n_heads;
+    int use_bias;
+    int block_size;
+    
+    linear_t *qkv;
+    attention_t *attn;
+    linear_t *c_proj;
+
+    tensor_t *(*forward)(struct mlp *, const tensor_t *);
+    tensor_t *(*backward)(struct mlp *, tensor_t *);
+
+    void (*description)(const struct self_attention *);
+    int (*num_parameters)(const struct self_attention *);
+    void (*free_layer)(struct self_attention *);
+} self_attention_t;
+
+mlp_t *MLP(const int in_features, int expansion_factor, const int use_bias);
+self_attention_t *SelfAttention(const int n_embd, const int n_heads, const int block_size, const int use_bias);
 
 #ifdef __cplusplus
 }

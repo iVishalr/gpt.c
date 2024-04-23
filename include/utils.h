@@ -42,6 +42,7 @@ typedef struct tensor {
     int ndims;
     int length;
     int shape[1024];
+    int requires_grad;
 } tensor_t;
 
 tensor_t *create_tensor(const int *shape, const int n);
