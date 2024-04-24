@@ -76,6 +76,7 @@ void free_layer_mlp(mlp_t *mlp) {
         return;
 
     mlp->c_fc->free_layer(mlp->c_fc);
+    mlp->gelu->free_layer(mlp->gelu);
     mlp->c_proj->free_layer(mlp->c_proj);
     mlp->c_fc = NULL;
     mlp->c_proj = NULL;

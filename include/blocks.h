@@ -36,6 +36,7 @@
 #include "linear.h"
 #include "attention.h"
 #include "activation.h"
+#include "layer_norm.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -76,8 +77,28 @@ typedef struct self_attention {
     void (*free_layer)(struct self_attention *);
 } self_attention_t;
 
+typedef struct block {
+    int n_embd;
+    int n_heads;
+    int use_bias;
+    int block_size;
+    
+    layer_norm_t *ln1;
+    layer_norm_t *ln2;
+    mlp_t *mlp;
+    self_attention_t *attn;
+
+    tensor_t *(*forward)(struct block *, tensor_t *);
+    tensor_t *(*backward)(struct block *, tensor_t *);
+
+    void (*description)(const struct block *);
+    int (*num_parameters)(const struct block *);
+    void (*free_layer)(struct block *);
+} block_t;
+
 mlp_t *MLP(const int in_features, int expansion_factor, const int use_bias);
 self_attention_t *SelfAttention(const int n_embd, const int n_heads, const int block_size, const int use_bias);
+block_t *Block(const int n_embd, const int n_heads, const int block_size, const int use_bias);
 
 #ifdef __cplusplus
 }

@@ -63,12 +63,12 @@ void description_self_attention(const self_attention_t *attn) {
     c_proj = attn->c_proj;
 
     printf("SelfAttention(n_embd = %d, n_heads = %d, block_size = %d, use_bias = %d)\n", attn->n_embd, attn->n_heads, attn->block_size, attn->use_bias);
-    printf("------------------------------------------------------------------------\n");
+    printf("------------------------------------------------------------------------\n\n");
     qkv->description(qkv);
     _attn->description(_attn);
     c_proj->description(c_proj);
     printf("------------------------------------------------------------------------\n");
-    printf("Total Parameters: %d\n", attn->num_parameters(attn));
+    printf("Parameters: %d\n", attn->num_parameters(attn));
     printf("------------------------------------------------------------------------\n");
 }
 

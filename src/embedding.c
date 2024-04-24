@@ -36,7 +36,6 @@ tensor_t *forward_embedding(embedding_t *embedding, tensor_t *x) {
     out_shape[index] = embedding->embedding_dim;
     
     tensor_t *out = zeros(out_shape, index + 1);
-    out->requires_grad = 1;
 
     int row_size = embedding->embedding_dim;
     for (int i = 0; i < collapsed_dims; i++) {
@@ -48,12 +47,7 @@ tensor_t *forward_embedding(embedding_t *embedding, tensor_t *x) {
         }
     }
 
-    if (x->requires_grad > 0) {
-        embedding->cache = x;
-    } else {
-        embedding->cache = create_tensor(x->shape, x->ndims);
-        tensor_copy(embedding->cache, x);
-    }
+    embedding->cache = x;
     return out;
 }
 

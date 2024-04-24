@@ -59,12 +59,7 @@ tensor_t *forward_layer_norm(layer_norm_t *norm, tensor_t *x) {
         norm->cache[1]->t[i] = rstd;
     }
 
-    if (x->requires_grad > 0) {
-        norm->cache[2] = x;
-    } else {
-        norm->cache[2] = create_tensor(x->shape, x->ndims); // (B, T, C)
-        tensor_copy(norm->cache[2], x);
-    }
+    norm->cache[2] = x;
     return out;
 }
 

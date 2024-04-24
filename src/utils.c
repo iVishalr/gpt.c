@@ -77,7 +77,6 @@ tensor_t *create(const int *shape, const int n) {
 
     tensor->ndims = n;
     tensor->length = total_elements;
-    tensor->requires_grad = 0;
     return tensor;
 }
 
@@ -116,7 +115,6 @@ tensor_t *create_calloc(const int *shape, const int n)
 
     tensor->ndims = n;
     tensor->length = total_elements;
-    tensor->requires_grad = 0;
     return tensor;
 }
 

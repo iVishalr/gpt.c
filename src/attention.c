@@ -90,11 +90,10 @@ tensor_t *forward_attention(attention_t *attn, tensor_t *x) {
             cblas_sgemm(
                 CblasRowMajor, CblasNoTrans, CblasTrans,
                 T, T, hs,
-                1.0f , q->t + b * n_heads * T * hs + h * T * hs, hs,
+                scale , q->t + b * n_heads * T * hs + h * T * hs, hs,
                 k->t + b * n_heads * T * hs + h * T * hs, hs,
                 0.0f, att->t + b * n_heads * T * T + h * T * T, T
             );
-            cblas_sscal(T * T, scale, att->t + b * n_heads * T * T + h * T * T, 1);
         }
     }    
     
@@ -106,7 +105,6 @@ tensor_t *forward_attention(attention_t *attn, tensor_t *x) {
     tensor_t *out, *_out; 
     out = create_tensor(out_shape, 3);
     _out = create_tensor(out_shape, 3);
-    out->requires_grad = 1;
 
     for (int i = 0; i < B * n_heads; i++) {
         for (int j = 0; j < T; j++) {
@@ -160,8 +158,7 @@ tensor_t *forward_attention(attention_t *attn, tensor_t *x) {
     attn->cache[3] = preatt;
     attn->cache[4] = att;
     
-    if (x->requires_grad > 0)
-        free_tensor(x);
+    free_tensor(x);
     free_tensor(_out);
     
     return out;
@@ -328,10 +325,10 @@ void description_attention(const attention_t *attn) {
     if (attn == NULL)
         return;
 
-    printf("Attention\n");
-    printf("---------\n");
-    printf("n_embd: %d\n", attn->n_embd);
-    printf("n_heads: %d\n", attn->n_heads);
+    printf("Attention(n_embd = %d, n_heads = %d)\n", attn->n_heads, attn->n_embd);
+    printf("------------------------------------\n");
+    printf("  n_embd : %d\n", attn->n_embd);
+    printf("  n_heads: %d\n\n", attn->n_heads);
 }   
 
 int num_parameters_attention(const attention_t *attn) {

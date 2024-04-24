@@ -19,7 +19,6 @@ tensor_t *forward_gelu(gelu_t *gelu, tensor_t *x) {
     }
 
     tensor_t *out = create_tensor(x->shape, x->ndims);
-    out->requires_grad = 1;
 
     for (int i = 0; i < x->length; i++) {
         float x_i = x->t[i];
@@ -27,12 +26,7 @@ tensor_t *forward_gelu(gelu_t *gelu, tensor_t *x) {
         out->t[i] = 0.5f * x_i * (1.0f + tanhf(GELU_SCALING_FACTOR * (x_i + cube)));
     }
 
-    if (x->requires_grad > 0) {
-        gelu->cache = x;
-    } else {
-        gelu->cache = create_tensor(x->shape, x->ndims);
-        tensor_copy(gelu->cache, x);
-    }
+    gelu->cache = x;
     return out;
 }
 
@@ -104,7 +98,6 @@ tensor_t *forward_softmax(softmax_t *softmax, tensor_t *x) {
     }
 
     tensor_t *out = create_tensor(x->shape, x->ndims);
-    out->requires_grad = 1;
 
     int collapsed_dims = 1;
     for (int i = 0; i < x->ndims - 1; i++) 
@@ -129,12 +122,7 @@ tensor_t *forward_softmax(softmax_t *softmax, tensor_t *x) {
         }
     }
 
-    if (x->requires_grad > 0)
-        softmax->cache = x;
-    else {
-        softmax->cache = create_tensor(x->shape, x->ndims);
-        tensor_copy(softmax->cache, x);
-    }
+    softmax->cache = x;
     return out;
 }
 

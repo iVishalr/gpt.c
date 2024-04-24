@@ -91,23 +91,15 @@ tensor_t *forward_linear(linear_t *linear, tensor_t *x) {
     tensor_t *out, *ret;
 
     int out_shape[3] = {B, T, linear->out_features};
-    out = create_tensor(out_shape, x->ndims);
-    out->requires_grad = 1;
+    out = create_tensor(out_shape, 3);
 
-    ret = matmul(
+    cblas_sgemm(
         CblasRowMajor, CblasNoTrans, CblasTrans, 
         B * T, linear->out_features, linear->in_features, 
-        1.0f, x, linear->in_features, 
-        linear->W, linear->in_features, 
-        0.0f, out, linear->out_features
+        1.0f, x->t, linear->in_features, 
+        linear->W->t, linear->in_features, 
+        0.0f, out->t, linear->out_features
     );
-
-    if (ret == NULL) {
-        printf("An error occured when performing matrix multiplication with shapes: [..., %d, %d] @ [%d, %d] -> [..., %d, %d]\n", B * T, linear->in_features, linear->in_features, linear->out_features, B * T, linear->out_features);
-        free_tensor(out);
-        out = NULL;
-        return NULL;
-    }
 
     // add bias to out tensor (B * T, out_features) + (out_features)
     if (linear->b) {
@@ -120,13 +112,7 @@ tensor_t *forward_linear(linear_t *linear, tensor_t *x) {
     }
 
     // cache the input to the layer
-    if (x->requires_grad > 0) {
-        linear->cache = x;
-    } else {
-        linear->cache = create_tensor(x->shape, x->ndims);
-        tensor_copy(linear->cache, x);
-    }
-
+    linear->cache = x;
     return out;
 }
 
@@ -184,8 +170,6 @@ tensor_t *backward_linear(linear_t *linear, tensor_t *global_grad) {
     if (linear->use_bias > 0 && linear->db == NULL) 
         linear->db = zeros(linear->b->shape, linear->b->ndims);
 
-    // backprop into dx
-
     tensor_t *dout, *ret;
     dout = zeros(linear->cache->shape, linear->cache->ndims);
 
@@ -194,45 +178,23 @@ tensor_t *backward_linear(linear_t *linear, tensor_t *global_grad) {
     T = global_grad->shape[1];
     out_features = global_grad->shape[2];
 
-    ret = matmul(
+    // backprop into dx
+    cblas_sgemm(
         CblasRowMajor, CblasNoTrans, CblasNoTrans,
         B * T, linear->in_features, linear->out_features,
-        1.0f, global_grad, linear->out_features, 
-        linear->W, linear->in_features, 
-        1.0f, dout, linear->in_features
+        1.0f, global_grad->t, linear->out_features, 
+        linear->W->t, linear->in_features, 
+        1.0f, dout->t, linear->in_features
     );
-
-    if (ret == NULL) {
-        printf("An error occured when computing gradients towards input to the layer. [..., %d] @ [%d, %d] -> [..., %d]\n", linear->out_features, linear->out_features, linear->in_features, linear->in_features);
-        free_tensor(dout);
-        free_tensor(global_grad);
-        free_tensor(linear->cache);
-        dout = NULL;
-        global_grad = NULL;
-        linear->cache = NULL;
-        return NULL;
-    }
 
     // backprop into dW
-    ret = matmul(
+    cblas_sgemm(
         CblasRowMajor, CblasTrans, CblasNoTrans,
         linear->out_features, linear->in_features, B * T,
-        1.0f, global_grad, linear->out_features, 
-        linear->cache, linear->in_features, 
-        1.0f, linear->dW, linear->in_features
+        1.0f, global_grad->t, linear->out_features, 
+        linear->cache->t, linear->in_features, 
+        1.0f, linear->dW->t, linear->in_features
     );
-
-    free_tensor(linear->cache);
-    linear->cache = NULL;
-
-    if (ret == NULL) {
-        printf("An error occured when computing gradients towards weights to the layer. [%d, %d] @ [%d, %d] -> [%d, %d]\n", linear->out_features, B * T, B * T, linear->in_features, linear->out_features, linear->in_features);
-        free_tensor(dout);
-        free_tensor(global_grad);
-        dout = NULL;
-        global_grad = NULL;
-        return NULL;
-    }
 
     // backprop into db
     if (linear->use_bias > 0) {
@@ -244,37 +206,28 @@ tensor_t *backward_linear(linear_t *linear, tensor_t *global_grad) {
         }
     }
 
+    free_tensor(linear->cache);
     free_tensor(global_grad);
+    linear->cache = NULL;
     global_grad = NULL;
     return dout;
 }
 
 void description_linear(const linear_t *linear) {
-    int parameters = linear->W->length;
-    
-    if (linear->b)
-        parameters += linear->b->length;
+    if (linear == NULL)
+        return;
 
     char w_shape[1024], b_shape[1024];
     shape(linear->W, w_shape);
-
     if (linear->use_bias > 0)
         shape(linear->b, b_shape);
 
-    printf("Linear Layer\n");
-    printf("------------\n");
-    printf("in_features: %d\n", linear->in_features);
-    printf("out_features: %d\n", linear->out_features);
-
+    printf("Linear(in_features = %d, out_features = %d, use_bias = %d)\n", linear->in_features, linear->out_features, linear->use_bias);
+    printf("----------------------------------------------------------\n");
+    printf("  weight (%s): %d\n", w_shape, linear->W->length);
     if (linear->use_bias > 0)
-        printf("use_bias: True\n");
-    else
-        printf("use_bias: False\n");
-
-    printf("num parameters: %d\n", parameters);
-    printf("  W [%s]: %d\n", w_shape, linear->W->length);
-    if (linear->use_bias > 0)
-        printf("  b [%s]: %d\n", b_shape, linear->b->length);
+    printf("  bias   (%s): %d\n", b_shape, linear->b->length);
+    printf("  parameters: %d\n\n", linear->num_parameters(linear));
 }
 
 int num_parameters_linear(const linear_t *linear) {
