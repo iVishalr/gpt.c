@@ -186,6 +186,7 @@ void description_layer_norm(const layer_norm_t *norm) {
     printf("\tW [%s]: %d\n", w_shape, norm->W->length);
     if (norm->use_bias > 0)
         printf("\tb [%s]: %d\n", b_shape, norm->b->length);
+    printf("\n");
 }
 
 int num_parameters_layer_norm(const layer_norm_t *norm) {

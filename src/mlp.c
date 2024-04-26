@@ -56,9 +56,9 @@ void description_mlp(const mlp_t *mlp) {
     c_fc->description(c_fc);
     gelu->description(gelu);
     c_proj->description(c_proj);
-    printf("------------------------------------------------------------\n");
-    printf("Total Parameters: %d\n", mlp->num_parameters(mlp));
-    printf("------------------------------------------------------------\n");
+    // printf("------------------------------------------------------------\n");
+    // printf("Total Parameters: %d\n", mlp->num_parameters(mlp));
+    // printf("------------------------------------------------------------\n");
 }
 
 int num_parameters_mlp(const mlp_t *mlp) {

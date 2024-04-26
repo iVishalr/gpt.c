@@ -124,7 +124,7 @@ int num_parameters_cross_entropy_loss(const cross_entropy_loss_t *loss) {
 }
 
 void description_cross_entropy_loss(const cross_entropy_loss_t *loss) {
-    printf("CrossEntropyLoss()\n");
+    printf("CrossEntropyLoss()\n\n");
 }
 
 void free_layer_cross_entropy_loss(cross_entropy_loss_t *loss) {

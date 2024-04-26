@@ -52,7 +52,6 @@ tensor_t *create(const int *shape, const int n) {
         return NULL;
     }
 
-    int length = n;
     int total_elements = 1;
 
     for (int i = 0; i < n; i++)
@@ -64,7 +63,6 @@ tensor_t *create(const int *shape, const int n) {
         printf("Could not allocate memory when creating tensor object.\n");
         exit(EXIT_FAILURE);
     }
-
     tensor->t = (float *)malloc(sizeof(float) * total_elements);
 
     if (tensor->t == NULL) {
@@ -88,7 +86,6 @@ tensor_t *create_calloc(const int *shape, const int n)
         return NULL;
     }
 
-    int length = n;
     int total_elements = 1;
 
     for (int i = 0; i < n; i++)
@@ -380,5 +377,9 @@ void print_tensor_helper(const tensor_t *tensor, const int dim, const int seek, 
 }
 
 void print_tensor(const tensor_t *tensor, const int compact) {
+    if (tensor == NULL) {
+        printf("NULL\n");
+        return;
+    }
     print_tensor_helper(tensor, 0, 0, compact);
 }

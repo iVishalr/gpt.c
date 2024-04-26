@@ -24,29 +24,24 @@ tensor_t *forward_embedding(embedding_t *embedding, tensor_t *x) {
         out[i] = W[i];
     */
 
-    int out_shape[1024];
-    int index = 0;
-    int collapsed_dims = 1;
+    int B, T, C;
+    B = x->shape[0];
+    T = x->shape[1];
+    C = embedding->embedding_dim;
     
-    for (int i = 0; i < x->ndims; i++) {
-        out_shape[index++] = x->shape[i];
-        collapsed_dims *= x->shape[i];
-    }
-    collapsed_dims /= x->shape[x->ndims - 1];
-    out_shape[index] = embedding->embedding_dim;
-    
-    tensor_t *out = zeros(out_shape, index + 1);
+    int out_shape[3] = {B, T, C};
+    tensor_t *out = zeros(out_shape, 3);
 
-    int row_size = embedding->embedding_dim;
-    for (int i = 0; i < collapsed_dims; i++) {
-        for (int t = 0; t < x->shape[1]; t++) {
-            int ix = (int)x->t[i * x->shape[1] + t];
-            for (int j = 0; j < row_size; j++) {
-                out->t[i * (x->shape[1] * row_size) + t * row_size + j] = embedding->W->t[ix * row_size + j];
-            }
+    for (int b = 0; b < B; b++) {
+        for (int t = 0; t < T; t++) {
+            float *out_bt = out->t + b * T * C + t * C;
+            int ix = (int)x->t[b * T + t];
+            float *w_ix = embedding->W->t + ix * C;
+            for (int i = 0; i < C; i++)
+                out_bt[i] = w_ix[i];
         }
     }
-
+    
     embedding->cache = x;
     return out;
 }
@@ -63,15 +58,20 @@ tensor_t *backward_embedding(embedding_t * embedding, tensor_t *global_grad) {
         return NULL;
     }
     
+    int B, T, C;
+    B = global_grad->shape[0];
+    T = global_grad->shape[1];
+    C = global_grad->shape[2];
+
     embedding->dW = zeros(embedding->W->shape, embedding->W->ndims);
 
-    tensor_t *out = zeros(embedding->cache->shape, embedding->cache->ndims);
-
-    for (int i = 0; i < global_grad->shape[0]; i++) {
-        for (int t = 0; t < global_grad->shape[1]; t++) {
-            int ix = (int)embedding->cache->t[i * global_grad->shape[0] + t];
-            for (int j = 0; j < embedding->W->shape[1]; j++) {
-                embedding->dW->t[ix * embedding->embedding_dim + j] += global_grad->t[i * (global_grad->shape[1] * embedding->embedding_dim) + t * embedding->embedding_dim + j];
+    for (int b = 0; b < B; b++) {
+        for (int t = 0; t < T; t++) {
+            float *global_grad_bt = global_grad->t + b * T * C + t * C;
+            int ix = (int)embedding->cache->t[b * T + t];
+            float *dW_ix = embedding->dW->t + ix * C;
+            for (int i = 0; i < C; i++) {
+                dW_ix[i] += global_grad_bt[i];
             }
         }
     }
@@ -80,7 +80,7 @@ tensor_t *backward_embedding(embedding_t * embedding, tensor_t *global_grad) {
     free_tensor(embedding->cache);
     embedding->cache = NULL;
     global_grad = NULL;
-    return out;
+    return NULL;
 }
 
 int num_parameters_embedding(const embedding_t *embedding) {
@@ -103,7 +103,7 @@ void description_embedding(const embedding_t *embedding) {
     printf("num_embeddings: %d\n", embedding->num_embeddings);
     printf("embedding_dim: %d\n", embedding->embedding_dim);
     printf("num parameters: %d\n", parameters);
-    printf("  W [%s]: %d\n", wshape, embedding->W->length);
+    printf("  W [%s]: %d\n\n", wshape, embedding->W->length);
 }
 
 void free_layer_embedding(embedding_t *embedding) {
@@ -123,7 +123,6 @@ embedding_t *Embedding(int num_embeddings, int embedding_dim) {
     embedding->embedding_dim = embedding_dim;
     
     int wshape[2] = {num_embeddings, embedding_dim};
-
     embedding->W = randn(wshape, 2);
     embedding->dW = NULL;
     embedding->cache = NULL;

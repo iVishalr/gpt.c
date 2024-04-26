@@ -227,7 +227,7 @@ void description_linear(const linear_t *linear) {
     printf("  weight (%s): %d\n", w_shape, linear->W->length);
     if (linear->use_bias > 0)
     printf("  bias   (%s): %d\n", b_shape, linear->b->length);
-    printf("  parameters: %d\n\n", linear->num_parameters(linear));
+    printf("\n");
 }
 
 int num_parameters_linear(const linear_t *linear) {

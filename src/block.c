@@ -110,9 +110,9 @@ void description_block(const block_t *blk) {
     attn->description(attn);
     ln2->description(ln2);
     mlp->description(mlp);
-    printf("----------------------------------------------------------------\n");
-    printf("Parameters: %d\n", blk->num_parameters(blk));
-    printf("----------------------------------------------------------------\n");
+    // printf("----------------------------------------------------------------\n");
+    // printf("Parameters: %d\n", blk->num_parameters(blk));
+    // printf("----------------------------------------------------------------\n");
 }
 
 int num_parameters_block(const block_t *blk) {

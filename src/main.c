@@ -1,58 +1,42 @@
 #include <stdio.h>
-#include "linear.h"
-#include "activation.h"
-#include "loss.h"
-#include "layer_norm.h"
-#include "embedding.h"
-#include "attention.h"
-#include "blocks.h"
+#include "transformer.h"
 
 #define True 1
 #define False 0
 
 int main() {
-    block_t *blk = Block(768, 12, 64, True);
-    blk->description(blk);
 
-    int x_shape[3] = {64, 64, 768};
-    tensor_t *X = randn(x_shape, 3);
-    tensor_t *out = blk->forward(blk, X);
+    GPT2Config_t gpt2_config;
+    gpt2_config.block_size = 2;
+    gpt2_config.vocab_size = 5;
+    gpt2_config.n_embd = 6;
+    gpt2_config.n_heads = 2;
+    gpt2_config.n_layers = 1;
+
+    gpt2_t *gpt = GPT2(&gpt2_config);
+    gpt->description(gpt);
+
+    int x_shape[2] = {4, 2};
+    tensor_t *X = ones(x_shape, 2);
 
     printf("X:\n");
-    // print_tensor(X, 0);
+    print_tensor(X, 0);
     print_shape(X);
 
+    tensor_t *out = gpt->forward(gpt, X, NULL);
+
     printf("out:\n");
-    // print_tensor(out, 0);
+    print_tensor(out, 0);
     print_shape(out);
 
-    int global_grad_shape[3] = {64, 64, 768};
-    tensor_t *global_grad = ones(global_grad_shape, 3);
-    tensor_t *out_grad = blk->backward(blk, global_grad);
+    tensor_t *global_grad = ones(out->shape, out->ndims);
+    tensor_t *out_grad = gpt->backward(gpt, global_grad);
 
     printf("out.grad:\n");
-    // print_tensor(out_grad, 0);
+    print_tensor(out_grad, 0);
     print_shape(out_grad);
 
-    // printf("self_attn.qkv.weight.grad:\n");
-    // print_tensor(self_attn->qkv->dW, 0);
-    // print_shape(self_attn->qkv->dW);
-
-    // printf("self_attn.qkv.bias.grad:\n");
-    // print_tensor(self_attn->qkv->db, 0);
-    // print_shape(self_attn->qkv->db);
-
-    // printf("self_attn.c_proj.weight.grad:\n");
-    // print_tensor(self_attn->c_proj->dW, 0);
-    // print_shape(self_attn->c_proj->dW);
-
-    // printf("self_attn.c_proj.bias.grad:\n");
-    // print_tensor(self_attn->c_proj->db, 0);
-    // print_shape(self_attn->c_proj->db);
-
-    blk->free_layer(blk);
-    blk = NULL;
-    // free_tensor(X);
+    gpt->free_layer(gpt);
     free_tensor(out_grad);
     free_tensor(out);
     X = NULL;

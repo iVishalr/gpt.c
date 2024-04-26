@@ -369,6 +369,8 @@ attention_t *Attention(int n_embd, int n_heads, int block_size) {
     attn->cache[0] = NULL;
     attn->cache[1] = NULL;
     attn->cache[2] = NULL;
+    attn->cache[3] = NULL;
+    attn->cache[4] = NULL;
     attn->n_embd = n_embd;
     attn->n_heads = n_heads;
     attn->forward = forward_attention;

@@ -62,7 +62,7 @@ tensor_t *backward_gelu(gelu_t *gelu, tensor_t *global_grad) {
 }
 
 void description_gelu(const gelu_t *gelu) {
-    printf("GELU()\n");
+    printf("GELU()\n\n");
 }
 
 void free_layer_gelu(gelu_t *gelu) {
