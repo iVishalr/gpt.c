@@ -57,6 +57,11 @@ typedef struct mlp {
     void (*description)(const struct mlp *);
     int (*num_parameters)(const struct mlp *);
     void (*free_layer)(struct mlp *);
+
+    tensor_t **(*parameters)(const struct mlp *);
+    tensor_t **(*gradients)(const struct mlp *);
+
+    int _num_param_tensors;
 } mlp_t;
 
 typedef struct self_attention {
@@ -75,6 +80,11 @@ typedef struct self_attention {
     void (*description)(const struct self_attention *);
     int (*num_parameters)(const struct self_attention *);
     void (*free_layer)(struct self_attention *);
+
+    tensor_t **(*parameters)(const struct self_attention *);
+    tensor_t **(*gradients)(const struct self_attention *);
+
+    int _num_param_tensors;
 } self_attention_t;
 
 typedef struct block {
@@ -94,6 +104,11 @@ typedef struct block {
     void (*description)(const struct block *);
     int (*num_parameters)(const struct block *);
     void (*free_layer)(struct block *);
+
+    tensor_t **(*parameters)(const struct block *);
+    tensor_t **(*gradients)(const struct block *);
+
+    int _num_param_tensors;
 } block_t;
 
 mlp_t *MLP(const int in_features, int expansion_factor, const int use_bias);

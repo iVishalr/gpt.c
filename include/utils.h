@@ -66,6 +66,8 @@ void *matmul(
     const float alpha, const tensor_t *A, const int lda, const tensor_t *B, const int ldb, const float beta, tensor_t *C, const int ldc
 );
 
+void mul_(tensor_t *x, const float s);
+void pow_(tensor_t *x, const float p);
 void *tensor_copy(tensor_t *dest, const tensor_t *src);
 void *uniform(tensor_t *tensor, const float low, const float high);
 void *shape(const tensor_t *tensor, char *shape);

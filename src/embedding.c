@@ -116,6 +116,24 @@ void free_layer_embedding(embedding_t *embedding) {
     free(embedding);
 }
 
+tensor_t **parameters_embedding(const embedding_t *embedding) {
+    if (embedding == NULL)
+        return NULL;
+
+    tensor_t **parameters = (tensor_t **)malloc(sizeof(tensor_t *) * embedding->_num_param_tensors);
+    parameters[0] = embedding->W;
+    return parameters;
+}
+
+tensor_t **gradients_embedding(const embedding_t *embedding) {
+    if (embedding == NULL)
+        return NULL;
+
+    tensor_t **gradients = (tensor_t **)malloc(sizeof(tensor_t *) * embedding->_num_param_tensors);
+    gradients[0] = embedding->dW;
+    return gradients;
+}
+
 embedding_t *Embedding(int num_embeddings, int embedding_dim) {
 
     embedding_t *embedding = (embedding_t *)malloc(sizeof(embedding_t));
@@ -131,5 +149,8 @@ embedding_t *Embedding(int num_embeddings, int embedding_dim) {
     embedding->description = description_embedding;
     embedding->num_parameters = num_parameters_embedding;
     embedding->free_layer = free_layer_embedding;
+    embedding->parameters = parameters_embedding;
+    embedding->gradients = gradients_embedding;
+    embedding->_num_param_tensors = 1;
     return embedding;
 }

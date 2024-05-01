@@ -105,6 +105,50 @@ void free_layer_self_attention(self_attention_t *self_attn) {
     free(self_attn);
 }
 
+tensor_t **parameters_self_attention(const self_attention_t *self_attn) {
+    if (self_attn == NULL)
+        return NULL;
+
+    tensor_t **parameters = (tensor_t **)malloc(sizeof(tensor_t *) * self_attn->_num_param_tensors);
+
+    tensor_t **qkv_params = self_attn->qkv->parameters(self_attn->qkv);
+    tensor_t **c_proj_params = self_attn->c_proj->parameters(self_attn->c_proj);
+
+    int idx = 0;
+    for (int i = 0; i < self_attn->qkv->_num_param_tensors; i++)
+        parameters[idx++] = qkv_params[i];
+
+    for (int i = 0; i < self_attn->c_proj->_num_param_tensors; i++)
+        parameters[idx++] = c_proj_params[i];
+
+    free(qkv_params);
+    free(c_proj_params);
+
+    return parameters;
+}
+
+tensor_t **gradients_self_attention(const self_attention_t *self_attn) {
+    if (self_attn == NULL)
+        return NULL;
+
+    tensor_t **gradients = (tensor_t **)malloc(sizeof(tensor_t *) * self_attn->_num_param_tensors);
+
+    tensor_t **qkv_grads = self_attn->qkv->gradients(self_attn->qkv);
+    tensor_t **c_proj_grads = self_attn->c_proj->gradients(self_attn->c_proj);
+
+    int idx = 0;
+    for (int i = 0; i < self_attn->qkv->_num_param_tensors; i++)
+        gradients[idx++] = qkv_grads[i];
+
+    for (int i = 0; i < self_attn->c_proj->_num_param_tensors; i++)
+        gradients[idx++] = c_proj_grads[i];
+
+    free(qkv_grads);
+    free(c_proj_grads);
+
+    return gradients;
+}
+
 self_attention_t *SelfAttention(const int n_embd, const int n_heads, const int block_size, const int use_bias) {
 
     self_attention_t *self_attn = (self_attention_t*)malloc(sizeof(self_attention_t));
@@ -122,5 +166,8 @@ self_attention_t *SelfAttention(const int n_embd, const int n_heads, const int b
     self_attn->description = description_self_attention;
     self_attn->num_parameters = num_parameters_self_attention;
     self_attn->free_layer = free_layer_self_attention;
+    self_attn->parameters = parameters_self_attention;
+    self_attn->gradients = gradients_self_attention;
+    self_attn->_num_param_tensors = self_attn->qkv->_num_param_tensors + self_attn->c_proj->_num_param_tensors;
     return self_attn;
 }

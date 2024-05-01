@@ -255,6 +255,30 @@ void free_layer_linear(linear_t *linear) {
     free(linear);
 }
 
+tensor_t **parameters_linear(const linear_t * linear) {
+    if (linear == NULL)
+        return NULL;
+
+    tensor_t **parameters = (tensor_t **)malloc(sizeof(tensor_t *) * linear->_num_param_tensors);
+    parameters[0] = linear->W;
+    if (linear->use_bias > 0)
+        parameters[1] = linear->b;
+
+    return parameters;
+}
+
+tensor_t **gradients_linear(const linear_t *linear) {
+    if (linear == NULL)
+        return NULL;
+
+    tensor_t **gradients = (tensor_t **)malloc(sizeof(tensor_t *) * linear->_num_param_tensors);
+    gradients[0] = linear->dW;
+    if (linear->use_bias > 0)
+        gradients[1] = linear->db;
+
+    return gradients;
+}
+
 linear_t *Linear(const int in_features, const int out_features, const int use_bias) {
     linear_t *linear = (linear_t *)malloc(sizeof(linear_t));
     int w_shape[2] = {out_features, in_features};
@@ -301,5 +325,8 @@ linear_t *Linear(const int in_features, const int out_features, const int use_bi
     linear->description = description_linear;
     linear->free_layer = free_layer_linear;
     linear->num_parameters = num_parameters_linear;
+    linear->parameters = parameters_linear;
+    linear->gradients = gradients_linear;
+    linear->_num_param_tensors = use_bias > 0 ? 2 : 1;
     return linear;
 }

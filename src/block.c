@@ -156,6 +156,84 @@ void free_layer_block(block_t *blk) {
     free(blk);
 }
 
+tensor_t **parameters_block(const block_t *blk) {
+    if (blk == NULL)
+        return NULL;
+
+    self_attention_t *attn;
+    layer_norm_t *ln1, *ln2;
+    mlp_t *mlp;
+
+    ln1 = blk->ln1;
+    ln2 = blk->ln2;
+    attn = blk->attn;
+    mlp = blk->mlp;
+
+    tensor_t **parameters = (tensor_t **)malloc(sizeof(tensor_t *) * blk->_num_param_tensors);
+    tensor_t **ln1_params = ln1->parameters(ln1);
+    tensor_t **attn_params = attn->parameters(attn);
+    tensor_t **ln2_params = ln2->parameters(ln2);
+    tensor_t **mlp_params = mlp->parameters(mlp);
+
+    int idx = 0;
+    for (int i = 0; i < ln1->_num_param_tensors; i++)
+        parameters[idx++] = ln1_params[i];
+
+    for (int i = 0; i < attn->_num_param_tensors; i++)
+        parameters[idx++] = attn_params[i];
+
+    for (int i = 0; i < ln2->_num_param_tensors; i++)
+        parameters[idx++] = ln2_params[i];
+
+    for (int i = 0; i < mlp->_num_param_tensors; i++)
+        parameters[idx++] = mlp_params[i];
+
+    free(ln1_params);
+    free(attn_params);
+    free(ln2_params);
+    free(mlp_params);
+    return parameters;
+}
+
+tensor_t **gradients_block(const block_t *blk) {
+    if (blk == NULL)
+        return NULL;
+
+    self_attention_t *attn;
+    layer_norm_t *ln1, *ln2;
+    mlp_t *mlp;
+
+    ln1 = blk->ln1;
+    ln2 = blk->ln2;
+    attn = blk->attn;
+    mlp = blk->mlp;
+
+    tensor_t **gradients = (tensor_t **)malloc(sizeof(tensor_t *) * blk->_num_param_tensors);
+    tensor_t **ln1_grads = ln1->gradients(ln1);
+    tensor_t **attn_grads = attn->gradients(attn);
+    tensor_t **ln2_grads = ln2->gradients(ln2);
+    tensor_t **mlp_grads = mlp->gradients(mlp);
+
+    int idx = 0;
+    for (int i = 0; i < ln1->_num_param_tensors; i++)
+        gradients[idx++] = ln1_grads[i];
+
+    for (int i = 0; i < attn->_num_param_tensors; i++)
+        gradients[idx++] = attn_grads[i];
+
+    for (int i = 0; i < ln2->_num_param_tensors; i++)
+        gradients[idx++] = ln2_grads[i];
+
+    for (int i = 0; i < mlp->_num_param_tensors; i++)
+        gradients[idx++] = mlp_grads[i];
+
+    free(ln1_grads);
+    free(attn_grads);
+    free(ln2_grads);
+    free(mlp_grads);
+    return gradients;
+}
+
 block_t *Block(const int n_embd, const int n_heads, const int block_size, const int use_bias) {
     block_t *blk = (block_t*)malloc(sizeof(block_t));
 
@@ -174,5 +252,14 @@ block_t *Block(const int n_embd, const int n_heads, const int block_size, const 
     blk->description = description_block;
     blk->free_layer = free_layer_block;
     blk->num_parameters = num_parameters_block;
+
+    blk->parameters = parameters_block;
+    blk->gradients = gradients_block;
+
+    blk->_num_param_tensors = 0;
+    blk->_num_param_tensors += blk->ln1->_num_param_tensors;
+    blk->_num_param_tensors += blk->attn->_num_param_tensors;
+    blk->_num_param_tensors += blk->ln2->_num_param_tensors;
+    blk->_num_param_tensors += blk->mlp->_num_param_tensors;
     return blk;
 }

@@ -40,19 +40,27 @@ extern "C" {
 #endif
 
 typedef struct linear {
+    int in_features;
+    int out_features;
+    int use_bias;
+    
     tensor_t *W;
     tensor_t *b;
     tensor_t *dW;
     tensor_t *db;
     tensor_t *cache;
+    
     tensor_t *(*forward)(struct linear *, tensor_t *);
     tensor_t *(*backward)(struct linear *, tensor_t *);
+    
     void (*description)(const struct linear *);
     int (*num_parameters)(const struct linear *);
     void (*free_layer)(struct linear *);
-    int in_features;
-    int out_features;
-    int use_bias;
+    
+    tensor_t **(*parameters)(const struct linear *);
+    tensor_t **(*gradients)(const struct linear *);
+    
+    int _num_param_tensors;
 } linear_t;
 
 linear_t *Linear(const int in_features, const int out_features, const int use_bias);

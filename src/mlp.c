@@ -83,6 +83,50 @@ void free_layer_mlp(mlp_t *mlp) {
     free(mlp);
 }
 
+tensor_t **parameters_mlp(const mlp_t *mlp) {
+    if (mlp == NULL)
+        return NULL;
+
+    tensor_t **parameters = (tensor_t **)malloc(sizeof(tensor_t *) * mlp->_num_param_tensors);
+    
+    tensor_t **c_fc_params = mlp->c_fc->parameters(mlp->c_fc);
+    tensor_t **c_proj_params = mlp->c_proj->parameters(mlp->c_proj);
+
+    int idx = 0;
+    for (int i = 0; i < mlp->c_fc->_num_param_tensors; i++)
+        parameters[idx++] = c_fc_params[i];
+    
+    for (int i = 0; i < mlp->c_proj->_num_param_tensors; i++)
+        parameters[idx++] = c_proj_params[i];
+
+    free(c_fc_params);
+    free(c_proj_params);
+
+    return parameters;
+}
+
+tensor_t **gradients_mlp(const mlp_t *mlp) {
+    if (mlp == NULL)
+        return NULL;
+
+    tensor_t **gradients = (tensor_t **)malloc(sizeof(tensor_t *) * mlp->_num_param_tensors);
+
+    tensor_t **c_fc_grads = mlp->c_fc->gradients(mlp->c_fc);
+    tensor_t **c_proj_grads = mlp->c_proj->gradients(mlp->c_proj);
+
+    int idx = 0;
+    for (int i = 0; i < mlp->c_fc->_num_param_tensors; i++)
+        gradients[idx++] = c_fc_grads[i];
+
+    for (int i = 0; i < mlp->c_proj->_num_param_tensors; i++)
+        gradients[idx++] = c_proj_grads[i];
+
+    free(c_fc_grads);
+    free(c_proj_grads);
+
+    return gradients;
+}
+
 mlp_t *MLP(const int in_features, const int expansion_factor, const int use_bias) {
 
     mlp_t *mlp = (mlp_t*)malloc(sizeof(mlp_t));
@@ -99,5 +143,8 @@ mlp_t *MLP(const int in_features, const int expansion_factor, const int use_bias
     mlp->description = description_mlp;
     mlp->num_parameters = num_parameters_mlp;
     mlp->free_layer = free_layer_mlp;
+    mlp->parameters = parameters_mlp;
+    mlp->gradients = gradients_mlp;
+    mlp->_num_param_tensors = mlp->c_fc->_num_param_tensors + mlp->c_proj->_num_param_tensors;
     return mlp;
 }

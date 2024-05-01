@@ -61,6 +61,11 @@ typedef struct gpt2 {
     void (*description)(const struct gpt2 *);
     int (*num_parameters)(const struct gpt2 *);
     void (*free_layer)(struct gpt2 *);
+
+    tensor_t **(*parameters)(const struct gpt2 *);
+    tensor_t **(*gradients)(const struct gpt2 *);
+
+    int _num_param_tensors;
 } gpt2_t;
 
 typedef struct {

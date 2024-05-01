@@ -1,6 +1,6 @@
 /**
- * \file            embedding.h
- * \brief           Header file for Embedding layer
+ * \file            optim.h
+ * \brief           Header file for Optimizer
  */
 
 /*
@@ -39,28 +39,27 @@
 extern "C" {
 #endif
 
-typedef struct embedding {
-    tensor_t *W;
-    tensor_t *dW;
-    tensor_t *cache;
+typedef struct adamW {
+    tensor_t **parameters;
+    tensor_t **gradients;
+    int n_parameters;
+    float lr;
+    float beta1;
+    float beta2;
+    float eps;
+    float weight_decay;
     
-    tensor_t *(*forward)(struct embedding *, tensor_t *);
-    tensor_t *(*backward)(struct embedding *, tensor_t *);
+    int step_t;
+    tensor_t **m;
+    tensor_t **v;
     
-    void (*description)(const struct embedding *);
-    int (*num_parameters)(const struct embedding *);
-    void (*free_layer)(struct embedding *);
-    
-    tensor_t **(*parameters)(const struct embedding *);
-    tensor_t **(*gradients)(const struct embedding *);
+    void (*step)(struct adamW *);
+    void (*zero_grad)(struct adamW *);
+    void (*free_layer)(struct adamW *);
+} adamW_t;
 
-    int num_embeddings;
-    int embedding_dim;
 
-    int _num_param_tensors;
-} embedding_t;
-
-embedding_t *Embedding(int num_embeddings, int embedding_dim);
+adamW_t *AdamW(tensor_t **parameters, tensor_t **gradients, const int n_parameters, const float lr, const float beta1, const float beta2, const float eps, const float weight_decay);
 
 #ifdef __cplusplus
 }

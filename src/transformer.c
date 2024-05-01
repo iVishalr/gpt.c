@@ -79,26 +79,27 @@ tensor_t *backward_transformer(gpt2_t *gpt, tensor_t *global_grad) {
     layers = gpt->layers;
     ln = gpt->ln_f;
 
-    int B, T, C;
+    int B, T, C, n_embd;
     B = global_grad->shape[0];
     T = global_grad->shape[1];
     C = global_grad->shape[2];
+    n_embd = gpt->n_embd;
 
     tensor_t *out = global_grad;
     out = lm_head->backward(lm_head, out);
     out = ln->backward(ln, out);
-
+    
     for (int i = gpt->n_layers - 1; i >= 0; i--)
         out = layers[i]->backward(layers[i], out);
 
-    int gg_pos_emb_shape[3] = {1, T, C};
+    int gg_pos_emb_shape[3] = {1, T, n_embd};
     tensor_t *gg_pos_emb = zeros(gg_pos_emb_shape, 3);
 
     for (int b = 0; b < B; b++) {
         for (int t = 0; t < T; t++) {
-            float *global_grad_bt = out->t + b * T * C + t * C;
-            for (int i = 0; i < C; i++) {
-                gg_pos_emb->t[t * C + i] += global_grad_bt[i];
+            float *global_grad_bt = out->t + b * T * n_embd + t * n_embd;
+            for (int i = 0; i < n_embd; i++) {
+                gg_pos_emb->t[t * n_embd + i] += global_grad_bt[i];
             }
         }
     }
@@ -110,7 +111,7 @@ tensor_t *backward_transformer(gpt2_t *gpt, tensor_t *global_grad) {
     // We need to do this because both the layers are sharing weights
     // wte.W = lm_head.W: (vocab_size, C)
     for (int v = 0; v < gpt->vocab_size; v++)
-        cblas_saxpy(C, 1.0f, wte->dW->t + v * C, 1, lm_head->dW->t + v * C, 1);
+        cblas_saxpy(n_embd, 1.0f, wte->dW->t + v * n_embd, 1, lm_head->dW->t + v * n_embd, 1);
     
     return d_tok_emb;
 }
@@ -210,6 +211,96 @@ void free_layer_transformer(gpt2_t *gpt) {
     free(gpt);
 }
 
+tensor_t **parameters_transformer(const gpt2_t *gpt) {
+    if (gpt == NULL)
+        return NULL;
+
+    block_t **layers;
+    embedding_t *wpe, *wte;
+    linear_t *lm_head;
+    layer_norm_t *ln;
+
+    wpe = gpt->wpe;
+    wte = gpt->wte;
+    lm_head = gpt->lm_head;
+    layers = gpt->layers;
+    ln = gpt->ln_f;
+
+    tensor_t **parameters = (tensor_t **)malloc(sizeof(tensor_t *) * gpt->_num_param_tensors);
+
+    int idx = 0;
+    tensor_t **wpe_params = wpe->parameters(wpe);
+    for (int i = 0; i < wpe->_num_param_tensors; i++)
+        parameters[idx++] = wpe_params[i];
+
+    free(wpe_params);
+
+    for (int i = 0; i < gpt->n_layers; i++) {
+        tensor_t **layer_params = layers[i]->parameters(layers[i]);
+        for (int j = 0; j < layers[i]->_num_param_tensors; j++)
+            parameters[idx++] = layer_params[j];
+        free(layer_params);
+    }
+
+    tensor_t **ln_params = ln->parameters(ln);
+    for (int i = 0; i < ln->_num_param_tensors; i++)
+        parameters[idx++] = ln_params[i];
+
+    free(ln_params);
+
+    tensor_t **lm_head_params = lm_head->parameters(lm_head);
+    for (int i = 0; i < lm_head->_num_param_tensors; i++)
+        parameters[idx++] = lm_head_params[i];
+
+    free(lm_head_params);
+    return parameters;
+}
+
+tensor_t **gradients_transformer(const gpt2_t *gpt) {
+    if (gpt == NULL)
+        return NULL;
+
+    block_t **layers;
+    embedding_t *wpe, *wte;
+    linear_t *lm_head;
+    layer_norm_t *ln;
+
+    wpe = gpt->wpe;
+    wte = gpt->wte;
+    lm_head = gpt->lm_head;
+    layers = gpt->layers;
+    ln = gpt->ln_f;
+
+    tensor_t **gradients = (tensor_t **)malloc(sizeof(tensor_t *) * gpt->_num_param_tensors);
+
+    int idx = 0;
+    tensor_t **wpe_grads = wpe->gradients(wpe);
+    for (int i = 0; i < wpe->_num_param_tensors; i++)
+        gradients[idx++] = wpe_grads[i];
+
+    free(wpe_grads);
+
+    for (int i = 0; i < gpt->n_layers; i++) {
+        tensor_t **layer_grads = layers[i]->gradients(layers[i]);
+        for (int j = 0; j < layers[i]->_num_param_tensors; j++)
+            gradients[idx++] = layer_grads[j];
+        free(layer_grads);
+    }
+
+    tensor_t **ln_grads = ln->gradients(ln);
+    for (int i = 0; i < ln->_num_param_tensors; i++)
+        gradients[idx++] = ln_grads[i];
+
+    free(ln_grads);
+
+    tensor_t **lm_head_grads = lm_head->gradients(lm_head);
+    for (int i = 0; i < lm_head->_num_param_tensors; i++)
+        gradients[idx++] = lm_head_grads[i];
+
+    free(lm_head_grads);
+    return gradients;
+}
+
 gpt2_t *GPT2(GPT2Config_t *config) {
     gpt2_t *gpt = (gpt2_t *)malloc(sizeof(gpt2_t));
 
@@ -237,5 +328,14 @@ gpt2_t *GPT2(GPT2Config_t *config) {
     gpt->free_layer = free_layer_transformer;
     gpt->description = description_transformer;
     gpt->num_parameters = num_parameters_transformer;
+    gpt->parameters = parameters_transformer;
+    gpt->gradients = gradients_transformer;
+    
+    gpt->_num_param_tensors = gpt->wpe->_num_param_tensors;
+    for (int i = 0; i < gpt->n_layers; i++)
+        gpt->_num_param_tensors += gpt->layers[i]->_num_param_tensors;
+    gpt->_num_param_tensors += gpt->ln_f->_num_param_tensors;
+    gpt->_num_param_tensors += gpt->lm_head->_num_param_tensors;
+
     return gpt;
 }

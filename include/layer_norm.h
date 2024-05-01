@@ -40,19 +40,27 @@ extern "C" {
 #endif
 
 typedef struct layer_norm {
+    int in_features;
+    int use_bias;
+    float eps;
+    
     tensor_t *W;
     tensor_t *b;
     tensor_t *dW;
     tensor_t *db;
     tensor_t *cache[3];
+    
     tensor_t *(*forward)(struct layer_norm *, tensor_t *);
     tensor_t *(*backward)(struct layer_norm *, tensor_t *);
+    
     void (*description)(const struct layer_norm *);
     int (*num_parameters)(const struct layer_norm *);
     void (*free_layer)(struct layer_norm *);
-    int in_features;
-    int use_bias;
-    float eps;
+    
+    tensor_t **(*parameters)(const struct layer_norm *);
+    tensor_t **(*gradients)(const struct layer_norm *);
+
+    int _num_param_tensors;
 } layer_norm_t;
 
 layer_norm_t *LayerNorm(int in_features, const float eps, const int use_bias);

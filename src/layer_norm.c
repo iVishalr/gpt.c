@@ -212,6 +212,29 @@ void free_layer_layer_norm(layer_norm_t *norm) {
     free(norm);    
 }
 
+tensor_t **parameters_layer_norm(const layer_norm_t *norm) {
+    if (norm == NULL)
+        return NULL;
+
+    tensor_t **parameters = (tensor_t **)malloc(sizeof(tensor_t *) * norm->_num_param_tensors);
+    parameters[0] = norm->W;
+    if (norm->use_bias > 0) 
+        parameters[1] = norm->b;
+    return parameters;
+}
+
+tensor_t **gradients_layer_norm(const layer_norm_t *norm) {
+    if (norm == NULL)
+        return NULL;
+
+    tensor_t **gradients = (tensor_t **)malloc(sizeof(tensor_t *) * norm->_num_param_tensors);
+    gradients[0] = norm->dW;
+    if (norm->use_bias > 0)
+        gradients[1] = norm->db;
+
+    return gradients;
+}
+
 layer_norm_t *LayerNorm(int in_features, const float eps, const int use_bias) {
     
     if (in_features == 0) {
@@ -244,5 +267,8 @@ layer_norm_t *LayerNorm(int in_features, const float eps, const int use_bias) {
     norm->description = description_layer_norm;
     norm->num_parameters = num_parameters_layer_norm;
     norm->free_layer = free_layer_layer_norm;
+    norm->parameters = parameters_layer_norm;
+    norm->gradients = gradients_layer_norm;
+    norm->_num_param_tensors = use_bias > 0 ? 2 : 1;
     return norm;
 }

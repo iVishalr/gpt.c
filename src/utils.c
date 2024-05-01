@@ -242,6 +242,26 @@ void *matmul(
     return C;
 }
 
+void mul_(tensor_t *x, const float s) {
+    if (x == NULL) {
+        printf("Required argument *x is NULL.\n");
+        return;
+    }
+
+    for (int i = 0; i < x->length; i++)
+        x->t[i] *= s;
+}
+
+void pow_(tensor_t *x, const float p) {
+    if (x == NULL) {
+        printf("Required argument *x is NULL.\n");
+        return;
+    }
+
+    for (int i = 0; i < x->length; i++)
+        x->t[i] = powf(x->t[i], p);
+}
+
 void *tensor_copy(tensor_t *dest, const tensor_t *src) {
     if (src == NULL || dest == NULL) {
         printf("Either src or dest ptr is NULL.\n");
