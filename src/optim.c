@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <cblas.h>
 #include <math.h>
+#include <string.h>
 #include "optim.h"
 
 #define ADAMW_DEFAULT_EPS 1e-08f
@@ -69,9 +70,7 @@ void zero_grad_adamW(adamW_t *optimizer) {
     // set the gradients to 0
     for (int i = 0; i < optimizer->n_parameters; i++) {
         tensor_t *grad = optimizer->gradients[i];
-        for (int j = 0; j < grad->length; j++) {
-            grad->t[j] = 0.0f;
-        }
+        memset(grad->t, 0, sizeof(float) * grad->length);
     }
 }
 

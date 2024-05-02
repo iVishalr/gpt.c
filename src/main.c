@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include "transformer.h"
 #include "optim.h"
+#include "dataloader.h"
 
 #define True 1
 #define False 0
@@ -40,6 +41,10 @@ int main() {
     adamW_t *optimizer = AdamW(gpt->parameters(gpt), gpt->gradients(gpt), gpt->_num_param_tensors, 1e-4f, 0.9f, 0.99f, 1e-08f, 0.01);
     gpt->free_layer(gpt);
     optimizer->free_layer(optimizer);
+
+    dataloader_t *loader = DataLoader("data/tiny_shakespeare.txt", 64, 1024);
+    loader->free_layer(loader);
+
     free_tensor(out_grad);
     free_tensor(out);
     X = NULL;
