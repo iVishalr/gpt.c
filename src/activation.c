@@ -30,7 +30,15 @@ tensor_t *forward_gelu(gelu_t *gelu, tensor_t *x) {
     return out;
 }
 
-tensor_t *backward_gelu(gelu_t *gelu, tensor_t *global_grad) {
+// we want to use -Ofast optimization, but sadly GeLU breaks, so disable this flag just for it 
+// (https://github.com/karpathy/llm.c/pull/200)
+#pragma float_control(precise, on, push)
+#if defined(__GNUC__) && !defined(__clang__)
+__attribute__((optimize("no-finite-math-only")))
+#endif
+tensor_t *
+backward_gelu(gelu_t *gelu, tensor_t *global_grad)
+{
     if (gelu == NULL) {
         printf("Expected required arugment *gelu to be of type gelu_t ptr, but got NULL.\n");
         return NULL;
@@ -60,6 +68,7 @@ tensor_t *backward_gelu(gelu_t *gelu, tensor_t *global_grad) {
     global_grad = NULL;
     return dout;
 }
+#pragma float_control(pop)
 
 void description_gelu(const gelu_t *gelu) {
     printf("GELU()\n\n");
@@ -122,7 +131,6 @@ tensor_t *forward_softmax(softmax_t *softmax, tensor_t *x) {
         }
     }
 
-    softmax->cache = x;
     return out;
 }
 

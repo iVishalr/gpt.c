@@ -5,7 +5,7 @@ build/
 .vscode
 logs/
 *.log
-
+data/
 # Object files
 *.o
 *.ko

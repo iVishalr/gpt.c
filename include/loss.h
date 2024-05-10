@@ -34,14 +34,16 @@
 #pragma once
 
 #include "utils.h"
+#include "activation.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 typedef struct cross_entropy_loss {
+    softmax_t *softmax;
     tensor_t *cache[2];
-    tensor_t *(*forward)(struct cross_entropy_loss *, const tensor_t *, const tensor_t *);
+    tensor_t *(*forward)(struct cross_entropy_loss *, tensor_t *, tensor_t *);
     tensor_t *(*backward)(struct cross_entropy_loss *, tensor_t *);
     void (*description)(const struct cross_entropy_loss *);
     int (*num_parameters)(const struct cross_entropy_loss *);

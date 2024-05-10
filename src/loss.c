@@ -4,7 +4,7 @@
 
 #include "loss.h"
 
-tensor_t *forward_cross_entropy_loss(cross_entropy_loss_t *loss, const tensor_t *logits, const tensor_t *targets) {
+tensor_t *forward_cross_entropy_loss(cross_entropy_loss_t *loss, tensor_t *logits, tensor_t *targets) {
 
     if (loss == NULL) {
         printf("Expected required arugment *loss to be of type cross_entropy_loss ptr, but got NULL.\n");
@@ -47,17 +47,19 @@ tensor_t *forward_cross_entropy_loss(cross_entropy_loss_t *loss, const tensor_t 
     int collapsed_dims = 1;
     for (int i = 0; i < logits->ndims - 1; i++)
         collapsed_dims *= logits->shape[i];
-
     int row_size = logits->shape[logits->ndims - 1];
+
+    tensor_t *probs = loss->softmax->forward(loss->softmax, logits);
+
     for (int i = 0; i < collapsed_dims; i++) {
         int ix = (int)targets->t[i];
-        out->t[i] = -logf(logits->t[i * row_size + ix]);
+        out->t[i] = -logf(probs->t[i * row_size + ix]);
     }
 
-    loss->cache[0] = create_tensor(logits->shape, logits->ndims); 
-    loss->cache[1] = create_tensor(targets->shape, targets->ndims);
-    tensor_copy(loss->cache[0], logits);
-    tensor_copy(loss->cache[1], targets);
+    free_tensor(probs);
+    
+    loss->cache[0] = logits; 
+    loss->cache[1] = targets;
     return out;
 }
 
@@ -131,6 +133,7 @@ void free_layer_cross_entropy_loss(cross_entropy_loss_t *loss) {
     if (loss == NULL)
         return;
 
+    loss->softmax->free_layer(loss->softmax);
     free_tensor(loss->cache[0]);
     free_tensor(loss->cache[1]);
     free(loss);
@@ -138,6 +141,7 @@ void free_layer_cross_entropy_loss(cross_entropy_loss_t *loss) {
 
 cross_entropy_loss_t *CrossEntropyLoss() {
     cross_entropy_loss_t *loss = (cross_entropy_loss_t *)malloc(sizeof(cross_entropy_loss_t));
+    loss->softmax = Softmax();
     loss->cache[0] = NULL;
     loss->cache[1] = NULL;
     loss->forward = forward_cross_entropy_loss;

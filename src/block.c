@@ -30,7 +30,7 @@ tensor_t *forward_block(block_t *blk, tensor_t *x) {
     tensor_t *out = x;
     out = ln1->forward(ln1, out);
     out = attn->forward(attn, out);
-    
+
     // out = resid + out
     cblas_saxpy(out->length, 1.0f, resid->t, 1, out->t, 1);
 

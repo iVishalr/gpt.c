@@ -63,7 +63,8 @@ tensor_t *backward_embedding(embedding_t * embedding, tensor_t *global_grad) {
     T = global_grad->shape[1];
     C = global_grad->shape[2];
 
-    embedding->dW = zeros(embedding->W->shape, embedding->W->ndims);
+    if (!embedding->dW)
+        embedding->dW = zeros(embedding->W->shape, embedding->W->ndims);
 
     for (int b = 0; b < B; b++) {
         for (int t = 0; t < T; t++) {
@@ -142,7 +143,7 @@ embedding_t *Embedding(int num_embeddings, int embedding_dim) {
     
     int wshape[2] = {num_embeddings, embedding_dim};
     embedding->W = randn(wshape, 2);
-    embedding->dW = NULL;
+    embedding->dW = zeros(wshape, 2);
     embedding->cache = NULL;
     embedding->forward = forward_embedding;
     embedding->backward = backward_embedding;

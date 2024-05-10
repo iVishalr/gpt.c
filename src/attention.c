@@ -53,13 +53,14 @@ tensor_t *forward_attention(attention_t *attn, tensor_t *x) {
         as this becomes input to "out = att @ v", and will be accessed during backprop.
     */
 
-    int B, T, C, C3, n_heads, hs;
+    int B, T, C, C3, n_heads, hs, buffer_row_size;
     B = x->shape[0];
     T = x->shape[1];
     C3 = x->shape[2];
     C = C3 / 3;
     n_heads = attn->n_heads;
     hs = C / n_heads;
+    buffer_row_size = attn->buffer->shape[attn->buffer->ndims - 1];
     float scale = 1.0f / sqrtf(hs);
 
     tensor_t *q, *k, *v; 
@@ -95,8 +96,8 @@ tensor_t *forward_attention(attention_t *attn, tensor_t *x) {
                 0.0f, att->t + b * n_heads * T * T + h * T * T, T
             );
         }
-    }    
-    
+    }
+
     // cache current att scores
     tensor_t *preatt = create_tensor(att->shape, att->ndims);
     tensor_copy(preatt, att);
@@ -112,19 +113,18 @@ tensor_t *forward_attention(attention_t *attn, tensor_t *x) {
             float *att_tt = att->t + i * T * T + j * T;
 
             for (int k = 0; k < T; k++) {
-                att_tt[k] = attn->buffer->t[j * T + k] == 1.0f ? att_tt[k] : -INFINITY;
+                att_tt[k] = attn->buffer->t[j * buffer_row_size + k] == 1.0f ? att_tt[k] : -INFINITY;
                 if (att_tt[k] > max_val) 
                     max_val = att_tt[k];
             }
 
             float expsum = 0.0f;
-            for (int k = 0; k < T; k++) {
+            for (int k = 0; k <= j; k++) {
                 float expv = expf(att_tt[k] - max_val);
                 expsum += expv;
                 att_tt[k] = expv;
             }
             float expsum_inv = expsum == 0.0f ? 0.0f : 1.0f / expsum;
-
             for (int k = 0; k < T; k++) {
                 if (k <= j)
                     att_tt[k] *= expsum_inv;
@@ -315,9 +315,19 @@ tensor_t *backward_attention(attention_t *attn, tensor_t *global_grad) {
         }
     }
 
+    free_tensor(q);
+    free_tensor(k);
+    free_tensor(v);
+    free_tensor(preatt);
+    free_tensor(att);
     free_tensor(dq);
     free_tensor(dk);
     free_tensor(dv);
+    attn->cache[0] = NULL;
+    attn->cache[1] = NULL;
+    attn->cache[2] = NULL;
+    attn->cache[3] = NULL;
+    attn->cache[4] = NULL;
     return dout;
 }
 

@@ -19,10 +19,19 @@ void dataloader_next(dataloader_t *loader, tensor_t **batch) {
 
     fseek(loader->fp, loader->_curr_fp_ptr, SEEK_SET);
     fread(loader->batch, sizeof(int), batch_size * block_size + 1, loader->fp);
-    loader->_curr_fp_ptr = batch_size * block_size * sizeof(int);
+    loader->_curr_fp_ptr += batch_size * block_size * sizeof(int);
 
-    batch[0] = loader->batch;
-    batch[1] = loader->batch + 1;
+    int input_shape[2] = {batch_size, block_size};
+    tensor_t *inputs = create_tensor(input_shape, 2);
+    tensor_t *targets = create_tensor(input_shape, 2);
+
+    for (int i = 0; i < batch_size * block_size; i++) {
+        inputs->t[i] = (int)loader->batch[i];
+        targets->t[i] = (int)loader->batch[i+1];
+    }
+
+    batch[0] = inputs;
+    batch[1] = targets;
 }
 
 void dataloader_reset(dataloader_t *loader) {
@@ -36,7 +45,8 @@ void dataloader_free_layer(dataloader_t *loader) {
     if (loader == NULL)
         return;
 
-    fclose(loader->fp);
+    if (loader->fp)
+        fclose(loader->fp);
 
     if (loader->batch)
         free(loader->batch);

@@ -55,7 +55,7 @@ typedef struct gpt2 {
     linear_t *lm_head;
     layer_norm_t *ln_f;
 
-    tensor_t *(*forward)(struct gpt2 *, tensor_t *, tensor_t *);
+    tensor_t *(*forward)(struct gpt2 *, tensor_t *);
     tensor_t *(*backward)(struct gpt2 *, tensor_t *);
 
     void (*description)(const struct gpt2 *);

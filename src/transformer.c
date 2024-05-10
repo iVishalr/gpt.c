@@ -4,7 +4,7 @@
 #include <cblas.h>
 #include "transformer.h"
 
-tensor_t *forward_transformer(gpt2_t *gpt, tensor_t *x, tensor_t *targets) {
+tensor_t *forward_transformer(gpt2_t *gpt, tensor_t *x) {
     if (gpt == NULL) {
         printf("Expected required arugment *gpt to be of type gpt2_t ptr, but got NULL.\n");
         return NULL;
@@ -51,7 +51,7 @@ tensor_t *forward_transformer(gpt2_t *gpt, tensor_t *x, tensor_t *targets) {
 
     for (int i = 0; i < gpt->n_layers; i++)
         out = layers[i]->forward(layers[i], out);
-        
+
     out = ln->forward(ln, out);
     out = lm_head->forward(lm_head, out);
     return out;
@@ -105,6 +105,9 @@ tensor_t *backward_transformer(gpt2_t *gpt, tensor_t *global_grad) {
     }
 
     tensor_t *d_pos_emb = wpe->backward(wpe, gg_pos_emb);
+
+    free_tensor(wte->dW);
+    wte->dW = NULL; 
     tensor_t *d_tok_emb = wte->backward(wte, out);
 
     // add up gradients of wte.W (wte->dW) to lm_head->dW 
@@ -321,7 +324,9 @@ gpt2_t *GPT2(GPT2Config_t *config) {
     gpt->lm_head = Linear(gpt->n_embd, gpt->vocab_size, 0);
 
     free_tensor(gpt->wte->W);
+    free_tensor(gpt->wte->dW);
     gpt->wte->W = gpt->lm_head->W; // https://paperswithcode.com/method/weight-tying
+    gpt->wte->dW = NULL;
 
     gpt->forward = forward_transformer;
     gpt->backward = backward_transformer;

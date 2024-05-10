@@ -111,8 +111,12 @@ tensor_t *backward_layer_norm(layer_norm_t *norm, tensor_t *global_grad) {
     rstd = norm->cache[1];
     x = norm->cache[2];
     out = zeros(x->shape, x->ndims);
-    norm->dW = zeros(norm->W->shape, norm->W->ndims);
-    norm->db = norm->use_bias > 0 ? zeros(norm->b->shape, norm->b->ndims) : NULL;
+
+    if (!norm->dW)
+        norm->dW = zeros(norm->W->shape, norm->W->ndims);
+    
+    if (!norm->db)
+        norm->db = norm->use_bias > 0 ? zeros(norm->b->shape, norm->b->ndims) : NULL;
 
     int collapsed_dims = 1;
     for (int i = 0; i < x->ndims - 1; i++) 
@@ -253,14 +257,10 @@ layer_norm_t *LayerNorm(int in_features, const float eps, const int use_bias) {
 
     int param_shape[1] = {in_features};
     norm->W = ones(param_shape, 1);
+    norm->b = use_bias > 0 ? zeros(param_shape, 1) : NULL;
 
-    if (use_bias > 0)
-        norm->b = zeros(param_shape, 1);
-    else 
-        norm->b = NULL;
-
-    norm->dW = NULL;
-    norm->db = NULL;
+    norm->dW = zeros(param_shape, 1);
+    norm->db = use_bias > 0 ? zeros(param_shape, 1) : NULL;
 
     norm->forward = forward_layer_norm;
     norm->backward = backward_layer_norm;

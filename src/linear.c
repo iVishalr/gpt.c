@@ -164,11 +164,11 @@ tensor_t *backward_linear(linear_t *linear, tensor_t *global_grad) {
         db += sum(global_grad)  # (B * T, out_features)
     */
 
-    if (linear->dW == NULL) 
+    if (!linear->dW) 
         linear->dW = zeros(linear->W->shape, linear->W->ndims);
 
-    if (linear->use_bias > 0 && linear->db == NULL) 
-        linear->db = zeros(linear->b->shape, linear->b->ndims);
+    if (!linear->db)
+        linear->db = linear->use_bias > 0 ? zeros(linear->b->shape, linear->b->ndims) : NULL;
 
     tensor_t *dout, *ret;
     dout = zeros(linear->cache->shape, linear->cache->ndims);
@@ -282,23 +282,10 @@ tensor_t **gradients_linear(const linear_t *linear) {
 linear_t *Linear(const int in_features, const int out_features, const int use_bias) {
     linear_t *linear = (linear_t *)malloc(sizeof(linear_t));
     int w_shape[2] = {out_features, in_features};
+    int b_shape[1] = {out_features};
+
     tensor_t *W = zeros(w_shape, 2);
-    tensor_t *b = NULL;
-    if (use_bias > 0) {
-        int b_shape[1] = {out_features};
-        b = zeros(b_shape, 1);
-    }
-
-    // check if tensors were created
-    if (W == NULL) {
-        printf("An error occured when creating weight tensors.\n");
-        return NULL;
-    }
-
-    if (use_bias > 0 && b == NULL) {
-        printf("An error occured when creating bias tensors.\n");
-        return NULL;
-    }
+    tensor_t *b = use_bias > 0 ? zeros(b_shape, 1) : NULL;
 
     // init weights
     kaiming_uniform(W, sqrtf(5.0f), "fan_in", "leaky_relu");
@@ -317,8 +304,8 @@ linear_t *Linear(const int in_features, const int out_features, const int use_bi
     linear->in_features = in_features;
     linear->out_features = out_features;
     linear->use_bias = use_bias;
-    linear->dW = NULL;
-    linear->db = NULL;
+    linear->dW = zeros(w_shape, 2);
+    linear->db = use_bias > 0 ? zeros(b_shape, 1) : NULL;
     linear->cache = NULL;
     linear->forward = forward_linear;
     linear->backward = backward_linear;
