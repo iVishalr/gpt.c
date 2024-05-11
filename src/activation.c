@@ -106,31 +106,33 @@ tensor_t *forward_softmax(softmax_t *softmax, tensor_t *x) {
         return NULL;
     }
 
+    int B, T, C;
+    B = x->shape[0];
+    T = x->shape[1];
+    C = x->shape[2];
+
     tensor_t *out = create_tensor(x->shape, x->ndims);
 
-    int collapsed_dims = 1;
-    for (int i = 0; i < x->ndims - 1; i++) 
-        collapsed_dims *= x->shape[i];
+    for (int b = 0; b < B; b++) {
+        for (int t = 0; t < T; t++) {
+            float *x_bt = x->t + b * T * C + t * C;
+            float *out_bt = out->t + b * T * C + t * C;
 
-    int row_size = x->shape[x->ndims - 1];
-    for (int row = 0; row < collapsed_dims; row++) {
-        float max_val = -INFINITY;
-        for (int j = 0; j < row_size; j++) {
-            if (x->t[row * row_size + j] > max_val)
-                max_val = x->t[row * row_size + j];
-        }
-
-        float sum = 0.0f, prob = 0.0f;
-        for (int j = 0; j < row_size; j++) {
-            out->t[row * row_size + j] = expf(x->t[row * row_size + j] - max_val);
-            sum += out->t[row * row_size + j];
-        }
-
-        for (int j = 0; j < row_size; j++) {
-            out->t[row * row_size + j] /= sum;
+            float maxval = -INFINITY;
+            for (int i = 0; i < C; i++)
+                if (x_bt[i] > maxval)
+                    maxval = x_bt[i];
+            
+            float sum = 0.0f;
+            for (int i = 0; i < C; i++) {
+                out_bt[i] = expf(x_bt[i] - maxval);
+                sum += out_bt[i];
+            }
+            for (int i = 0; i < C; i++) {
+                out_bt[i] /= sum;
+            }
         }
     }
-
     return out;
 }
 

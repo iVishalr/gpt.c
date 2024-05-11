@@ -14,7 +14,7 @@ const char *tiny_shakespeare_val = "data/tiny_shakespeare/tiny_shakespeare_val.b
 
 const int batch_size = 8;
 const int block_size = 128;
-const int training_steps = 100;
+const int training_steps = 1;
 const float lr = 1e-4f;
 const float beta1 = 0.9f;
 const float beta2 = 0.999f;
@@ -90,6 +90,7 @@ int main() {
         double time_elapsed_s = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
         printf("step %d: train loss %f (took %f ms)\n", step, mean_loss, time_elapsed_s * 1000);
 
+        free_tensor(logits);
         free_tensor(_x);
         free_tensor(_targets);
     }

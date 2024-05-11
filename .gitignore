@@ -6,6 +6,8 @@ build/
 logs/
 *.log
 data/
+*.pt
+
 # Object files
 *.o
 *.ko

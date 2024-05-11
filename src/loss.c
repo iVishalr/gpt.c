@@ -42,23 +42,22 @@ tensor_t *forward_cross_entropy_loss(cross_entropy_loss_t *loss, tensor_t *logit
         loss[i] <--- -log(V_i[idx])
     */
 
-    tensor_t *out = zeros(targets->shape, targets->ndims);
-
-    int collapsed_dims = 1;
-    for (int i = 0; i < logits->ndims - 1; i++)
-        collapsed_dims *= logits->shape[i];
-    int row_size = logits->shape[logits->ndims - 1];
-
+    int B, T, C;
+    B = logits->shape[0];
+    T = logits->shape[1];
+    C = logits->shape[2];
     tensor_t *probs = loss->softmax->forward(loss->softmax, logits);
 
-    for (int i = 0; i < collapsed_dims; i++) {
-        int ix = (int)targets->t[i];
-        out->t[i] = -logf(probs->t[i * row_size + ix]);
+    tensor_t *out = zeros(targets->shape, targets->ndims);
+    for (int b = 0; b < B; b++) {
+        for (int t = 0; t < T; t++) {
+            float *probs_bt = probs->t + b * T * C + t * C;
+            int ix = (int)targets->t[b * T + t];
+            out->t[b * T + t] = -logf(probs_bt[ix]);
+        }
     }
-
-    free_tensor(probs);
     
-    loss->cache[0] = logits; 
+    loss->cache[0] = probs; 
     loss->cache[1] = targets;
     return out;
 }
@@ -93,22 +92,28 @@ tensor_t *backward_cross_entropy_loss(cross_entropy_loss_t *loss, tensor_t *glob
 
     */
 
-    int collapsed_dims = 1;
-    for (int i = 0; i < global_grad->ndims - 1; i++)
-        collapsed_dims *= global_grad->shape[i];
-
-    tensor_t *logits = loss->cache[0];
+    int B, T, C;
+    tensor_t *probs = loss->cache[0];
     tensor_t *targets = loss->cache[1];
-    tensor_t *out = zeros(logits->shape, logits->ndims);
 
-    int row_size = logits->shape[logits->ndims - 1];
-    for(int i = 0; i < collapsed_dims; i++) {
-        float dloss = global_grad->t[i];
-        int ix = (int)targets->t[i];
-        for (int j = 0; j < row_size; j++) {
-            float prob = logits->t[i * row_size + j];
-            float indicator = j == ix ? 1.0f : 0.0f;
-            out->t[i * row_size + j] += (prob - indicator) * dloss;
+    B = probs->shape[0];
+    T = probs->shape[1];
+    C = probs->shape[2];
+
+    tensor_t *out = zeros(probs->shape, probs->ndims);
+
+    for (int b = 0; b < B; b++) {
+        for (int t = 0; t < T; t++) {
+            float *out_bt = out->t + b * T * C + t * C;
+            float *prob_bt = probs->t + b * T * C + t * C;
+            float dloss = global_grad->t[b * T + t];
+            int ix = (int)targets->t[b * T + t]; 
+
+            for (int i = 0; i < C; i++) {
+                float p = prob_bt[i];
+                float indicator = i == ix ? 1.0f : 0.0f;
+                out_bt[i] += (p - indicator) * dloss;
+            }
         }
     }
 

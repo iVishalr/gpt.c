@@ -136,7 +136,6 @@ int num_parameters_transformer(const gpt2_t *gpt) {
 
     int parameters = 0;
     parameters += wpe->num_parameters(wpe);
-    parameters += wte->num_parameters(wte);
 
     for (int i = 0; i < gpt->n_layers; i++)
         parameters += layers[i]->num_parameters(layers[i]);
