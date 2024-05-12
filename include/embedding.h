@@ -53,6 +53,7 @@ typedef struct embedding {
     
     tensor_t **(*parameters)(const struct embedding *);
     tensor_t **(*gradients)(const struct embedding *);
+    void (*load_state_dict)(struct embedding *, tensor_t **);
 
     int num_embeddings;
     int embedding_dim;

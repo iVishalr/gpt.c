@@ -64,6 +64,8 @@ typedef struct gpt2 {
 
     tensor_t **(*parameters)(const struct gpt2 *);
     tensor_t **(*gradients)(const struct gpt2 *);
+    void (*load_state_dict)(struct gpt2 *, tensor_t **);
+    void (*fast_load_state_dict)(struct gpt2 *, tensor_t **);
 
     int _num_param_tensors;
 } gpt2_t;

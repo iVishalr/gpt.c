@@ -110,9 +110,6 @@ void description_block(const block_t *blk) {
     attn->description(attn);
     ln2->description(ln2);
     mlp->description(mlp);
-    // printf("----------------------------------------------------------------\n");
-    // printf("Parameters: %d\n", blk->num_parameters(blk));
-    // printf("----------------------------------------------------------------\n");
 }
 
 int num_parameters_block(const block_t *blk) {
@@ -234,6 +231,38 @@ tensor_t **gradients_block(const block_t *blk) {
     return gradients;
 }
 
+void load_state_dict_block(block_t *blk, tensor_t **state)
+{
+    if (blk == NULL)
+    {
+        printf("Expected required arugment *blk to be of type block_t ptr, but got NULL.\n");
+        return;
+    }
+
+    if (state == NULL)
+    {
+        printf("Expected required argument **state to be of type tensor_t ** ptr, but got NULL.\n");
+        return;
+    }
+
+    self_attention_t *attn;
+    layer_norm_t *ln1, *ln2;
+    mlp_t *mlp;
+
+    ln1 = blk->ln1;
+    ln2 = blk->ln2;
+    attn = blk->attn;
+    mlp = blk->mlp;
+
+    ln1->load_state_dict(ln1, state);
+    state += ln1->_num_param_tensors;
+    attn->load_state_dict(attn, state);
+    state += attn->_num_param_tensors;
+    ln2->load_state_dict(ln2, state);
+    state += ln2->_num_param_tensors;
+    mlp->load_state_dict(mlp, state);
+}
+
 block_t *Block(const int n_embd, const int n_heads, const int block_size, const int use_bias) {
     block_t *blk = (block_t*)malloc(sizeof(block_t));
 
@@ -255,6 +284,7 @@ block_t *Block(const int n_embd, const int n_heads, const int block_size, const 
 
     blk->parameters = parameters_block;
     blk->gradients = gradients_block;
+    blk->load_state_dict = load_state_dict_block;
 
     blk->_num_param_tensors = 0;
     blk->_num_param_tensors += blk->ln1->_num_param_tensors;

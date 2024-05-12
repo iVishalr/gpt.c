@@ -59,6 +59,7 @@ typedef struct linear {
     
     tensor_t **(*parameters)(const struct linear *);
     tensor_t **(*gradients)(const struct linear *);
+    void (*load_state_dict)(struct linear *, tensor_t **);
     
     int _num_param_tensors;
 } linear_t;

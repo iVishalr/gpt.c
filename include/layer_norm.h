@@ -59,6 +59,7 @@ typedef struct layer_norm {
     
     tensor_t **(*parameters)(const struct layer_norm *);
     tensor_t **(*gradients)(const struct layer_norm *);
+    void (*load_state_dict)(struct layer_norm *, tensor_t **);
 
     int _num_param_tensors;
 } layer_norm_t;

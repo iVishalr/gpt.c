@@ -67,9 +67,6 @@ void description_self_attention(const self_attention_t *self_attn) {
     qkv->description(qkv);
     _attn->description(_attn);
     c_proj->description(c_proj);
-    // printf("------------------------------------------------------------------------\n");
-    // printf("Parameters: %d\n", attn->num_parameters(attn));
-    // printf("------------------------------------------------------------------------\n");
 }
 
 int num_parameters_self_attention(const self_attention_t *self_attn) {
@@ -149,6 +146,25 @@ tensor_t **gradients_self_attention(const self_attention_t *self_attn) {
     return gradients;
 }
 
+void load_state_dict_self_attention(self_attention_t *self_attn, tensor_t **state)
+{
+    if (self_attn == NULL)
+    {
+        printf("Expected required arugment *self_attn to be of type self_attention_t ptr, but got NULL.\n");
+        return;
+    }
+
+    if (state == NULL)
+    {
+        printf("Expected required argument **state to be of type tensor_t ** ptr, but got NULL.\n");
+        return;
+    }
+
+    self_attn->qkv->load_state_dict(self_attn->qkv, state);
+    state += self_attn->qkv->_num_param_tensors;
+    self_attn->c_proj->load_state_dict(self_attn->c_proj, state);
+}
+
 self_attention_t *SelfAttention(const int n_embd, const int n_heads, const int block_size, const int use_bias) {
 
     self_attention_t *self_attn = (self_attention_t*)malloc(sizeof(self_attention_t));
@@ -168,6 +184,7 @@ self_attention_t *SelfAttention(const int n_embd, const int n_heads, const int b
     self_attn->free_layer = free_layer_self_attention;
     self_attn->parameters = parameters_self_attention;
     self_attn->gradients = gradients_self_attention;
+    self_attn->load_state_dict = load_state_dict_self_attention;
     self_attn->_num_param_tensors = self_attn->qkv->_num_param_tensors + self_attn->c_proj->_num_param_tensors;
     return self_attn;
 }

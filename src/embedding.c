@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
 #include "embedding.h"
 
@@ -135,6 +136,32 @@ tensor_t **gradients_embedding(const embedding_t *embedding) {
     return gradients;
 }
 
+void load_state_dict_embedding(embedding_t *embedding, tensor_t **state)
+{
+    if (embedding == NULL)
+    {
+        printf("Expected required arugment *embedding to be of type embedding_t ptr, but got NULL.\n");
+        return;
+    }
+
+    if (state == NULL)
+    {
+        printf("Expected required argument **state to be of type tensor_t ** ptr, but got NULL.\n");
+        return;
+    }
+
+    // check parameter and state length
+    tensor_t *W = state[0];
+
+    if (embedding->W->length != W->length)
+    {
+        printf("Cannot load embedding.weight as embedding.W.length != state.W.length. Got %d != %d\n", embedding->W->length, W->length);
+        return;
+    }
+
+    memcpy(embedding->W->t, W->t, embedding->W->length * sizeof(float));
+}
+
 embedding_t *Embedding(int num_embeddings, int embedding_dim) {
 
     embedding_t *embedding = (embedding_t *)malloc(sizeof(embedding_t));
@@ -152,6 +179,7 @@ embedding_t *Embedding(int num_embeddings, int embedding_dim) {
     embedding->free_layer = free_layer_embedding;
     embedding->parameters = parameters_embedding;
     embedding->gradients = gradients_embedding;
+    embedding->load_state_dict = load_state_dict_embedding;
     embedding->_num_param_tensors = 1;
     return embedding;
 }

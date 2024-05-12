@@ -127,6 +127,25 @@ tensor_t **gradients_mlp(const mlp_t *mlp) {
     return gradients;
 }
 
+void load_state_dict_mlp(mlp_t *mlp, tensor_t **state)
+{
+    if (mlp == NULL)
+    {
+        printf("Expected required arugment *mlp to be of type mlp_t ptr, but got NULL.\n");
+        return;
+    }
+
+    if (state == NULL)
+    {
+        printf("Expected required argument **state to be of type tensor_t ** ptr, but got NULL.\n");
+        return;
+    }
+
+    mlp->c_fc->load_state_dict(mlp->c_fc, state);
+    state += mlp->c_fc->_num_param_tensors;
+    mlp->c_proj->load_state_dict(mlp->c_proj, state);
+}
+
 mlp_t *MLP(const int in_features, const int expansion_factor, const int use_bias) {
 
     mlp_t *mlp = (mlp_t*)malloc(sizeof(mlp_t));
@@ -145,6 +164,7 @@ mlp_t *MLP(const int in_features, const int expansion_factor, const int use_bias
     mlp->free_layer = free_layer_mlp;
     mlp->parameters = parameters_mlp;
     mlp->gradients = gradients_mlp;
+    mlp->load_state_dict = load_state_dict_mlp;
     mlp->_num_param_tensors = mlp->c_fc->_num_param_tensors + mlp->c_proj->_num_param_tensors;
     return mlp;
 }

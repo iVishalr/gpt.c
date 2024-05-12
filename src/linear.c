@@ -279,6 +279,38 @@ tensor_t **gradients_linear(const linear_t *linear) {
     return gradients;
 }
 
+void load_state_dict_linear(linear_t *linear, tensor_t **state) {
+    if (linear == NULL)
+    {
+        printf("Expected required arugment *linear to be of type linear_t ptr, but got NULL.\n");
+        return;
+    }
+
+    if (state == NULL)
+    {
+        printf("Expected required argument **state to be of type tensor_t ** ptr, but got NULL.\n");
+        return;
+    }
+
+    // check parameter and state length
+    tensor_t *W = state[0];
+    tensor_t *b = linear->use_bias > 0 ? state[0] : NULL;
+
+    if (linear->W->length != W->length) {
+        printf("Cannot load linear.weight as linear.W.length != state.W.length. Got %d != %d\n", linear->W->length, W->length);
+        return;
+    }
+
+    if (linear->use_bias > 0 && linear->b->length != b->length) {
+        printf("Cannot load linear.bias as linear.b.length != state.b.length. Got %d != %d\n", linear->b->length, b->length);
+        return;
+    }
+
+    memcpy(linear->W->t, W->t, linear->W->length * sizeof(float));
+    if (linear->use_bias > 0)
+        memcpy(linear->b->t, b->t, linear->b->length * sizeof(float));
+}
+
 linear_t *Linear(const int in_features, const int out_features, const int use_bias) {
     linear_t *linear = (linear_t *)malloc(sizeof(linear_t));
     int w_shape[2] = {out_features, in_features};
@@ -314,6 +346,7 @@ linear_t *Linear(const int in_features, const int out_features, const int use_bi
     linear->num_parameters = num_parameters_linear;
     linear->parameters = parameters_linear;
     linear->gradients = gradients_linear;
+    linear->load_state_dict = load_state_dict_linear;
     linear->_num_param_tensors = use_bias > 0 ? 2 : 1;
     return linear;
 }

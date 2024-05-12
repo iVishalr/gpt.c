@@ -220,6 +220,54 @@ class GPT(nn.Module):
 
         return idx
 
+def write_fp32(tensor, file):
+    if tensor is None:
+        return
+    t = tensor.detach().cpu().to(torch.float32)
+    b = t.numpy().tobytes()
+    file.write(b)
+
+def write_tensors(model_tensors, L, file):
+    write_fp32(model_tensors["transformer.wpe.weight"], file) # (V, C)
+    
+    # write block's parameters
+    for i in range(L):
+        write_fp32(model_tensors[f"transformer.h.{i}.ln_1.weight"], file)
+        write_fp32(model_tensors[f"transformer.h.{i}.ln_1.bias"], file)
+        write_fp32(model_tensors[f"transformer.h.{i}.attn.c_attn.weight"], file)
+        write_fp32(model_tensors[f"transformer.h.{i}.attn.c_attn.bias"], file)
+        write_fp32(model_tensors[f"transformer.h.{i}.attn.c_proj.weight"], file)
+        write_fp32(model_tensors[f"transformer.h.{i}.attn.c_proj.bias"], file)
+        write_fp32(model_tensors[f"transformer.h.{i}.ln_2.weight"], file)
+        write_fp32(model_tensors[f"transformer.h.{i}.ln_2.bias"], file)
+        write_fp32(model_tensors[f"transformer.h.{i}.mlp.c_fc.weight"], file)
+        write_fp32(model_tensors[f"transformer.h.{i}.mlp.c_fc.bias"], file)
+        write_fp32(model_tensors[f"transformer.h.{i}.mlp.c_proj.weight"], file)
+        write_fp32(model_tensors[f"transformer.h.{i}.mlp.c_proj.bias"], file)
+    write_fp32(model_tensors["transformer.ln_f.weight"], file)
+    write_fp32(model_tensors["transformer.ln_f.bias"], file)
+    write_fp32(model_tensors["transformer.wte.weight"], file)
+
+
+def write_model(model: GPT, filename):
+    dirname, filename = os.path.dirname(filename), os.path.basename(filename)
+    if not os.path.exists(dirname):
+        os.makedirs(dirname)
+
+    header = torch.zeros(256, dtype=torch.int32)
+    header[0] = 20240415
+    header[1] = model.config.block_size
+    header[2] = model.config.vocab_size
+    header[3] = model.config.n_layer
+    header[4] = model.config.n_head
+    header[5] = model.config.n_embd
+
+    params = {name: param.cpu() for name, param in model.named_parameters()}
+    
+    with open(os.path.join(dirname, filename), "wb") as file:
+        file.write(header.numpy().tobytes())
+        write_tensors(params, model.config.n_layer, file)
+    print(f"Model saved at {filename}")
 
 class DataLoader:
     def __init__(self, input_path: str, batch_size: int = 8, block_size: int = 64):
@@ -344,12 +392,14 @@ if __name__ == "__main__":
 
     config = GPTConfig(block_size=128)
     model = GPT(config)
-    training_configs = TrainingConfig()
+    # training_configs = TrainingConfig()
 
-    trainer = Trainer(
-        model = model,
-        configs=training_configs,
-        train_set="./data/tiny_shakespeare/tiny_shakespeare_train.bin"
-    )
+    # trainer = Trainer(
+    #     model = model,
+    #     configs=training_configs,
+    #     train_set="./data/tiny_shakespeare/tiny_shakespeare_train.bin"
+    # )
 
-    trainer.train()
+    # trainer.train()
+
+    write_model(model, "model/gpt2.bin")

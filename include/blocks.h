@@ -60,6 +60,7 @@ typedef struct mlp {
 
     tensor_t **(*parameters)(const struct mlp *);
     tensor_t **(*gradients)(const struct mlp *);
+    void (*load_state_dict)(struct mlp *, tensor_t **);
 
     int _num_param_tensors;
 } mlp_t;
@@ -83,6 +84,7 @@ typedef struct self_attention {
 
     tensor_t **(*parameters)(const struct self_attention *);
     tensor_t **(*gradients)(const struct self_attention *);
+    void (*load_state_dict)(struct self_attention *, tensor_t **);
 
     int _num_param_tensors;
 } self_attention_t;
@@ -107,6 +109,7 @@ typedef struct block {
 
     tensor_t **(*parameters)(const struct block *);
     tensor_t **(*gradients)(const struct block *);
+    void (*load_state_dict)(struct block *, tensor_t **);
 
     int _num_param_tensors;
 } block_t;

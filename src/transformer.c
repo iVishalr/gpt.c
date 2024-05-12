@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
 #include <cblas.h>
 #include "transformer.h"
@@ -303,6 +304,76 @@ tensor_t **gradients_transformer(const gpt2_t *gpt) {
     return gradients;
 }
 
+void load_state_dict_transformer(gpt2_t *gpt, tensor_t **state)
+{
+    if (gpt == NULL)
+    {
+        printf("Expected required arugment *gpt to be of type gpt2_t ptr, but got NULL.\n");
+        return;
+    }
+
+    if (state == NULL)
+    {
+        printf("Expected required argument **state to be of type tensor_t ** ptr, but got NULL.\n");
+        return;
+    }
+
+    block_t **layers;
+    embedding_t *wpe, *wte;
+    linear_t *lm_head;
+    layer_norm_t *ln;
+
+    wpe = gpt->wpe;
+    wte = gpt->wte;
+    lm_head = gpt->lm_head;
+    layers = gpt->layers;
+    ln = gpt->ln_f;
+
+    wpe->load_state_dict(wpe, state);
+    state += wpe->_num_param_tensors;
+
+    for (int i = 0; i < gpt->n_layers; i++) {
+        block_t *layer = layers[i];
+        layer->load_state_dict(layer, state);
+        state += layer->_num_param_tensors;
+    }
+
+    ln->load_state_dict(ln, state);
+    state += ln->_num_param_tensors;
+
+    lm_head->load_state_dict(lm_head, state);
+    state += lm_head->_num_param_tensors;
+}
+
+void fast_load_state_dict_transformer(gpt2_t *gpt, tensor_t **state)
+{
+    if (gpt == NULL)
+    {
+        printf("Expected required arugment *gpt to be of type gpt2_t ptr, but got NULL.\n");
+        return;
+    }
+
+    if (state == NULL)
+    {
+        printf("Expected required argument **state to be of type tensor_t ** ptr, but got NULL.\n");
+        return;
+    }
+
+    tensor_t **parameters = gpt->parameters(gpt);
+    for (int i = 0; i < gpt->_num_param_tensors; i++) {
+        tensor_t *model_param = parameters[i];
+        tensor_t *state_param = state[i];
+
+        if (model_param->length != state_param->length) {
+            printf("Expected both model parameters and state tensor length's to match. Got %d != %d\n", model_param->length, state_param->length);
+            exit(1);
+        }
+
+        memcpy(model_param->t, state_param->t, model_param->length * sizeof(float));
+    }
+    free(parameters);
+}
+
 gpt2_t *GPT2(GPT2Config_t *config) {
     gpt2_t *gpt = (gpt2_t *)malloc(sizeof(gpt2_t));
 
@@ -334,6 +405,8 @@ gpt2_t *GPT2(GPT2Config_t *config) {
     gpt->num_parameters = num_parameters_transformer;
     gpt->parameters = parameters_transformer;
     gpt->gradients = gradients_transformer;
+    gpt->load_state_dict = load_state_dict_transformer;
+    gpt->fast_load_state_dict = fast_load_state_dict_transformer;
     
     gpt->_num_param_tensors = gpt->wpe->_num_param_tensors;
     for (int i = 0; i < gpt->n_layers; i++)

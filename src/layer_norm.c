@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
 #include "layer_norm.h"
 
@@ -239,6 +240,40 @@ tensor_t **gradients_layer_norm(const layer_norm_t *norm) {
     return gradients;
 }
 
+void load_state_dict_layer_norm(layer_norm_t *norm, tensor_t **state) {
+    if (norm == NULL)
+    {
+        printf("Expected required arugment *norm to be of type layer_norm_t ptr, but got NULL.\n");
+        return;
+    }
+
+    if (state == NULL)
+    {
+        printf("Expected required argument **state to be of type tensor_t ** ptr, but got NULL.\n");
+        return;
+    }
+
+    // check parameter and state length
+    tensor_t *W = state[0];
+    tensor_t *b = norm->use_bias > 0 ? state[0] : NULL;
+
+    if (norm->W->length != W->length)
+    {
+        printf("Cannot load layer_norm.weight as norm.W.length != state.W.length. Got %d != %d\n", norm->W->length, W->length);
+        return;
+    }
+
+    if (norm->use_bias > 0 && norm->b->length != b->length)
+    {
+        printf("Cannot load layer_norm.bias as norm.b.length != state.b.length. Got %d != %d\n", norm->b->length, b->length);
+        return;
+    }
+
+    memcpy(norm->W->t, W->t, norm->W->length * sizeof(float));
+    if (norm->use_bias > 0)
+        memcpy(norm->b->t, b->t, norm->b->length * sizeof(float));
+}
+
 layer_norm_t *LayerNorm(int in_features, const float eps, const int use_bias) {
     
     if (in_features == 0) {
@@ -269,6 +304,7 @@ layer_norm_t *LayerNorm(int in_features, const float eps, const int use_bias) {
     norm->free_layer = free_layer_layer_norm;
     norm->parameters = parameters_layer_norm;
     norm->gradients = gradients_layer_norm;
+    norm->load_state_dict = load_state_dict_layer_norm;
     norm->_num_param_tensors = use_bias > 0 ? 2 : 1;
     return norm;
 }
