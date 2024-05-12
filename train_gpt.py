@@ -263,9 +263,34 @@ def write_model(model: GPT, filename):
     header[5] = model.config.n_embd
 
     params = {name: param.cpu() for name, param in model.named_parameters()}
+    num_required_shape_headers = 0
+    shapes = []
+    for name, param in params.items():
+        if name == "transformer.wte.weight":
+            continue
+        _shape = list(param.shape)
+        num_required_shape_headers += len(_shape) + 1
+        shapes.append(_shape)
     
+    param = params["transformer.wte.weight"]
+    _shape = list(param.shape)
+    num_required_shape_headers += len(_shape) + 1
+    shapes.append(_shape)
+    
+    shape_headers = torch.zeros(num_required_shape_headers, dtype=torch.int32)
+    shape_headers_index = 0
+    for i in range(len(shapes)):
+        shape_headers[shape_headers_index] = len(shapes[i])
+        shape_headers_index += 1
+        for j in shapes[i]:
+            shape_headers[shape_headers_index] = j
+            shape_headers_index += 1
+
+    header[6] = num_required_shape_headers
+
     with open(os.path.join(dirname, filename), "wb") as file:
         file.write(header.numpy().tobytes())
+        file.write(shape_headers.numpy().tobytes())
         write_tensors(params, model.config.n_layer, file)
     print(f"Model saved at {filename}")
 
@@ -308,6 +333,7 @@ class DataLoader:
 @dataclass
 class TrainingConfig:
     max_epochs: int = 100
+    block_size: int = 128
     lr: float = 3e-4
     betas: tuple[float, float] = (0.9,0.999)
     weight_decay: float = 0.0
@@ -349,7 +375,7 @@ class Trainer:
                 model.eval()
             
             data = self.train_set if is_train else self.test_set
-            loader = DataLoader(data, config.batch_size, model.config.block_size)
+            loader = DataLoader(data, config.batch_size, config.block_size)
             pbar = tqdm(enumerate(loader), total=len(loader)) if is_train else enumerate(loader)
             losses = []
 
@@ -390,16 +416,17 @@ class Trainer:
 
 if __name__ == "__main__":
 
-    config = GPTConfig(block_size=128)
+    config = GPTConfig()
     model = GPT(config)
-    # training_configs = TrainingConfig()
-
-    # trainer = Trainer(
-    #     model = model,
-    #     configs=training_configs,
-    #     train_set="./data/tiny_shakespeare/tiny_shakespeare_train.bin"
-    # )
-
-    # trainer.train()
-
     write_model(model, "model/gpt2.bin")
+
+    training_configs = TrainingConfig()
+
+    trainer = Trainer(
+        model = model,
+        configs=training_configs,
+        train_set="./data/tiny_shakespeare/tiny_shakespeare_train.bin"
+    )
+
+    trainer.train()
+

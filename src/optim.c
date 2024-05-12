@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <cblas.h>
-#include <math.h>
 #include <string.h>
+#include <math.h>
+#include <cblas.h>
 #include "optim.h"
 
 #define ADAMW_DEFAULT_EPS 1e-08f

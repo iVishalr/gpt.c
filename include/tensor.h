@@ -33,38 +33,50 @@
 
 #pragma once
 
-#include "tensor.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef struct linear {
-    int in_features;
-    int out_features;
-    int use_bias;
-    
-    tensor_t *W;
-    tensor_t *b;
-    tensor_t *dW;
-    tensor_t *db;
-    tensor_t *cache;
-    
-    tensor_t *(*forward)(struct linear *, tensor_t *);
-    tensor_t *(*backward)(struct linear *, tensor_t *);
-    
-    void (*description)(const struct linear *);
-    int (*num_parameters)(const struct linear *);
-    void (*free_layer)(struct linear *);
-    
-    tensor_t **(*parameters)(const struct linear *);
-    tensor_t **(*gradients)(const struct linear *);
-    void (*load_state_dict)(struct linear *, tensor_t **);
-    
-    int _num_param_tensors;
-} linear_t;
+typedef struct tensor {
+    float *t;
+    int ndims;
+    int length;
+    int shape[1024];
+} tensor_t;
 
-linear_t *Linear(const int in_features, const int out_features, const int use_bias);
+tensor_t *create_tensor(const int *shape, const int n);
+tensor_t *randn(const int *shape, const int n);
+tensor_t *zeros(const int *shape, const int n);
+tensor_t *ones(const int *shape, const int n);
+tensor_t *fill(const int *shape, const int n, const float value);
+tensor_t *empty(const int *shape, const int n);
+
+void *transpose(
+    const int CORDER, const int CTRANS,
+    const int crows, const int ccols,
+    const float calpha, const tensor_t *A, const int clda,
+    tensor_t *B, const int cldb
+);
+
+void *matmul(
+    int Order,
+    int TransA,
+    int TransB,
+    int M, int N, int K,
+    const float alpha, const tensor_t *A, const int lda, const tensor_t *B, const int ldb, const float beta, tensor_t *C, const int ldc
+);
+
+void mul_(tensor_t *x, const float s);
+void pow_(tensor_t *x, const float p);
+void *tensor_copy(tensor_t *dest, const tensor_t *src);
+void *uniform(tensor_t *tensor, const float low, const float high);
+void *shape(const tensor_t *tensor, char *shape);
+void view(tensor_t *tensor, const int *shape, const int n);
+
+tensor_t *tensor_load(FILE *fp, const int *shape, int n);
+void free_tensor(tensor_t *tensor);
+void print_tensor(const tensor_t *tensor, const int compact);
+void print_shape(const tensor_t *tensor);
 
 #ifdef __cplusplus
 }

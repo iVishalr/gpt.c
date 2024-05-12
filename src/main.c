@@ -1,9 +1,11 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <time.h>
 
 #include "transformer.h"
 #include "optim.h"
 #include "dataloader.h"
+#include "utils.h"
 
 #define True 1
 #define False 0
@@ -14,14 +16,74 @@ const char *tiny_shakespeare_val = "data/tiny_shakespeare/tiny_shakespeare_val.b
 
 const int batch_size = 8;
 const int block_size = 128;
-const int training_steps = 1;
-const float lr = 1e-4f;
+const int training_steps = 298;
+const float lr = 3e-4f;
 const float beta1 = 0.9f;
 const float beta2 = 0.999f;
 const float eps = 1e-8f;
 const float weight_decay = 0.00f;
 
+tensor_t **load_model(const char *file_path) {
+    FILE *fp = fopenCheck(file_path, "rb");
+    if (fp == NULL) {
+        printf("No such file or directory. %s\n", file_path);
+        exit(1);
+    }
+    printf("Loading checkpoint from %s\n",file_path);
+    int headers[256];
+    freadCheck(headers, sizeof(int), 256, fp);
+    if (headers[0] != 20240415) {
+        printf("Bad magic model file\n");
+        exit(1);
+    }
+    size_t max_block_size, vocab_size, n_layers, n_heads, n_embd;
+    size_t shape_header_size;
+    max_block_size = headers[1];
+    vocab_size = headers[2];
+    n_layers = headers[3];
+    n_heads = headers[4];
+    n_embd = headers[5];
+    shape_header_size = headers[6];
+
+
+    printf("[GPT2]\n");
+    printf("max_block_size: %zu\n", max_block_size);
+    printf("vocab_size: %zu\n", vocab_size);
+    printf("n_layers: %zu\n", n_layers);
+    printf("n_heads: %zu\n", n_heads);
+    printf("n_embd: %zu\n", n_embd);
+
+    int *shape_buffer = (int*)mallocCheck(sizeof(int) * shape_header_size);
+    freadCheck(shape_buffer, sizeof(int), shape_header_size, fp);
+
+    int shape_index = 0;
+    int num_param_tensors = 0;
+    while (shape_index < shape_header_size) {
+        int ndims = shape_buffer[shape_index];
+        num_param_tensors += 1;
+        shape_index += ndims + 1;
+    }
+
+    tensor_t **parameters = (tensor_t**)mallocCheck(sizeof(tensor_t*) * num_param_tensors);
+    shape_index = 0;
+    int param_index = 0;
+    while (shape_index < shape_header_size) {
+        int ndims = shape_buffer[shape_index];
+        int shape[1024];
+        for (int i = 0; i < ndims; i++)
+            shape[i] = shape_buffer[shape_index + 1 + i];
+        
+        parameters[param_index++] = tensor_load(fp, shape, ndims);
+        shape_index += ndims + 1;
+    }
+
+    fcloseCheck(fp);
+    free(shape_buffer);
+    return parameters;
+}
+
 int main() {
+    tensor_t **params = load_model("./model/gpt2.bin");
 
     GPT2Config_t gpt2_config;
     gpt2_config.block_size = 1024;
@@ -31,7 +93,12 @@ int main() {
     gpt2_config.n_layers = 12;
 
     gpt2_t *gpt = GPT2(&gpt2_config);
-    gpt->description(gpt);
+    gpt->fast_load_state_dict(gpt, params);
+    
+    for (int i = 0; i < gpt->_num_param_tensors; i++)
+        free_tensor(params[i]);
+    free(params);
+
     // create the dataloaders for training and validation
     dataloader_t *train_loader = DataLoader(tiny_shakespeare_train, batch_size, block_size);
     // dataloader_t *val_loader = DataLoader(tiny_shakespeare_val, batch_size, block_size);

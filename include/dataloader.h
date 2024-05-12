@@ -34,7 +34,7 @@
 #pragma once
 
 #include <stdio.h>
-#include "utils.h"
+#include "tensor.h"
 
 #ifdef __cplusplus
 extern "C" {

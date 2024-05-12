@@ -33,7 +33,7 @@
 
 #pragma once
 
-#include "utils.h"
+#include "tensor.h"
 #include "activation.h"
 
 #ifdef __cplusplus

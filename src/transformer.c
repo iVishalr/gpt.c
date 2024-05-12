@@ -365,7 +365,10 @@ void fast_load_state_dict_transformer(gpt2_t *gpt, tensor_t **state)
         tensor_t *state_param = state[i];
 
         if (model_param->length != state_param->length) {
-            printf("Expected both model parameters and state tensor length's to match. Got %d != %d\n", model_param->length, state_param->length);
+            char a_shape[1024], b_shape[1024];
+            shape(model_param, a_shape);
+            shape(state_param, b_shape);
+            printf("Expected both model parameters and state tensor length's to match at index %d. Got (%s) != (%s)\n", i, a_shape, b_shape);
             exit(1);
         }
 
