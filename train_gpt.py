@@ -11,6 +11,7 @@ https://github.com/huggingface/transformers/blob/main/src/transformers/models/gp
 
 import os
 import math
+import sys
 from dataclasses import dataclass
 from typing import Tuple, Optional
 from tqdm import tqdm
@@ -294,6 +295,112 @@ def write_model(model: GPT, filename):
         write_tensors(params, model.config.n_layer, file)
     print(f"Model saved at {filename}")
 
+def load_model(model: GPT, filename: str) -> None:
+    if not os.path.exists(filename):
+        raise FileNotFoundError(f"No such file or directory. {filename}")
+
+    print(f"Loading checkpoint from {filename}")
+
+    expected_magic_number = 20240415
+    with open(filename, "rb") as file:  
+        # read headers
+        data = file.read(256 * np.dtype(np.int32).itemsize)
+        data_np = np.frombuffer(data, dtype=np.int32)
+        headers = np.copy(data_np) # we need to do this to avoid "The given NumPy array is not writable, and PyTorch does not support non-writable tensors" warning
+        # validate headers
+        if headers[0] != expected_magic_number:
+            raise ValueError(f"Expected magic number in model to be {expected_magic_number}. Got {headers[0]}.")
+
+        if headers[1] != model.config.block_size:
+            raise ValueError(f"Expected block_size in checkpoint to be {model.config.block_size}. Got {headers[1]}.")
+        if headers[2] != model.config.vocab_size:
+            raise ValueError(f"Expected vocab_size in checkpoint to be {model.config.vocab_size}. Got {headers[2]}.")
+        if headers[3] != model.config.n_layer:
+            raise ValueError(f"Expected n_layer in checkpoint to be {model.config.n_layer}. Got {headers[3]}.")
+        if headers[4] != model.config.n_head:
+            raise ValueError(f"Expected n_head in checkpoint to be {model.config.n_head}. Got {headers[4]}.")
+        if headers[5] != model.config.n_embd:
+            raise ValueError(f"Expected n_embd in checkpoint to be {model.config.n_embd}. Got {headers[5]}.")
+        
+        params = {name: param.cpu() for name, param in model.named_parameters()}
+        state_dict = model.state_dict()
+
+        num_required_shape_headers = 0
+        for name, param in params.items():
+            if name == "transformer.wte.weight":
+                continue
+            _shape = list(param.shape)
+            num_required_shape_headers += len(_shape) + 1
+        
+        param = params["transformer.wte.weight"]
+        _shape = list(param.shape)
+        num_required_shape_headers += len(_shape) + 1
+
+        if headers[6] != num_required_shape_headers:
+            raise ValueError(f"Expected shape_headers in checkpoint to be {num_required_shape_headers}. Got {headers[6]}.")
+
+        print("[GPT]")
+        print(f"max_block_size: {headers[1]}")
+        print(f"vocab_size: {headers[2]}")
+        print(f"n_layers: {headers[3]}")
+        print(f"n_heads: {headers[4]}")
+        print(f"n_embd: {headers[5]}")
+        
+        data = file.read(num_required_shape_headers * np.dtype(np.int32).itemsize)
+        data_np = np.frombuffer(data, dtype=np.int32)
+        data = np.copy(data_np).tolist()
+
+        shapes = []
+        idx = 0
+        while idx < len(data):
+            ndims = data[idx]
+            shapes.append(tuple(data[idx + 1: idx + 1 + ndims]))
+            idx += ndims + 1
+
+        loaded_parameters = []
+        for shape in shapes:
+            numel = 1
+            for dim in shape:
+                numel *= dim
+            data = file.read(numel * np.dtype(np.float32).itemsize)
+            data_np = np.frombuffer(data, dtype=np.float32)
+            data_np = np.copy(data_np)
+            tensor = torch.from_numpy(data_np).view(shape)
+            loaded_parameters.append(tensor)
+
+        params["transformer.wpe.weight"] = loaded_parameters[0] # (V, C)
+
+        # load block's parameters
+        idx = 1
+        for i in range(model.config.n_layer):
+            params[f"transformer.h.{i}.ln_1.weight"] = loaded_parameters[idx]
+            params[f"transformer.h.{i}.ln_1.bias"] = loaded_parameters[idx + 1]
+            params[f"transformer.h.{i}.attn.c_attn.weight"] = loaded_parameters[idx + 2]
+            params[f"transformer.h.{i}.attn.c_attn.bias"] = loaded_parameters[idx + 3]
+            params[f"transformer.h.{i}.attn.c_proj.weight"] = loaded_parameters[idx + 4]
+            params[f"transformer.h.{i}.attn.c_proj.bias"] = loaded_parameters[idx + 5]
+            params[f"transformer.h.{i}.ln_2.weight"] = loaded_parameters[idx + 6]
+            params[f"transformer.h.{i}.ln_2.bias"] = loaded_parameters[idx + 7]
+            params[f"transformer.h.{i}.mlp.c_fc.weight"] = loaded_parameters[idx + 8]
+            params[f"transformer.h.{i}.mlp.c_fc.bias"] = loaded_parameters[idx + 9]
+            params[f"transformer.h.{i}.mlp.c_proj.weight"] = loaded_parameters[idx + 10]
+            params[f"transformer.h.{i}.mlp.c_proj.bias"] = loaded_parameters[idx + 11]
+            idx += 12
+
+        params["transformer.ln_f.weight"] = loaded_parameters[idx]
+        params["transformer.ln_f.bias"] = loaded_parameters[idx + 1]
+        params["transformer.wte.weight"] = loaded_parameters[idx + 2]
+        idx += 3
+
+        params['lm_head.weight'] = params['transformer.wte.weight']
+
+        # merge actual state_dict with params
+        for k in state_dict:
+            if k not in params: continue
+            state_dict[k] = params[k]
+
+        model.load_state_dict(state_dict)
+
 class DataLoader:
     def __init__(self, input_path: str, batch_size: int = 8, block_size: int = 64):
         
@@ -418,7 +525,8 @@ if __name__ == "__main__":
 
     config = GPTConfig()
     model = GPT(config)
-    write_model(model, "model/gpt2.bin")
+    load_model(model, "./model/gpt2.bin")
+    # write_model(model, "model/gpt2.bin")
 
     training_configs = TrainingConfig()
 
@@ -429,4 +537,3 @@ if __name__ == "__main__":
     )
 
     trainer.train()
-
