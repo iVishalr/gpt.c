@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-
+#include "utils.h"
 #include "loss.h"
 
 tensor_t *forward_cross_entropy_loss(cross_entropy_loss_t *loss, tensor_t *logits, tensor_t *targets) {
@@ -145,7 +145,7 @@ void free_layer_cross_entropy_loss(cross_entropy_loss_t *loss) {
 }
 
 cross_entropy_loss_t *CrossEntropyLoss() {
-    cross_entropy_loss_t *loss = (cross_entropy_loss_t *)malloc(sizeof(cross_entropy_loss_t));
+    cross_entropy_loss_t *loss = (cross_entropy_loss_t *)mallocCheck(sizeof(cross_entropy_loss_t));
     loss->softmax = Softmax();
     loss->cache[0] = NULL;
     loss->cache[1] = NULL;

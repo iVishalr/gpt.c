@@ -57,13 +57,13 @@ tensor_t *create(const int *shape, const int n) {
     for (int i = 0; i < n; i++)
         total_elements *= shape[i];
 
-    tensor_t *tensor = (tensor_t *)malloc(sizeof(tensor_t));
+    tensor_t *tensor = (tensor_t *)mallocCheck(sizeof(tensor_t));
 
     if (tensor == NULL) {
         printf("Could not allocate memory when creating tensor object.\n");
         exit(EXIT_FAILURE);
     }
-    tensor->t = (float *)malloc(sizeof(float) * total_elements);
+    tensor->t = (float *)mallocCheck(sizeof(float) * total_elements);
 
     if (tensor->t == NULL) {
         printf("Could not allocate memory when creating tensor.t object.\n");
@@ -91,7 +91,7 @@ tensor_t *create_calloc(const int *shape, const int n)
     for (int i = 0; i < n; i++)
         total_elements *= shape[i];
 
-    tensor_t *tensor = (tensor_t *)malloc(sizeof(tensor_t));
+    tensor_t *tensor = (tensor_t *)mallocCheck(sizeof(tensor_t));
 
     if (tensor == NULL)
     {

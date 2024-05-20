@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-
+#include "utils.h"
 #include "activation.h"
 
 #define GELU_SCALING_FACTOR sqrtf(2.0f / M_PI)
@@ -84,7 +84,7 @@ void free_layer_gelu(gelu_t *gelu) {
 
 gelu_t *GELU() {
     
-    gelu_t *gelu = (gelu_t*)malloc(sizeof(gelu_t));
+    gelu_t *gelu = (gelu_t*)mallocCheck(sizeof(gelu_t));
 
     gelu->cache = NULL;
     gelu->forward = forward_gelu;
@@ -171,7 +171,7 @@ void free_layer_softmax(softmax_t *softmax) {
 
 softmax_t *Softmax() {
     
-    softmax_t *softmax = (softmax_t *)malloc(sizeof(softmax_t));
+    softmax_t *softmax = (softmax_t *)mallocCheck(sizeof(softmax_t));
 
     softmax->cache = NULL;
     softmax->forward = forward_softmax;

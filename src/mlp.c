@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include "utils.h"
 #include "blocks.h"
 
 tensor_t *forward_mlp(mlp_t *mlp, tensor_t *x) {
@@ -87,7 +88,7 @@ tensor_t **parameters_mlp(const mlp_t *mlp) {
     if (mlp == NULL)
         return NULL;
 
-    tensor_t **parameters = (tensor_t **)malloc(sizeof(tensor_t *) * mlp->_num_param_tensors);
+    tensor_t **parameters = (tensor_t **)mallocCheck(sizeof(tensor_t *) * mlp->_num_param_tensors);
     
     tensor_t **c_fc_params = mlp->c_fc->parameters(mlp->c_fc);
     tensor_t **c_proj_params = mlp->c_proj->parameters(mlp->c_proj);
@@ -109,7 +110,7 @@ tensor_t **gradients_mlp(const mlp_t *mlp) {
     if (mlp == NULL)
         return NULL;
 
-    tensor_t **gradients = (tensor_t **)malloc(sizeof(tensor_t *) * mlp->_num_param_tensors);
+    tensor_t **gradients = (tensor_t **)mallocCheck(sizeof(tensor_t *) * mlp->_num_param_tensors);
 
     tensor_t **c_fc_grads = mlp->c_fc->gradients(mlp->c_fc);
     tensor_t **c_proj_grads = mlp->c_proj->gradients(mlp->c_proj);
@@ -148,7 +149,7 @@ void load_state_dict_mlp(mlp_t *mlp, tensor_t **state)
 
 mlp_t *MLP(const int in_features, const int expansion_factor, const int use_bias) {
 
-    mlp_t *mlp = (mlp_t*)malloc(sizeof(mlp_t));
+    mlp_t *mlp = (mlp_t*)mallocCheck(sizeof(mlp_t));
     mlp->in_features = in_features;
     mlp->expansion_factor = expansion_factor;
     mlp->use_bias = use_bias;

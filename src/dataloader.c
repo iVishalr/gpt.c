@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include "utils.h"
 #include "dataloader.h"
 
 void dataloader_next(dataloader_t *loader, tensor_t **batch) {
@@ -11,14 +12,14 @@ void dataloader_next(dataloader_t *loader, tensor_t **batch) {
     block_size = loader->block_size;
 
     if (loader->batch == NULL)
-        loader->batch = (int *)malloc(sizeof(int) * (batch_size * block_size + 1));
+        loader->batch = (int *)mallocCheck(sizeof(int) * (batch_size * block_size + 1));
     
     if (loader->_curr_fp_ptr + (batch_size * block_size + 1) * sizeof(int) > loader->_file_size) {
         loader->_curr_fp_ptr = 0;
     }
 
-    fseek(loader->fp, loader->_curr_fp_ptr, SEEK_SET);
-    fread(loader->batch, sizeof(int), batch_size * block_size + 1, loader->fp);
+    fseekCheck(loader->fp, loader->_curr_fp_ptr, SEEK_SET);
+    freadCheck(loader->batch, sizeof(int), batch_size * block_size + 1, loader->fp);
     loader->_curr_fp_ptr += batch_size * block_size * sizeof(int);
 
     int input_shape[2] = {batch_size, block_size};
@@ -46,7 +47,7 @@ void dataloader_free_layer(dataloader_t *loader) {
         return;
 
     if (loader->fp)
-        fclose(loader->fp);
+        fcloseCheck(loader->fp);
 
     if (loader->batch)
         free(loader->batch);
@@ -59,12 +60,12 @@ dataloader_t *DataLoader(const char *filename, const int batch_size, const int b
     if (filename == NULL)
         return NULL;
 
-    dataloader_t *loader = (dataloader_t *)malloc(sizeof(dataloader_t));
+    dataloader_t *loader = (dataloader_t *)mallocCheck(sizeof(dataloader_t));
     loader->batch_size = batch_size;
     loader->block_size = block_size;
     loader->batch = NULL;
     
-    loader->fp = fopen(filename, "rb");
+    loader->fp = fopenCheck(filename, "rb");
     if (loader->fp == NULL)  {
         printf("Error opening tokens file: %s.\n", filename);
         free(loader);

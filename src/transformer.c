@@ -3,6 +3,7 @@
 #include <string.h>
 #include <math.h>
 #include <cblas.h>
+#include "utils.h"
 #include "transformer.h"
 
 tensor_t *forward_transformer(gpt2_t *gpt, tensor_t *x) {
@@ -229,7 +230,7 @@ tensor_t **parameters_transformer(const gpt2_t *gpt) {
     layers = gpt->layers;
     ln = gpt->ln_f;
 
-    tensor_t **parameters = (tensor_t **)malloc(sizeof(tensor_t *) * gpt->_num_param_tensors);
+    tensor_t **parameters = (tensor_t **)mallocCheck(sizeof(tensor_t *) * gpt->_num_param_tensors);
 
     int idx = 0;
     tensor_t **wpe_params = wpe->parameters(wpe);
@@ -274,7 +275,7 @@ tensor_t **gradients_transformer(const gpt2_t *gpt) {
     layers = gpt->layers;
     ln = gpt->ln_f;
 
-    tensor_t **gradients = (tensor_t **)malloc(sizeof(tensor_t *) * gpt->_num_param_tensors);
+    tensor_t **gradients = (tensor_t **)mallocCheck(sizeof(tensor_t *) * gpt->_num_param_tensors);
 
     int idx = 0;
     tensor_t **wpe_grads = wpe->gradients(wpe);
@@ -378,7 +379,7 @@ void fast_load_state_dict_transformer(gpt2_t *gpt, tensor_t **state)
 }
 
 gpt2_t *GPT2(GPT2Config_t *config) {
-    gpt2_t *gpt = (gpt2_t *)malloc(sizeof(gpt2_t));
+    gpt2_t *gpt = (gpt2_t *)mallocCheck(sizeof(gpt2_t));
 
     gpt->block_size = config->block_size;
     gpt->vocab_size = config->vocab_size;
@@ -389,7 +390,7 @@ gpt2_t *GPT2(GPT2Config_t *config) {
     gpt->wte = Embedding(gpt->vocab_size, gpt->n_embd);
     gpt->wpe = Embedding(gpt->block_size, gpt->n_embd);
 
-    gpt->layers = (block_t **)malloc(gpt->n_layers * sizeof(block_t *));
+    gpt->layers = (block_t **)mallocCheck(gpt->n_layers * sizeof(block_t *));
     for (int i = 0; i < gpt->n_layers; i++)
         gpt->layers[i] = Block(gpt->n_embd, gpt->n_heads, gpt->block_size, 1);
 

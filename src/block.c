@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <cblas.h>
+#include "utils.h"
 #include "blocks.h"
 
 tensor_t *forward_block(block_t *blk, tensor_t *x) {
@@ -166,7 +167,7 @@ tensor_t **parameters_block(const block_t *blk) {
     attn = blk->attn;
     mlp = blk->mlp;
 
-    tensor_t **parameters = (tensor_t **)malloc(sizeof(tensor_t *) * blk->_num_param_tensors);
+    tensor_t **parameters = (tensor_t **)mallocCheck(sizeof(tensor_t *) * blk->_num_param_tensors);
     tensor_t **ln1_params = ln1->parameters(ln1);
     tensor_t **attn_params = attn->parameters(attn);
     tensor_t **ln2_params = ln2->parameters(ln2);
@@ -205,7 +206,7 @@ tensor_t **gradients_block(const block_t *blk) {
     attn = blk->attn;
     mlp = blk->mlp;
 
-    tensor_t **gradients = (tensor_t **)malloc(sizeof(tensor_t *) * blk->_num_param_tensors);
+    tensor_t **gradients = (tensor_t **)mallocCheck(sizeof(tensor_t *) * blk->_num_param_tensors);
     tensor_t **ln1_grads = ln1->gradients(ln1);
     tensor_t **attn_grads = attn->gradients(attn);
     tensor_t **ln2_grads = ln2->gradients(ln2);
@@ -264,7 +265,7 @@ void load_state_dict_block(block_t *blk, tensor_t **state)
 }
 
 block_t *Block(const int n_embd, const int n_heads, const int block_size, const int use_bias) {
-    block_t *blk = (block_t*)malloc(sizeof(block_t));
+    block_t *blk = (block_t*)mallocCheck(sizeof(block_t));
 
     blk->n_embd = n_embd;
     blk->n_heads = n_heads;

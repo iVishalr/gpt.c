@@ -3,6 +3,7 @@
 #include <string.h>
 #include <math.h>
 #include <cblas.h>
+#include "utils.h"
 #include "attention.h"
 
 tensor_t *forward_attention(attention_t *attn, tensor_t *x) {
@@ -365,7 +366,7 @@ attention_t *Attention(int n_embd, int n_heads, int block_size) {
         return NULL;
     }
 
-    attention_t *attn = (attention_t *)malloc(sizeof(attention_t));
+    attention_t *attn = (attention_t *)mallocCheck(sizeof(attention_t));
 
     // self.register_buffer("bias", torch.tril(torch.ones(config.block_size, config.block_size)).view(1, 1, config.block_size, config.block_size))
     int buffer_shape[2] = {block_size, block_size};

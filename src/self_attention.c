@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include "utils.h"
 #include "blocks.h"
 
 tensor_t *forward_self_attention(self_attention_t *self_attn, tensor_t *x) {
@@ -106,7 +107,7 @@ tensor_t **parameters_self_attention(const self_attention_t *self_attn) {
     if (self_attn == NULL)
         return NULL;
 
-    tensor_t **parameters = (tensor_t **)malloc(sizeof(tensor_t *) * self_attn->_num_param_tensors);
+    tensor_t **parameters = (tensor_t **)mallocCheck(sizeof(tensor_t *) * self_attn->_num_param_tensors);
 
     tensor_t **qkv_params = self_attn->qkv->parameters(self_attn->qkv);
     tensor_t **c_proj_params = self_attn->c_proj->parameters(self_attn->c_proj);
@@ -128,7 +129,7 @@ tensor_t **gradients_self_attention(const self_attention_t *self_attn) {
     if (self_attn == NULL)
         return NULL;
 
-    tensor_t **gradients = (tensor_t **)malloc(sizeof(tensor_t *) * self_attn->_num_param_tensors);
+    tensor_t **gradients = (tensor_t **)mallocCheck(sizeof(tensor_t *) * self_attn->_num_param_tensors);
 
     tensor_t **qkv_grads = self_attn->qkv->gradients(self_attn->qkv);
     tensor_t **c_proj_grads = self_attn->c_proj->gradients(self_attn->c_proj);
@@ -167,7 +168,7 @@ void load_state_dict_self_attention(self_attention_t *self_attn, tensor_t **stat
 
 self_attention_t *SelfAttention(const int n_embd, const int n_heads, const int block_size, const int use_bias) {
 
-    self_attention_t *self_attn = (self_attention_t*)malloc(sizeof(self_attention_t));
+    self_attention_t *self_attn = (self_attention_t*)mallocCheck(sizeof(self_attention_t));
     self_attn->n_embd = n_embd;
     self_attn->n_heads = n_heads;
     self_attn->use_bias = use_bias;

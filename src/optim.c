@@ -3,6 +3,7 @@
 #include <string.h>
 #include <math.h>
 #include <cblas.h>
+#include "utils.h"
 #include "optim.h"
 
 #define ADAMW_DEFAULT_EPS 1e-08f
@@ -18,8 +19,8 @@ void step_adamW(adamW_t *optimizer) {
     optimizer->step_t += 1;
 
     if (optimizer->m == NULL) {
-        optimizer->m = (tensor_t **)malloc(sizeof(tensor_t *) * optimizer->n_parameters);
-        optimizer->v = (tensor_t **)malloc(sizeof(tensor_t *) * optimizer->n_parameters);
+        optimizer->m = (tensor_t **)mallocCheck(sizeof(tensor_t *) * optimizer->n_parameters);
+        optimizer->v = (tensor_t **)mallocCheck(sizeof(tensor_t *) * optimizer->n_parameters);
 
         for (int i = 0; i < optimizer->n_parameters; i++) {
             tensor_t *grad;
@@ -131,7 +132,7 @@ adamW_t *AdamW(tensor_t **parameters, tensor_t **gradients, const int n_paramete
 
     }
 
-    adamW_t *optimizer = (adamW_t *)malloc(sizeof(adamW_t));
+    adamW_t *optimizer = (adamW_t *)mallocCheck(sizeof(adamW_t));
 
     optimizer->parameters = parameters;
     optimizer->gradients = gradients;

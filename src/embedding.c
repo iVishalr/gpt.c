@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include "utils.h"
 #include "embedding.h"
 
 tensor_t *forward_embedding(embedding_t *embedding, tensor_t *x) {
@@ -122,7 +123,7 @@ tensor_t **parameters_embedding(const embedding_t *embedding) {
     if (embedding == NULL)
         return NULL;
 
-    tensor_t **parameters = (tensor_t **)malloc(sizeof(tensor_t *) * embedding->_num_param_tensors);
+    tensor_t **parameters = (tensor_t **)mallocCheck(sizeof(tensor_t *) * embedding->_num_param_tensors);
     parameters[0] = embedding->W;
     return parameters;
 }
@@ -131,7 +132,7 @@ tensor_t **gradients_embedding(const embedding_t *embedding) {
     if (embedding == NULL)
         return NULL;
 
-    tensor_t **gradients = (tensor_t **)malloc(sizeof(tensor_t *) * embedding->_num_param_tensors);
+    tensor_t **gradients = (tensor_t **)mallocCheck(sizeof(tensor_t *) * embedding->_num_param_tensors);
     gradients[0] = embedding->dW;
     return gradients;
 }
@@ -164,7 +165,7 @@ void load_state_dict_embedding(embedding_t *embedding, tensor_t **state)
 
 embedding_t *Embedding(int num_embeddings, int embedding_dim) {
 
-    embedding_t *embedding = (embedding_t *)malloc(sizeof(embedding_t));
+    embedding_t *embedding = (embedding_t *)mallocCheck(sizeof(embedding_t));
     embedding->num_embeddings = num_embeddings;
     embedding->embedding_dim = embedding_dim;
     

@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include "utils.h"
 #include "layer_norm.h"
 
 #define DEFAULT_EPS 1e-5f
@@ -221,7 +222,7 @@ tensor_t **parameters_layer_norm(const layer_norm_t *norm) {
     if (norm == NULL)
         return NULL;
 
-    tensor_t **parameters = (tensor_t **)malloc(sizeof(tensor_t *) * norm->_num_param_tensors);
+    tensor_t **parameters = (tensor_t **)mallocCheck(sizeof(tensor_t *) * norm->_num_param_tensors);
     parameters[0] = norm->W;
     if (norm->use_bias > 0) 
         parameters[1] = norm->b;
@@ -232,7 +233,7 @@ tensor_t **gradients_layer_norm(const layer_norm_t *norm) {
     if (norm == NULL)
         return NULL;
 
-    tensor_t **gradients = (tensor_t **)malloc(sizeof(tensor_t *) * norm->_num_param_tensors);
+    tensor_t **gradients = (tensor_t **)mallocCheck(sizeof(tensor_t *) * norm->_num_param_tensors);
     gradients[0] = norm->dW;
     if (norm->use_bias > 0)
         gradients[1] = norm->db;
@@ -281,7 +282,7 @@ layer_norm_t *LayerNorm(int in_features, const float eps, const int use_bias) {
         return NULL;
     }
 
-    layer_norm_t *norm = (layer_norm_t *)malloc(sizeof(layer_norm_t));
+    layer_norm_t *norm = (layer_norm_t *)mallocCheck(sizeof(layer_norm_t));
 
     norm->cache[0] = NULL;
     norm->cache[1] = NULL;

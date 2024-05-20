@@ -3,7 +3,7 @@
 #include <string.h>
 #include <math.h>
 #include <cblas.h>
-
+#include "utils.h"
 #include "linear.h"
 
 void _calculate_fan_in_and_fan_out(tensor_t *t, int *result) {
@@ -259,7 +259,7 @@ tensor_t **parameters_linear(const linear_t * linear) {
     if (linear == NULL)
         return NULL;
 
-    tensor_t **parameters = (tensor_t **)malloc(sizeof(tensor_t *) * linear->_num_param_tensors);
+    tensor_t **parameters = (tensor_t **)mallocCheck(sizeof(tensor_t *) * linear->_num_param_tensors);
     parameters[0] = linear->W;
     if (linear->use_bias > 0)
         parameters[1] = linear->b;
@@ -271,7 +271,7 @@ tensor_t **gradients_linear(const linear_t *linear) {
     if (linear == NULL)
         return NULL;
 
-    tensor_t **gradients = (tensor_t **)malloc(sizeof(tensor_t *) * linear->_num_param_tensors);
+    tensor_t **gradients = (tensor_t **)mallocCheck(sizeof(tensor_t *) * linear->_num_param_tensors);
     gradients[0] = linear->dW;
     if (linear->use_bias > 0)
         gradients[1] = linear->db;
@@ -312,7 +312,7 @@ void load_state_dict_linear(linear_t *linear, tensor_t **state) {
 }
 
 linear_t *Linear(const int in_features, const int out_features, const int use_bias) {
-    linear_t *linear = (linear_t *)malloc(sizeof(linear_t));
+    linear_t *linear = (linear_t *)mallocCheck(sizeof(linear_t));
     int w_shape[2] = {out_features, in_features};
     int b_shape[1] = {out_features};
 
@@ -323,7 +323,7 @@ linear_t *Linear(const int in_features, const int out_features, const int use_bi
     kaiming_uniform(W, sqrtf(5.0f), "fan_in", "leaky_relu");
     
     if (b != NULL) {
-        // int *result = (int*)malloc(sizeof(int) * 2);
+        // int *result = (int*)mallocCheck(sizeof(int) * 2);
         int result[2];
         _calculate_fan_in_and_fan_out(W, result);
         int fan_in = result[0];
