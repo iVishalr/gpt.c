@@ -5,6 +5,40 @@
 #include "utils.h"
 #include "embedding.h"
 
+
+tensor_t *forward_embedding(embedding_t *embedding, tensor_t *x);
+tensor_t *backward_embedding(embedding_t *embedding, tensor_t *global_grad);
+int num_parameters_embedding(const embedding_t *embedding);
+void description_embedding(const embedding_t *embedding);
+void free_layer_embedding(embedding_t *embedding);
+tensor_t **parameters_embedding(const embedding_t *embedding);
+tensor_t **gradients_embedding(const embedding_t *embedding);
+void load_state_dict_embedding(embedding_t *embedding, tensor_t **state);
+
+
+// Embedding Class
+embedding_t *Embedding(int num_embeddings, int embedding_dim) {
+
+    embedding_t *embedding = (embedding_t *)mallocCheck(sizeof(embedding_t));
+    embedding->num_embeddings = num_embeddings;
+    embedding->embedding_dim = embedding_dim;
+
+    int wshape[2] = {num_embeddings, embedding_dim};
+    embedding->W = randn(wshape, 2);
+    embedding->dW = zeros(wshape, 2);
+    embedding->cache = NULL;
+    embedding->forward = forward_embedding;
+    embedding->backward = backward_embedding;
+    embedding->description = description_embedding;
+    embedding->num_parameters = num_parameters_embedding;
+    embedding->free_layer = free_layer_embedding;
+    embedding->parameters = parameters_embedding;
+    embedding->gradients = gradients_embedding;
+    embedding->load_state_dict = load_state_dict_embedding;
+    embedding->_num_param_tensors = 1;
+    return embedding;
+}
+
 tensor_t *forward_embedding(embedding_t *embedding, tensor_t *x) {
     
     if (embedding == NULL) {
@@ -161,26 +195,4 @@ void load_state_dict_embedding(embedding_t *embedding, tensor_t **state)
     }
 
     memcpy(embedding->W->t, W->t, embedding->W->length * sizeof(float));
-}
-
-embedding_t *Embedding(int num_embeddings, int embedding_dim) {
-
-    embedding_t *embedding = (embedding_t *)mallocCheck(sizeof(embedding_t));
-    embedding->num_embeddings = num_embeddings;
-    embedding->embedding_dim = embedding_dim;
-    
-    int wshape[2] = {num_embeddings, embedding_dim};
-    embedding->W = randn(wshape, 2);
-    embedding->dW = zeros(wshape, 2);
-    embedding->cache = NULL;
-    embedding->forward = forward_embedding;
-    embedding->backward = backward_embedding;
-    embedding->description = description_embedding;
-    embedding->num_parameters = num_parameters_embedding;
-    embedding->free_layer = free_layer_embedding;
-    embedding->parameters = parameters_embedding;
-    embedding->gradients = gradients_embedding;
-    embedding->load_state_dict = load_state_dict_embedding;
-    embedding->_num_param_tensors = 1;
-    return embedding;
 }

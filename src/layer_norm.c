@@ -7,6 +7,55 @@
 
 #define DEFAULT_EPS 1e-5f
 
+
+tensor_t *forward_layer_norm(layer_norm_t *norm, tensor_t *x);
+tensor_t *backward_layer_norm(layer_norm_t *norm, tensor_t *global_grad);
+void description_layer_norm(const layer_norm_t *norm);
+int num_parameters_layer_norm(const layer_norm_t *norm);
+void free_layer_layer_norm(layer_norm_t *norm);
+tensor_t **parameters_layer_norm(const layer_norm_t *norm);
+tensor_t **gradients_layer_norm(const layer_norm_t *norm);
+void load_state_dict_layer_norm(layer_norm_t *norm, tensor_t **state);
+
+
+// LayerNorm Class
+layer_norm_t *LayerNorm(int in_features, const float eps, const int use_bias) {
+
+    if (in_features == 0)
+    {
+        printf("Expected in_features to be a value > 0, but got 0.\n");
+        return NULL;
+    }
+
+    layer_norm_t *norm = (layer_norm_t *)mallocCheck(sizeof(layer_norm_t));
+
+    norm->cache[0] = NULL;
+    norm->cache[1] = NULL;
+    norm->cache[2] = NULL;
+    norm->eps = eps != (float)DEFAULT_EPS ? eps : (float)DEFAULT_EPS;
+    norm->use_bias = use_bias;
+    norm->in_features = in_features;
+
+    int param_shape[1] = {in_features};
+    norm->W = ones(param_shape, 1);
+    norm->b = use_bias > 0 ? zeros(param_shape, 1) : NULL;
+
+    norm->dW = zeros(param_shape, 1);
+    norm->db = use_bias > 0 ? zeros(param_shape, 1) : NULL;
+
+    norm->forward = forward_layer_norm;
+    norm->backward = backward_layer_norm;
+    norm->description = description_layer_norm;
+    norm->num_parameters = num_parameters_layer_norm;
+    norm->free_layer = free_layer_layer_norm;
+    norm->parameters = parameters_layer_norm;
+    norm->gradients = gradients_layer_norm;
+    norm->load_state_dict = load_state_dict_layer_norm;
+    norm->_num_param_tensors = use_bias > 0 ? 2 : 1;
+    return norm;
+}
+
+
 tensor_t *forward_layer_norm(layer_norm_t *norm, tensor_t *x) {
     
     if (norm == NULL) {
@@ -64,6 +113,7 @@ tensor_t *forward_layer_norm(layer_norm_t *norm, tensor_t *x) {
     norm->cache[2] = x;
     return out;
 }
+
 
 tensor_t *backward_layer_norm(layer_norm_t *norm, tensor_t *global_grad) {
 
@@ -167,6 +217,7 @@ tensor_t *backward_layer_norm(layer_norm_t *norm, tensor_t *global_grad) {
     return out;
 }
 
+
 void description_layer_norm(const layer_norm_t *norm) {
     
     int parameters = norm->W->length;
@@ -195,6 +246,7 @@ void description_layer_norm(const layer_norm_t *norm) {
     printf("\n");
 }
 
+
 int num_parameters_layer_norm(const layer_norm_t *norm) {
     if (norm == NULL)
         return 0;
@@ -203,6 +255,7 @@ int num_parameters_layer_norm(const layer_norm_t *norm) {
     total_parameters += norm->use_bias > 0 ? norm->b->length : 0;
     return total_parameters;
 }
+
 
 void free_layer_layer_norm(layer_norm_t *norm) {
     if (norm == NULL)
@@ -218,6 +271,7 @@ void free_layer_layer_norm(layer_norm_t *norm) {
     free(norm);    
 }
 
+
 tensor_t **parameters_layer_norm(const layer_norm_t *norm) {
     if (norm == NULL)
         return NULL;
@@ -228,6 +282,7 @@ tensor_t **parameters_layer_norm(const layer_norm_t *norm) {
         parameters[1] = norm->b;
     return parameters;
 }
+
 
 tensor_t **gradients_layer_norm(const layer_norm_t *norm) {
     if (norm == NULL)
@@ -240,6 +295,7 @@ tensor_t **gradients_layer_norm(const layer_norm_t *norm) {
 
     return gradients;
 }
+
 
 void load_state_dict_layer_norm(layer_norm_t *norm, tensor_t **state) {
     if (norm == NULL)
@@ -273,39 +329,4 @@ void load_state_dict_layer_norm(layer_norm_t *norm, tensor_t **state) {
     memcpy(norm->W->t, W->t, norm->W->length * sizeof(float));
     if (norm->use_bias > 0)
         memcpy(norm->b->t, b->t, norm->b->length * sizeof(float));
-}
-
-layer_norm_t *LayerNorm(int in_features, const float eps, const int use_bias) {
-    
-    if (in_features == 0) {
-        printf("Expected in_features to be a value > 0, but got 0.\n");
-        return NULL;
-    }
-
-    layer_norm_t *norm = (layer_norm_t *)mallocCheck(sizeof(layer_norm_t));
-
-    norm->cache[0] = NULL;
-    norm->cache[1] = NULL;
-    norm->cache[2] = NULL;
-    norm->eps = eps != (float) DEFAULT_EPS ? eps : (float) DEFAULT_EPS;
-    norm->use_bias = use_bias;
-    norm->in_features = in_features;
-
-    int param_shape[1] = {in_features};
-    norm->W = ones(param_shape, 1);
-    norm->b = use_bias > 0 ? zeros(param_shape, 1) : NULL;
-
-    norm->dW = zeros(param_shape, 1);
-    norm->db = use_bias > 0 ? zeros(param_shape, 1) : NULL;
-
-    norm->forward = forward_layer_norm;
-    norm->backward = backward_layer_norm;
-    norm->description = description_layer_norm;
-    norm->num_parameters = num_parameters_layer_norm;
-    norm->free_layer = free_layer_layer_norm;
-    norm->parameters = parameters_layer_norm;
-    norm->gradients = gradients_layer_norm;
-    norm->load_state_dict = load_state_dict_layer_norm;
-    norm->_num_param_tensors = use_bias > 0 ? 2 : 1;
-    return norm;
 }

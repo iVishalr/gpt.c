@@ -6,6 +6,52 @@
 #include "utils.h"
 #include "attention.h"
 
+
+tensor_t *forward_attention(attention_t *attn, tensor_t *x);
+tensor_t *backward_attention(attention_t *attn, tensor_t *global_grad);
+void description_attention(const attention_t *attn);
+int num_parameters_attention(const attention_t *attn);
+void free_layer_attention(attention_t *attn);
+
+
+// Attention Class
+attention_t *Attention(int n_embd, int n_heads, int block_size) {
+
+    if (n_embd % n_heads != 0)
+    {
+        printf("Expected n_embd to be divisble by n_heads, but got %d % d == %f\n", n_embd, n_heads, n_embd % n_heads);
+        return NULL;
+    }
+
+    attention_t *attn = (attention_t *)mallocCheck(sizeof(attention_t));
+
+    // self.register_buffer("bias", torch.tril(torch.ones(config.block_size, config.block_size)).view(1, 1, config.block_size, config.block_size))
+    int buffer_shape[2] = {block_size, block_size};
+    attn->buffer = zeros(buffer_shape, 2);
+    for (int i = 0; i < block_size; i++)
+    {
+        for (int j = 0; j <= i; j++)
+        {
+            attn->buffer->t[i * block_size + j] = 1.0f;
+        }
+    }
+
+    attn->cache[0] = NULL;
+    attn->cache[1] = NULL;
+    attn->cache[2] = NULL;
+    attn->cache[3] = NULL;
+    attn->cache[4] = NULL;
+    attn->n_embd = n_embd;
+    attn->n_heads = n_heads;
+    attn->forward = forward_attention;
+    attn->backward = backward_attention;
+    attn->description = description_attention;
+    attn->num_parameters = num_parameters_attention;
+    attn->free_layer = free_layer_attention;
+    return attn;
+}
+
+
 tensor_t *forward_attention(attention_t *attn, tensor_t *x) {
 
     if (attn == NULL) {
@@ -164,6 +210,7 @@ tensor_t *forward_attention(attention_t *attn, tensor_t *x) {
     
     return out;
 }
+
 
 tensor_t *backward_attention(attention_t *attn, tensor_t *global_grad) {
 
@@ -332,6 +379,7 @@ tensor_t *backward_attention(attention_t *attn, tensor_t *global_grad) {
     return dout;
 }
 
+
 void description_attention(const attention_t *attn) {
     if (attn == NULL)
         return;
@@ -342,9 +390,11 @@ void description_attention(const attention_t *attn) {
     printf("  n_heads: %d\n\n", attn->n_heads);
 }   
 
+
 int num_parameters_attention(const attention_t *attn) {
     return 0;
 }   
+
 
 void free_layer_attention(attention_t *attn) {
     if (attn == NULL)
@@ -357,37 +407,4 @@ void free_layer_attention(attention_t *attn) {
     free_tensor(attn->cache[3]);
     free_tensor(attn->cache[4]);
     free(attn);
-}
-
-attention_t *Attention(int n_embd, int n_heads, int block_size) {
-
-    if (n_embd % n_heads != 0){
-        printf("Expected n_embd to be divisble by n_heads, but got %d % d == %f\n", n_embd, n_heads, n_embd % n_heads);
-        return NULL;
-    }
-
-    attention_t *attn = (attention_t *)mallocCheck(sizeof(attention_t));
-
-    // self.register_buffer("bias", torch.tril(torch.ones(config.block_size, config.block_size)).view(1, 1, config.block_size, config.block_size))
-    int buffer_shape[2] = {block_size, block_size};
-    attn->buffer = zeros(buffer_shape, 2);
-    for (int i = 0; i < block_size; i++) {
-        for (int j = 0; j <= i; j++) {
-            attn->buffer->t[i * block_size + j] = 1.0f;
-        }
-    }
-
-    attn->cache[0] = NULL;
-    attn->cache[1] = NULL;
-    attn->cache[2] = NULL;
-    attn->cache[3] = NULL;
-    attn->cache[4] = NULL;
-    attn->n_embd = n_embd;
-    attn->n_heads = n_heads;
-    attn->forward = forward_attention;
-    attn->backward = backward_attention;
-    attn->description = description_attention;
-    attn->num_parameters = num_parameters_attention;
-    attn->free_layer = free_layer_attention;
-    return attn;
 }

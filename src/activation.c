@@ -6,6 +6,27 @@
 
 #define GELU_SCALING_FACTOR sqrtf(2.0f / M_PI)
 
+
+tensor_t *forward_gelu(gelu_t *gelu, tensor_t *x);
+tensor_t *backward_gelu(gelu_t *gelu, tensor_t *global_grad);
+void description_gelu(const gelu_t *gelu);
+void free_layer_gelu(gelu_t *gelu);
+
+
+// GELU Class
+gelu_t *GELU() {
+
+    gelu_t *gelu = (gelu_t *)mallocCheck(sizeof(gelu_t));
+
+    gelu->cache = NULL;
+    gelu->forward = forward_gelu;
+    gelu->backward = backward_gelu;
+    gelu->description = description_gelu;
+    gelu->free_layer = free_layer_gelu;
+    return gelu;
+}
+
+
 tensor_t *forward_gelu(gelu_t *gelu, tensor_t *x) {
     
     if (gelu == NULL) {
@@ -30,14 +51,14 @@ tensor_t *forward_gelu(gelu_t *gelu, tensor_t *x) {
     return out;
 }
 
+
 // we want to use -Ofast optimization, but sadly GeLU breaks, so disable this flag just for it 
 // (https://github.com/karpathy/llm.c/pull/200)
 #pragma float_control(precise, on, push)
 #if defined(__GNUC__) && !defined(__clang__)
 __attribute__((optimize("no-finite-math-only")))
 #endif
-tensor_t *
-backward_gelu(gelu_t *gelu, tensor_t *global_grad)
+tensor_t *backward_gelu(gelu_t *gelu, tensor_t *global_grad)
 {
     if (gelu == NULL) {
         printf("Expected required arugment *gelu to be of type gelu_t ptr, but got NULL.\n");
@@ -70,9 +91,11 @@ backward_gelu(gelu_t *gelu, tensor_t *global_grad)
 }
 #pragma float_control(pop)
 
+
 void description_gelu(const gelu_t *gelu) {
     printf("GELU()\n\n");
 }
+
 
 void free_layer_gelu(gelu_t *gelu) {
     if (gelu == NULL) 
@@ -82,17 +105,27 @@ void free_layer_gelu(gelu_t *gelu) {
     free(gelu);
 }
 
-gelu_t *GELU() {
-    
-    gelu_t *gelu = (gelu_t*)mallocCheck(sizeof(gelu_t));
 
-    gelu->cache = NULL;
-    gelu->forward = forward_gelu;
-    gelu->backward = backward_gelu;
-    gelu->description = description_gelu;
-    gelu->free_layer = free_layer_gelu;
-    return gelu;
+tensor_t *forward_softmax(softmax_t *softmax, tensor_t *x);
+tensor_t *backward_softmax(softmax_t *softmax, tensor_t *global_grad);
+void description_softmax(const softmax_t *softmax);
+void free_layer_softmax(softmax_t *softmax);
+
+// Softmax Class
+softmax_t *Softmax()
+{
+
+    softmax_t *softmax = (softmax_t *)mallocCheck(sizeof(softmax_t));
+
+    softmax->cache = NULL;
+    softmax->forward = forward_softmax;
+    softmax->backward = backward_softmax;
+    softmax->description = description_softmax;
+    softmax->free_layer = free_layer_softmax;
+
+    return softmax;
 }
+
 
 tensor_t *forward_softmax(softmax_t *softmax, tensor_t *x) {
     
@@ -136,6 +169,7 @@ tensor_t *forward_softmax(softmax_t *softmax, tensor_t *x) {
     return out;
 }
 
+
 tensor_t *backward_softmax(softmax_t *softmax, tensor_t *global_grad) {
 
     if (softmax == NULL) {
@@ -157,9 +191,11 @@ tensor_t *backward_softmax(softmax_t *softmax, tensor_t *global_grad) {
     return NULL;
 }
 
+
 void description_softmax(const softmax_t *softmax) {
     printf("Softmax()\n");
 }
+
 
 void free_layer_softmax(softmax_t *softmax) {
     if (softmax == NULL) 
@@ -167,17 +203,4 @@ void free_layer_softmax(softmax_t *softmax) {
 
     free_tensor(softmax->cache);
     free(softmax);
-}
-
-softmax_t *Softmax() {
-    
-    softmax_t *softmax = (softmax_t *)mallocCheck(sizeof(softmax_t));
-
-    softmax->cache = NULL;
-    softmax->forward = forward_softmax;
-    softmax->backward = backward_softmax;
-    softmax->description = description_softmax;
-    softmax->free_layer = free_layer_softmax;
-
-    return softmax;
 }

@@ -4,6 +4,50 @@
 #include "utils.h"
 #include "blocks.h"
 
+
+tensor_t *forward_block(block_t *blk, tensor_t *x);
+tensor_t *backward_block(block_t *blk, tensor_t *global_grad); 
+void description_block(const block_t *blk);
+int num_parameters_block(const block_t *blk); 
+void free_layer_block(block_t *blk);
+tensor_t **parameters_block(const block_t *blk);
+tensor_t **gradients_block(const block_t *blk);
+void load_state_dict_block(block_t *blk, tensor_t **state);
+
+
+// Block Class
+block_t *Block(const int n_embd, const int n_heads, const int block_size, const int use_bias) {
+    block_t *blk = (block_t *)mallocCheck(sizeof(block_t));
+
+    blk->n_embd = n_embd;
+    blk->n_heads = n_heads;
+    blk->block_size = block_size;
+    blk->use_bias = use_bias;
+
+    blk->ln1 = LayerNorm(n_embd, 1e-5, use_bias);
+    blk->attn = SelfAttention(n_embd, n_heads, block_size, use_bias);
+    blk->ln2 = LayerNorm(n_embd, 1e-5, use_bias);
+    blk->mlp = MLP(n_embd, 4, use_bias);
+
+    blk->forward = forward_block;
+    blk->backward = backward_block;
+    blk->description = description_block;
+    blk->free_layer = free_layer_block;
+    blk->num_parameters = num_parameters_block;
+
+    blk->parameters = parameters_block;
+    blk->gradients = gradients_block;
+    blk->load_state_dict = load_state_dict_block;
+
+    blk->_num_param_tensors = 0;
+    blk->_num_param_tensors += blk->ln1->_num_param_tensors;
+    blk->_num_param_tensors += blk->attn->_num_param_tensors;
+    blk->_num_param_tensors += blk->ln2->_num_param_tensors;
+    blk->_num_param_tensors += blk->mlp->_num_param_tensors;
+    return blk;
+}
+
+
 tensor_t *forward_block(block_t *blk, tensor_t *x) {
 
     if (blk == NULL) {
@@ -46,6 +90,7 @@ tensor_t *forward_block(block_t *blk, tensor_t *x) {
 
     return out;
 }
+
 
 tensor_t *backward_block(block_t *blk, tensor_t *global_grad) {
     
@@ -92,6 +137,7 @@ tensor_t *backward_block(block_t *blk, tensor_t *global_grad) {
     return out;
 }
 
+
 void description_block(const block_t *blk) {
     if (blk == NULL)
         return;
@@ -112,6 +158,7 @@ void description_block(const block_t *blk) {
     ln2->description(ln2);
     mlp->description(mlp);
 }
+
 
 int num_parameters_block(const block_t *blk) {
     if (blk == NULL) 
@@ -134,6 +181,7 @@ int num_parameters_block(const block_t *blk) {
     return total_parameters;
 }
 
+
 void free_layer_block(block_t *blk) {
     if (blk == NULL)
         return;
@@ -153,6 +201,7 @@ void free_layer_block(block_t *blk) {
     mlp->free_layer(mlp);
     free(blk);
 }
+
 
 tensor_t **parameters_block(const block_t *blk) {
     if (blk == NULL)
@@ -193,6 +242,7 @@ tensor_t **parameters_block(const block_t *blk) {
     return parameters;
 }
 
+
 tensor_t **gradients_block(const block_t *blk) {
     if (blk == NULL)
         return NULL;
@@ -232,8 +282,8 @@ tensor_t **gradients_block(const block_t *blk) {
     return gradients;
 }
 
-void load_state_dict_block(block_t *blk, tensor_t **state)
-{
+
+void load_state_dict_block(block_t *blk, tensor_t **state) {
     if (blk == NULL)
     {
         printf("Expected required arugment *blk to be of type block_t ptr, but got NULL.\n");
@@ -262,35 +312,4 @@ void load_state_dict_block(block_t *blk, tensor_t **state)
     ln2->load_state_dict(ln2, state);
     state += ln2->_num_param_tensors;
     mlp->load_state_dict(mlp, state);
-}
-
-block_t *Block(const int n_embd, const int n_heads, const int block_size, const int use_bias) {
-    block_t *blk = (block_t*)mallocCheck(sizeof(block_t));
-
-    blk->n_embd = n_embd;
-    blk->n_heads = n_heads;
-    blk->block_size = block_size;
-    blk->use_bias = use_bias;
-
-    blk->ln1 = LayerNorm(n_embd, 1e-5, use_bias);
-    blk->attn = SelfAttention(n_embd, n_heads, block_size, use_bias);
-    blk->ln2 = LayerNorm(n_embd, 1e-5, use_bias);
-    blk->mlp = MLP(n_embd, 4, use_bias);
-
-    blk->forward = forward_block;
-    blk->backward = backward_block;
-    blk->description = description_block;
-    blk->free_layer = free_layer_block;
-    blk->num_parameters = num_parameters_block;
-
-    blk->parameters = parameters_block;
-    blk->gradients = gradients_block;
-    blk->load_state_dict = load_state_dict_block;
-
-    blk->_num_param_tensors = 0;
-    blk->_num_param_tensors += blk->ln1->_num_param_tensors;
-    blk->_num_param_tensors += blk->attn->_num_param_tensors;
-    blk->_num_param_tensors += blk->ln2->_num_param_tensors;
-    blk->_num_param_tensors += blk->mlp->_num_param_tensors;
-    return blk;
 }

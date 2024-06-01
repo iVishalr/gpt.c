@@ -6,7 +6,64 @@
 #include "utils.h"
 #include "linear.h"
 
-void _calculate_fan_in_and_fan_out(tensor_t *t, int *result) {
+
+void _calculate_fan_in_and_fan_out(tensor_t *t, int *result);
+void kaiming_uniform(tensor_t *t, float a, const char *mode, const char *non_linearity);
+tensor_t *forward_linear(linear_t *linear, tensor_t *x);
+tensor_t *backward_linear(linear_t *linear, tensor_t *global_grad);
+void description_linear(const linear_t *linear);
+int num_parameters_linear(const linear_t *linear);
+void free_layer_linear(linear_t *linear);
+tensor_t **parameters_linear(const linear_t *linear);
+tensor_t **gradients_linear(const linear_t *linear);
+void load_state_dict_linear(linear_t *linear, tensor_t **state);
+
+
+// Linear Class
+linear_t *Linear(const int in_features, const int out_features, const int use_bias)
+{
+    linear_t *linear = (linear_t *)mallocCheck(sizeof(linear_t));
+    int w_shape[2] = {out_features, in_features};
+    int b_shape[1] = {out_features};
+
+    tensor_t *W = zeros(w_shape, 2);
+    tensor_t *b = use_bias > 0 ? zeros(b_shape, 1) : NULL;
+
+    // init weights
+    kaiming_uniform(W, sqrtf(5.0f), "fan_in", "leaky_relu");
+
+    if (b != NULL)
+    {
+        int result[2];
+        _calculate_fan_in_and_fan_out(W, result);
+        int fan_in = result[0];
+        float bound = fan_in > 0.0f ? 1.0f / sqrtf(fan_in) : 0.0f;
+        uniform(b, -bound, bound);
+    }
+
+    linear->W = W;
+    linear->b = b;
+    linear->in_features = in_features;
+    linear->out_features = out_features;
+    linear->use_bias = use_bias;
+    linear->dW = zeros(w_shape, 2);
+    linear->db = use_bias > 0 ? zeros(b_shape, 1) : NULL;
+    linear->cache = NULL;
+    linear->forward = forward_linear;
+    linear->backward = backward_linear;
+    linear->description = description_linear;
+    linear->free_layer = free_layer_linear;
+    linear->num_parameters = num_parameters_linear;
+    linear->parameters = parameters_linear;
+    linear->gradients = gradients_linear;
+    linear->load_state_dict = load_state_dict_linear;
+    linear->_num_param_tensors = use_bias > 0 ? 2 : 1;
+    return linear;
+}
+
+
+void _calculate_fan_in_and_fan_out(tensor_t *t, int *result)
+{
 
     if (t == NULL) {
         printf("Expected required arugment *t to be of type tensor_t ptr, but got NULL.\n");
@@ -39,6 +96,7 @@ void _calculate_fan_in_and_fan_out(tensor_t *t, int *result) {
     result[1] = fan_out;
 }
 
+
 void kaiming_uniform(tensor_t *t, float a, const char *mode, const char *non_linearity) {
     int result[2];
     _calculate_fan_in_and_fan_out(t, result);
@@ -62,6 +120,7 @@ void kaiming_uniform(tensor_t *t, float a, const char *mode, const char *non_lin
         return;
     }
 }
+
 
 tensor_t *forward_linear(linear_t *linear, tensor_t *x) {
     
@@ -115,6 +174,7 @@ tensor_t *forward_linear(linear_t *linear, tensor_t *x) {
     linear->cache = x;
     return out;
 }
+
 
 tensor_t *backward_linear(linear_t *linear, tensor_t *global_grad) {
     
@@ -213,6 +273,7 @@ tensor_t *backward_linear(linear_t *linear, tensor_t *global_grad) {
     return dout;
 }
 
+
 void description_linear(const linear_t *linear) {
     if (linear == NULL)
         return;
@@ -230,6 +291,7 @@ void description_linear(const linear_t *linear) {
     printf("\n");
 }
 
+
 int num_parameters_linear(const linear_t *linear) {
     if (linear == NULL)
         return 0;
@@ -243,6 +305,7 @@ int num_parameters_linear(const linear_t *linear) {
     return total_parameters;
 }
 
+
 void free_layer_linear(linear_t *linear) {
     if (linear == NULL) 
         return;
@@ -254,6 +317,7 @@ void free_layer_linear(linear_t *linear) {
     free_tensor(linear->db);
     free(linear);
 }
+
 
 tensor_t **parameters_linear(const linear_t * linear) {
     if (linear == NULL)
@@ -267,6 +331,7 @@ tensor_t **parameters_linear(const linear_t * linear) {
     return parameters;
 }
 
+
 tensor_t **gradients_linear(const linear_t *linear) {
     if (linear == NULL)
         return NULL;
@@ -278,6 +343,7 @@ tensor_t **gradients_linear(const linear_t *linear) {
 
     return gradients;
 }
+
 
 void load_state_dict_linear(linear_t *linear, tensor_t **state) {
     if (linear == NULL)
@@ -309,44 +375,4 @@ void load_state_dict_linear(linear_t *linear, tensor_t **state) {
     memcpy(linear->W->t, W->t, linear->W->length * sizeof(float));
     if (linear->use_bias > 0)
         memcpy(linear->b->t, b->t, linear->b->length * sizeof(float));
-}
-
-linear_t *Linear(const int in_features, const int out_features, const int use_bias) {
-    linear_t *linear = (linear_t *)mallocCheck(sizeof(linear_t));
-    int w_shape[2] = {out_features, in_features};
-    int b_shape[1] = {out_features};
-
-    tensor_t *W = zeros(w_shape, 2);
-    tensor_t *b = use_bias > 0 ? zeros(b_shape, 1) : NULL;
-
-    // init weights
-    kaiming_uniform(W, sqrtf(5.0f), "fan_in", "leaky_relu");
-    
-    if (b != NULL) {
-        // int *result = (int*)mallocCheck(sizeof(int) * 2);
-        int result[2];
-        _calculate_fan_in_and_fan_out(W, result);
-        int fan_in = result[0];
-        float bound = fan_in > 0.0f ? 1.0f / sqrtf(fan_in): 0.0f;
-        uniform(b, -bound, bound);
-    }
-
-    linear->W = W;
-    linear->b = b;
-    linear->in_features = in_features;
-    linear->out_features = out_features;
-    linear->use_bias = use_bias;
-    linear->dW = zeros(w_shape, 2);
-    linear->db = use_bias > 0 ? zeros(b_shape, 1) : NULL;
-    linear->cache = NULL;
-    linear->forward = forward_linear;
-    linear->backward = backward_linear;
-    linear->description = description_linear;
-    linear->free_layer = free_layer_linear;
-    linear->num_parameters = num_parameters_linear;
-    linear->parameters = parameters_linear;
-    linear->gradients = gradients_linear;
-    linear->load_state_dict = load_state_dict_linear;
-    linear->_num_param_tensors = use_bias > 0 ? 2 : 1;
-    return linear;
 }

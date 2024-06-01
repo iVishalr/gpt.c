@@ -9,6 +9,76 @@
 #define ADAMW_DEFAULT_EPS 1e-08f
 #define ADAMW_DEAFULT_WEIGHT_DECAY 0.01f
 
+
+void step_adamW(adamW_t *optimizer);
+void zero_grad_adamW(adamW_t *optimizer);
+void free_layer_adamW(adamW_t *optimizer);
+
+
+// AdamW Class
+adamW_t *AdamW(tensor_t **parameters, tensor_t **gradients, const int n_parameters, const float lr, const float beta1, const float beta2, const float eps, const float weight_decay)
+{
+    if (parameters == NULL)
+    {
+        printf("Expected **parameters to be not NULL.\n");
+        return NULL;
+    }
+
+    if (gradients == NULL)
+    {
+        printf("Expected **gradients to be not NULL.\n");
+        return NULL;
+    }
+
+    // verify parameters and gradients
+    for (int i = 0; i < n_parameters; i++)
+    {
+        if (parameters[i] == NULL)
+        {
+            printf("parameters contains a NULL ptr at position %d\n.", i);
+            return NULL;
+        }
+
+        if (gradients[i] == NULL)
+        {
+            printf("gradients contains a NULL ptr at position %d\n.", i);
+            return NULL;
+        }
+
+        if (parameters[i]->ndims != gradients[i]->ndims)
+        {
+            printf("Expected parameters and gradients at position %d to be of same dimensions. Got %d != %d\n", i, parameters[i]->ndims, gradients[i]->ndims);
+            return NULL;
+        }
+
+        if (parameters[i]->length != gradients[i]->length)
+        {
+            printf("Expected parameters and gradients at position %d to have same lengths. Got %d != %d\n", i, parameters[i]->length, gradients[i]->length);
+            return NULL;
+        }
+    }
+
+    adamW_t *optimizer = (adamW_t *)mallocCheck(sizeof(adamW_t));
+
+    optimizer->parameters = parameters;
+    optimizer->gradients = gradients;
+    optimizer->n_parameters = n_parameters;
+    optimizer->lr = lr;
+    optimizer->beta1 = beta1;
+    optimizer->beta2 = beta2;
+    optimizer->eps = eps != ADAMW_DEFAULT_EPS ? eps : ADAMW_DEFAULT_EPS;
+    optimizer->weight_decay = weight_decay != ADAMW_DEAFULT_WEIGHT_DECAY ? weight_decay : ADAMW_DEAFULT_WEIGHT_DECAY;
+
+    optimizer->m = NULL;
+    optimizer->v = NULL;
+    optimizer->step_t = 0;
+    optimizer->step = step_adamW;
+    optimizer->zero_grad = zero_grad_adamW;
+    optimizer->free_layer = free_layer_adamW;
+    return optimizer;
+}
+
+
 // Implemented as illustrated in https: // pytorch.org/docs/stable/generated/torch.optim.AdamW.html
 void step_adamW(adamW_t *optimizer) {
     if (optimizer == NULL)
@@ -64,6 +134,7 @@ void step_adamW(adamW_t *optimizer) {
     }   
 }
 
+
 void zero_grad_adamW(adamW_t *optimizer) {
     if (optimizer == NULL)
         return;
@@ -74,6 +145,7 @@ void zero_grad_adamW(adamW_t *optimizer) {
         memset(grad->t, 0, sizeof(float) * grad->length);
     }
 }
+
 
 void free_layer_adamW(adamW_t *optimizer) {
     if (optimizer == NULL)
@@ -95,59 +167,4 @@ void free_layer_adamW(adamW_t *optimizer) {
     if (optimizer->gradients)
         free(optimizer->gradients);
     free(optimizer);
-}
-
-adamW_t *AdamW(tensor_t **parameters, tensor_t **gradients, const int n_parameters, const float lr, const float beta1, const float beta2, const float eps, const float weight_decay) {
-    if (parameters == NULL) {
-        printf("Expected **parameters to be not NULL.\n");
-        return NULL;
-    }
-
-    if (gradients == NULL) {
-        printf("Expected **gradients to be not NULL.\n");
-        return NULL;
-    }
-
-    // verify parameters and gradients
-    for (int i = 0; i < n_parameters; i++) {
-        if (parameters[i] == NULL) {
-            printf("parameters contains a NULL ptr at position %d\n.", i);
-            return NULL;
-        }
-
-        if (gradients[i] == NULL) {
-            printf("gradients contains a NULL ptr at position %d\n.", i);
-            return NULL;
-        }
-
-        if (parameters[i]->ndims != gradients[i]->ndims) {
-            printf("Expected parameters and gradients at position %d to be of same dimensions. Got %d != %d\n", i, parameters[i]->ndims, gradients[i]->ndims);
-            return NULL;
-        }
-
-        if (parameters[i]->length != gradients[i]->length) {
-            printf("Expected parameters and gradients at position %d to have same lengths. Got %d != %d\n", i, parameters[i]->length, gradients[i]->length);
-            return NULL;
-        }
-
-    }
-
-    adamW_t *optimizer = (adamW_t *)mallocCheck(sizeof(adamW_t));
-
-    optimizer->parameters = parameters;
-    optimizer->gradients = gradients;
-    optimizer->n_parameters = n_parameters;
-    optimizer->lr = lr;
-    optimizer->beta1 = beta1;
-    optimizer->beta2 = beta2;
-    optimizer->eps = eps != ADAMW_DEFAULT_EPS ? eps : ADAMW_DEFAULT_EPS;
-    optimizer->weight_decay = weight_decay != ADAMW_DEAFULT_WEIGHT_DECAY ? weight_decay : ADAMW_DEAFULT_WEIGHT_DECAY;
-
-    optimizer->m = NULL;
-    optimizer->v = NULL;
-    optimizer->step_t = 0;
-    optimizer->step = step_adamW;
-    optimizer->zero_grad = zero_grad_adamW;
-    optimizer->free_layer = free_layer_adamW;
-    return optimizer;
 }

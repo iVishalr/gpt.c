@@ -6,6 +6,63 @@
 #include "utils.h"
 #include "transformer.h"
 
+
+tensor_t *forward_transformer(gpt2_t *gpt, tensor_t *x);
+tensor_t *backward_transformer(gpt2_t *gpt, tensor_t *global_grad);
+int num_parameters_transformer(const gpt2_t *gpt);
+void description_transformer(const gpt2_t *gpt);
+void free_layer_transformer(gpt2_t *gpt);
+tensor_t **parameters_transformer(const gpt2_t *gpt);
+tensor_t **gradients_transformer(const gpt2_t *gpt);
+void load_state_dict_transformer(gpt2_t *gpt, tensor_t **state);
+void fast_load_state_dict_transformer(gpt2_t *gpt, tensor_t **state)
+
+
+// GPT2 Class
+gpt2_t *GPT2(GPT2Config_t *config) {
+    gpt2_t *gpt = (gpt2_t *)mallocCheck(sizeof(gpt2_t));
+
+    gpt->block_size = config->block_size;
+    gpt->vocab_size = config->vocab_size;
+    gpt->n_embd = config->n_embd;
+    gpt->n_heads = config->n_heads;
+    gpt->n_layers = config->n_layers;
+
+    gpt->wte = Embedding(gpt->vocab_size, gpt->n_embd);
+    gpt->wpe = Embedding(gpt->block_size, gpt->n_embd);
+
+    gpt->layers = (block_t **)mallocCheck(gpt->n_layers * sizeof(block_t *));
+    for (int i = 0; i < gpt->n_layers; i++)
+        gpt->layers[i] = Block(gpt->n_embd, gpt->n_heads, gpt->block_size, 1);
+
+    gpt->ln_f = LayerNorm(gpt->n_embd, 1e-5, 1);
+    gpt->lm_head = Linear(gpt->n_embd, gpt->vocab_size, 0);
+
+    free_tensor(gpt->wte->W);
+    free_tensor(gpt->wte->dW);
+    gpt->wte->W = gpt->lm_head->W; // https://paperswithcode.com/method/weight-tying
+    gpt->wte->dW = NULL;
+
+    gpt->forward = forward_transformer;
+    gpt->backward = backward_transformer;
+    gpt->free_layer = free_layer_transformer;
+    gpt->description = description_transformer;
+    gpt->num_parameters = num_parameters_transformer;
+    gpt->parameters = parameters_transformer;
+    gpt->gradients = gradients_transformer;
+    gpt->load_state_dict = load_state_dict_transformer;
+    gpt->fast_load_state_dict = fast_load_state_dict_transformer;
+
+    gpt->_num_param_tensors = gpt->wpe->_num_param_tensors;
+    for (int i = 0; i < gpt->n_layers; i++)
+        gpt->_num_param_tensors += gpt->layers[i]->_num_param_tensors;
+    gpt->_num_param_tensors += gpt->ln_f->_num_param_tensors;
+    gpt->_num_param_tensors += gpt->lm_head->_num_param_tensors;
+
+    return gpt;
+}
+
+
 tensor_t *forward_transformer(gpt2_t *gpt, tensor_t *x) {
     if (gpt == NULL) {
         printf("Expected required arugment *gpt to be of type gpt2_t ptr, but got NULL.\n");
@@ -58,6 +115,7 @@ tensor_t *forward_transformer(gpt2_t *gpt, tensor_t *x) {
     out = lm_head->forward(lm_head, out);
     return out;
 }
+
 
 tensor_t *backward_transformer(gpt2_t *gpt, tensor_t *global_grad) {
     if (gpt == NULL) {
@@ -121,6 +179,7 @@ tensor_t *backward_transformer(gpt2_t *gpt, tensor_t *global_grad) {
     return d_tok_emb;
 }
 
+
 int num_parameters_transformer(const gpt2_t *gpt) {
     if (gpt == NULL)
         return 0;
@@ -146,6 +205,7 @@ int num_parameters_transformer(const gpt2_t *gpt) {
     parameters += lm_head->num_parameters(lm_head);
     return parameters;
 }
+
 
 void description_transformer(const gpt2_t *gpt) {
     if (gpt == NULL)
@@ -186,6 +246,7 @@ void description_transformer(const gpt2_t *gpt) {
     printf("-------------------------------\n");
 }
 
+
 void free_layer_transformer(gpt2_t *gpt) {
     if (gpt == NULL)
         return;
@@ -214,6 +275,7 @@ void free_layer_transformer(gpt2_t *gpt) {
     free(layers);
     free(gpt);
 }
+
 
 tensor_t **parameters_transformer(const gpt2_t *gpt) {
     if (gpt == NULL)
@@ -260,6 +322,7 @@ tensor_t **parameters_transformer(const gpt2_t *gpt) {
     return parameters;
 }
 
+
 tensor_t **gradients_transformer(const gpt2_t *gpt) {
     if (gpt == NULL)
         return NULL;
@@ -305,8 +368,8 @@ tensor_t **gradients_transformer(const gpt2_t *gpt) {
     return gradients;
 }
 
-void load_state_dict_transformer(gpt2_t *gpt, tensor_t **state)
-{
+
+void load_state_dict_transformer(gpt2_t *gpt, tensor_t **state) {
     if (gpt == NULL)
     {
         printf("Expected required arugment *gpt to be of type gpt2_t ptr, but got NULL.\n");
@@ -346,8 +409,8 @@ void load_state_dict_transformer(gpt2_t *gpt, tensor_t **state)
     state += lm_head->_num_param_tensors;
 }
 
-void fast_load_state_dict_transformer(gpt2_t *gpt, tensor_t **state)
-{
+
+void fast_load_state_dict_transformer(gpt2_t *gpt, tensor_t **state) {
     if (gpt == NULL)
     {
         printf("Expected required arugment *gpt to be of type gpt2_t ptr, but got NULL.\n");
@@ -376,47 +439,4 @@ void fast_load_state_dict_transformer(gpt2_t *gpt, tensor_t **state)
         memcpy(model_param->t, state_param->t, model_param->length * sizeof(float));
     }
     free(parameters);
-}
-
-gpt2_t *GPT2(GPT2Config_t *config) {
-    gpt2_t *gpt = (gpt2_t *)mallocCheck(sizeof(gpt2_t));
-
-    gpt->block_size = config->block_size;
-    gpt->vocab_size = config->vocab_size;
-    gpt->n_embd = config->n_embd;
-    gpt->n_heads = config->n_heads;
-    gpt->n_layers = config->n_layers;
-
-    gpt->wte = Embedding(gpt->vocab_size, gpt->n_embd);
-    gpt->wpe = Embedding(gpt->block_size, gpt->n_embd);
-
-    gpt->layers = (block_t **)mallocCheck(gpt->n_layers * sizeof(block_t *));
-    for (int i = 0; i < gpt->n_layers; i++)
-        gpt->layers[i] = Block(gpt->n_embd, gpt->n_heads, gpt->block_size, 1);
-
-    gpt->ln_f = LayerNorm(gpt->n_embd, 1e-5, 1);
-    gpt->lm_head = Linear(gpt->n_embd, gpt->vocab_size, 0);
-
-    free_tensor(gpt->wte->W);
-    free_tensor(gpt->wte->dW);
-    gpt->wte->W = gpt->lm_head->W; // https://paperswithcode.com/method/weight-tying
-    gpt->wte->dW = NULL;
-
-    gpt->forward = forward_transformer;
-    gpt->backward = backward_transformer;
-    gpt->free_layer = free_layer_transformer;
-    gpt->description = description_transformer;
-    gpt->num_parameters = num_parameters_transformer;
-    gpt->parameters = parameters_transformer;
-    gpt->gradients = gradients_transformer;
-    gpt->load_state_dict = load_state_dict_transformer;
-    gpt->fast_load_state_dict = fast_load_state_dict_transformer;
-    
-    gpt->_num_param_tensors = gpt->wpe->_num_param_tensors;
-    for (int i = 0; i < gpt->n_layers; i++)
-        gpt->_num_param_tensors += gpt->layers[i]->_num_param_tensors;
-    gpt->_num_param_tensors += gpt->ln_f->_num_param_tensors;
-    gpt->_num_param_tensors += gpt->lm_head->_num_param_tensors;
-
-    return gpt;
 }

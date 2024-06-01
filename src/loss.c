@@ -4,6 +4,29 @@
 #include "utils.h"
 #include "loss.h"
 
+
+tensor_t *forward_cross_entropy_loss(cross_entropy_loss_t *loss, tensor_t *logits, tensor_t *targets);
+tensor_t *backward_cross_entropy_loss(cross_entropy_loss_t *loss, tensor_t *global_grad);
+int num_parameters_cross_entropy_loss(const cross_entropy_loss_t *loss);
+void description_cross_entropy_loss(const cross_entropy_loss_t *loss);
+void free_layer_cross_entropy_loss(cross_entropy_loss_t *loss);
+
+
+// CrossEntropyLoss Class
+cross_entropy_loss_t *CrossEntropyLoss() {
+    cross_entropy_loss_t *loss = (cross_entropy_loss_t *)mallocCheck(sizeof(cross_entropy_loss_t));
+    loss->softmax = Softmax();
+    loss->cache[0] = NULL;
+    loss->cache[1] = NULL;
+    loss->forward = forward_cross_entropy_loss;
+    loss->backward = backward_cross_entropy_loss;
+    loss->description = description_cross_entropy_loss;
+    loss->num_parameters = num_parameters_cross_entropy_loss;
+    loss->free_layer = free_layer_cross_entropy_loss;
+    return loss;
+}
+
+
 tensor_t *forward_cross_entropy_loss(cross_entropy_loss_t *loss, tensor_t *logits, tensor_t *targets) {
 
     if (loss == NULL) {
@@ -61,6 +84,7 @@ tensor_t *forward_cross_entropy_loss(cross_entropy_loss_t *loss, tensor_t *logit
     loss->cache[1] = targets;
     return out;
 }
+
 
 tensor_t *backward_cross_entropy_loss(cross_entropy_loss_t *loss, tensor_t *global_grad) {
 
@@ -126,13 +150,16 @@ tensor_t *backward_cross_entropy_loss(cross_entropy_loss_t *loss, tensor_t *glob
     return out;
 }
 
+
 int num_parameters_cross_entropy_loss(const cross_entropy_loss_t *loss) {
     return 0;
 }
 
+
 void description_cross_entropy_loss(const cross_entropy_loss_t *loss) {
     printf("CrossEntropyLoss()\n\n");
 }
+
 
 void free_layer_cross_entropy_loss(cross_entropy_loss_t *loss) {
     if (loss == NULL)
@@ -142,17 +169,4 @@ void free_layer_cross_entropy_loss(cross_entropy_loss_t *loss) {
     free_tensor(loss->cache[0]);
     free_tensor(loss->cache[1]);
     free(loss);
-}
-
-cross_entropy_loss_t *CrossEntropyLoss() {
-    cross_entropy_loss_t *loss = (cross_entropy_loss_t *)mallocCheck(sizeof(cross_entropy_loss_t));
-    loss->softmax = Softmax();
-    loss->cache[0] = NULL;
-    loss->cache[1] = NULL;
-    loss->forward = forward_cross_entropy_loss;
-    loss->backward = backward_cross_entropy_loss;
-    loss->description = description_cross_entropy_loss;
-    loss->num_parameters = num_parameters_cross_entropy_loss;
-    loss->free_layer = free_layer_cross_entropy_loss;
-    return loss;
 }

@@ -3,6 +3,43 @@
 #include "utils.h"
 #include "blocks.h"
 
+
+tensor_t *forward_self_attention(self_attention_t *self_attn, tensor_t *x);
+tensor_t *backward_self_attention(self_attention_t *self_attn, tensor_t *global_grad); 
+void description_self_attention(const self_attention_t *self_attn); 
+int num_parameters_self_attention(const self_attention_t *self_attn);
+void free_layer_self_attention(self_attention_t *self_attn);
+tensor_t **parameters_self_attention(const self_attention_t *self_attn);
+tensor_t **gradients_self_attention(const self_attention_t *self_attn); 
+void load_state_dict_self_attention(self_attention_t *self_attn, tensor_t **state);
+
+
+// SelfAttention Class
+self_attention_t *SelfAttention(const int n_embd, const int n_heads, const int block_size, const int use_bias) {
+
+    self_attention_t *self_attn = (self_attention_t *)mallocCheck(sizeof(self_attention_t));
+    self_attn->n_embd = n_embd;
+    self_attn->n_heads = n_heads;
+    self_attn->use_bias = use_bias;
+    self_attn->block_size = block_size;
+
+    self_attn->qkv = Linear(n_embd, n_embd * 3, use_bias);
+    self_attn->attn = Attention(n_embd, n_heads, block_size);
+    self_attn->c_proj = Linear(n_embd, n_embd, use_bias);
+
+    self_attn->forward = forward_self_attention;
+    self_attn->backward = backward_self_attention;
+    self_attn->description = description_self_attention;
+    self_attn->num_parameters = num_parameters_self_attention;
+    self_attn->free_layer = free_layer_self_attention;
+    self_attn->parameters = parameters_self_attention;
+    self_attn->gradients = gradients_self_attention;
+    self_attn->load_state_dict = load_state_dict_self_attention;
+    self_attn->_num_param_tensors = self_attn->qkv->_num_param_tensors + self_attn->c_proj->_num_param_tensors;
+    return self_attn;
+}
+
+
 tensor_t *forward_self_attention(self_attention_t *self_attn, tensor_t *x) {
 
     if (self_attn == NULL) {
@@ -27,6 +64,7 @@ tensor_t *forward_self_attention(self_attention_t *self_attn, tensor_t *x) {
     out = c_proj->forward(c_proj, out);
     return out;
 }
+
 
 tensor_t *backward_self_attention(self_attention_t *self_attn, tensor_t *global_grad) {
 
@@ -53,6 +91,7 @@ tensor_t *backward_self_attention(self_attention_t *self_attn, tensor_t *global_
     return out;
 }
 
+
 void description_self_attention(const self_attention_t *self_attn) {
     if (self_attn == NULL)
         return;
@@ -69,6 +108,7 @@ void description_self_attention(const self_attention_t *self_attn) {
     _attn->description(_attn);
     c_proj->description(c_proj);
 }
+
 
 int num_parameters_self_attention(const self_attention_t *self_attn) {
     if (self_attn == NULL)
@@ -87,6 +127,7 @@ int num_parameters_self_attention(const self_attention_t *self_attn) {
     return total_parameters;
 }
 
+
 void free_layer_self_attention(self_attention_t *self_attn) {
     if (self_attn == NULL)
         return;
@@ -102,6 +143,7 @@ void free_layer_self_attention(self_attention_t *self_attn) {
     c_proj->free_layer(c_proj);
     free(self_attn);
 }
+
 
 tensor_t **parameters_self_attention(const self_attention_t *self_attn) {
     if (self_attn == NULL)
@@ -125,6 +167,7 @@ tensor_t **parameters_self_attention(const self_attention_t *self_attn) {
     return parameters;
 }
 
+
 tensor_t **gradients_self_attention(const self_attention_t *self_attn) {
     if (self_attn == NULL)
         return NULL;
@@ -147,6 +190,7 @@ tensor_t **gradients_self_attention(const self_attention_t *self_attn) {
     return gradients;
 }
 
+
 void load_state_dict_self_attention(self_attention_t *self_attn, tensor_t **state)
 {
     if (self_attn == NULL)
@@ -164,28 +208,4 @@ void load_state_dict_self_attention(self_attention_t *self_attn, tensor_t **stat
     self_attn->qkv->load_state_dict(self_attn->qkv, state);
     state += self_attn->qkv->_num_param_tensors;
     self_attn->c_proj->load_state_dict(self_attn->c_proj, state);
-}
-
-self_attention_t *SelfAttention(const int n_embd, const int n_heads, const int block_size, const int use_bias) {
-
-    self_attention_t *self_attn = (self_attention_t*)mallocCheck(sizeof(self_attention_t));
-    self_attn->n_embd = n_embd;
-    self_attn->n_heads = n_heads;
-    self_attn->use_bias = use_bias;
-    self_attn->block_size = block_size;
-
-    self_attn->qkv = Linear(n_embd, n_embd * 3, use_bias);
-    self_attn->attn = Attention(n_embd, n_heads, block_size);
-    self_attn->c_proj = Linear(n_embd, n_embd, use_bias);
-
-    self_attn->forward = forward_self_attention;
-    self_attn->backward = backward_self_attention;
-    self_attn->description = description_self_attention;
-    self_attn->num_parameters = num_parameters_self_attention;
-    self_attn->free_layer = free_layer_self_attention;
-    self_attn->parameters = parameters_self_attention;
-    self_attn->gradients = gradients_self_attention;
-    self_attn->load_state_dict = load_state_dict_self_attention;
-    self_attn->_num_param_tensors = self_attn->qkv->_num_param_tensors + self_attn->c_proj->_num_param_tensors;
-    return self_attn;
 }

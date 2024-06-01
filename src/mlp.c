@@ -3,6 +3,42 @@
 #include "utils.h"
 #include "blocks.h"
 
+
+tensor_t *forward_mlp(mlp_t *mlp, tensor_t *x);
+tensor_t *backward_mlp(mlp_t *mlp, tensor_t *global_grad);
+void description_mlp(const mlp_t *mlp);
+int num_parameters_mlp(const mlp_t *mlp);
+void free_layer_mlp(mlp_t *mlp);
+tensor_t **parameters_mlp(const mlp_t *mlp);
+tensor_t **gradients_mlp(const mlp_t *mlp);
+void load_state_dict_mlp(mlp_t *mlp, tensor_t **state);
+
+
+// MLP Class
+mlp_t *MLP(const int in_features, const int expansion_factor, const int use_bias) {
+
+    mlp_t *mlp = (mlp_t *)mallocCheck(sizeof(mlp_t));
+    mlp->in_features = in_features;
+    mlp->expansion_factor = expansion_factor;
+    mlp->use_bias = use_bias;
+
+    mlp->c_fc = Linear(in_features, expansion_factor * in_features, use_bias);
+    mlp->gelu = GELU();
+    mlp->c_proj = Linear(expansion_factor * in_features, in_features, use_bias);
+
+    mlp->forward = forward_mlp;
+    mlp->backward = backward_mlp;
+    mlp->description = description_mlp;
+    mlp->num_parameters = num_parameters_mlp;
+    mlp->free_layer = free_layer_mlp;
+    mlp->parameters = parameters_mlp;
+    mlp->gradients = gradients_mlp;
+    mlp->load_state_dict = load_state_dict_mlp;
+    mlp->_num_param_tensors = mlp->c_fc->_num_param_tensors + mlp->c_proj->_num_param_tensors;
+    return mlp;
+}
+
+
 tensor_t *forward_mlp(mlp_t *mlp, tensor_t *x) {
 
     if (mlp == NULL) {
@@ -22,6 +58,7 @@ tensor_t *forward_mlp(mlp_t *mlp, tensor_t *x) {
     return out;
 }
 
+
 tensor_t *backward_mlp(mlp_t *mlp, tensor_t *global_grad) {
 
     if (mlp == NULL) {
@@ -40,6 +77,7 @@ tensor_t *backward_mlp(mlp_t *mlp, tensor_t *global_grad) {
     out = mlp->c_fc->backward(mlp->c_fc, out);
     return out;
 }
+
 
 void description_mlp(const mlp_t *mlp) {
     if (mlp == NULL)
@@ -62,6 +100,7 @@ void description_mlp(const mlp_t *mlp) {
     // printf("------------------------------------------------------------\n");
 }
 
+
 int num_parameters_mlp(const mlp_t *mlp) {
     if (mlp == NULL)
         return 0;
@@ -71,6 +110,7 @@ int num_parameters_mlp(const mlp_t *mlp) {
     total_parameters += mlp->c_proj->num_parameters(mlp->c_proj);
     return total_parameters;
 }
+
 
 void free_layer_mlp(mlp_t *mlp) {
     if (mlp == NULL)
@@ -83,6 +123,7 @@ void free_layer_mlp(mlp_t *mlp) {
     mlp->c_proj = NULL;
     free(mlp);
 }
+
 
 tensor_t **parameters_mlp(const mlp_t *mlp) {
     if (mlp == NULL)
@@ -106,6 +147,7 @@ tensor_t **parameters_mlp(const mlp_t *mlp) {
     return parameters;
 }
 
+
 tensor_t **gradients_mlp(const mlp_t *mlp) {
     if (mlp == NULL)
         return NULL;
@@ -128,8 +170,8 @@ tensor_t **gradients_mlp(const mlp_t *mlp) {
     return gradients;
 }
 
-void load_state_dict_mlp(mlp_t *mlp, tensor_t **state)
-{
+
+void load_state_dict_mlp(mlp_t *mlp, tensor_t **state) {
     if (mlp == NULL)
     {
         printf("Expected required arugment *mlp to be of type mlp_t ptr, but got NULL.\n");
@@ -145,27 +187,4 @@ void load_state_dict_mlp(mlp_t *mlp, tensor_t **state)
     mlp->c_fc->load_state_dict(mlp->c_fc, state);
     state += mlp->c_fc->_num_param_tensors;
     mlp->c_proj->load_state_dict(mlp->c_proj, state);
-}
-
-mlp_t *MLP(const int in_features, const int expansion_factor, const int use_bias) {
-
-    mlp_t *mlp = (mlp_t*)mallocCheck(sizeof(mlp_t));
-    mlp->in_features = in_features;
-    mlp->expansion_factor = expansion_factor;
-    mlp->use_bias = use_bias;
-
-    mlp->c_fc = Linear(in_features, expansion_factor * in_features, use_bias);
-    mlp->gelu = GELU();
-    mlp->c_proj = Linear(expansion_factor * in_features, in_features, use_bias);
-
-    mlp->forward = forward_mlp;
-    mlp->backward = backward_mlp;
-    mlp->description = description_mlp;
-    mlp->num_parameters = num_parameters_mlp;
-    mlp->free_layer = free_layer_mlp;
-    mlp->parameters = parameters_mlp;
-    mlp->gradients = gradients_mlp;
-    mlp->load_state_dict = load_state_dict_mlp;
-    mlp->_num_param_tensors = mlp->c_fc->_num_param_tensors + mlp->c_proj->_num_param_tensors;
-    return mlp;
 }
