@@ -229,7 +229,8 @@ def write_fp32(tensor, file):
     file.write(b)
 
 def write_tensors(model_tensors, L, file):
-    write_fp32(model_tensors["transformer.wpe.weight"], file) # (V, C)
+    write_fp32(model_tensors["transformer.wte.weight"], file) # (vocab_size, C)
+    write_fp32(model_tensors["transformer.wpe.weight"], file) # (block_size, C)
     
     # write block's parameters
     for i in range(L):
@@ -247,7 +248,6 @@ def write_tensors(model_tensors, L, file):
         write_fp32(model_tensors[f"transformer.h.{i}.mlp.c_proj.bias"], file)
     write_fp32(model_tensors["transformer.ln_f.weight"], file)
     write_fp32(model_tensors["transformer.ln_f.bias"], file)
-    write_fp32(model_tensors["transformer.wte.weight"], file)
 
 
 def write_model(model: GPT, filename):
@@ -267,16 +267,10 @@ def write_model(model: GPT, filename):
     num_required_shape_headers = 0
     shapes = []
     for name, param in params.items():
-        if name == "transformer.wte.weight":
-            continue
         _shape = list(param.shape)
+        print(_shape)
         num_required_shape_headers += len(_shape) + 1
         shapes.append(_shape)
-    
-    param = params["transformer.wte.weight"]
-    _shape = list(param.shape)
-    num_required_shape_headers += len(_shape) + 1
-    shapes.append(_shape)
     
     shape_headers = torch.zeros(num_required_shape_headers, dtype=torch.int32)
     shape_headers_index = 0
@@ -310,7 +304,6 @@ def load_model(model: GPT, filename: str) -> None:
         # validate headers
         if headers[0] != expected_magic_number:
             raise ValueError(f"Expected magic number in model to be {expected_magic_number}. Got {headers[0]}.")
-
         if headers[1] != model.config.block_size:
             raise ValueError(f"Expected block_size in checkpoint to be {model.config.block_size}. Got {headers[1]}.")
         if headers[2] != model.config.vocab_size:
@@ -327,14 +320,8 @@ def load_model(model: GPT, filename: str) -> None:
 
         num_required_shape_headers = 0
         for name, param in params.items():
-            if name == "transformer.wte.weight":
-                continue
             _shape = list(param.shape)
             num_required_shape_headers += len(_shape) + 1
-        
-        param = params["transformer.wte.weight"]
-        _shape = list(param.shape)
-        num_required_shape_headers += len(_shape) + 1
 
         if headers[6] != num_required_shape_headers:
             raise ValueError(f"Expected shape_headers in checkpoint to be {num_required_shape_headers}. Got {headers[6]}.")
@@ -368,10 +355,11 @@ def load_model(model: GPT, filename: str) -> None:
             tensor = torch.from_numpy(data_np).view(shape)
             loaded_parameters.append(tensor)
 
-        params["transformer.wpe.weight"] = loaded_parameters[0] # (V, C)
+        params["transformer.wte.weight"] = loaded_parameters[0] # (vocab_size, C)
+        params["transformer.wpe.weight"] = loaded_parameters[1] # (block_size, C)
 
         # load block's parameters
-        idx = 1
+        idx = 2
         for i in range(model.config.n_layer):
             params[f"transformer.h.{i}.ln_1.weight"] = loaded_parameters[idx]
             params[f"transformer.h.{i}.ln_1.bias"] = loaded_parameters[idx + 1]
@@ -389,8 +377,7 @@ def load_model(model: GPT, filename: str) -> None:
 
         params["transformer.ln_f.weight"] = loaded_parameters[idx]
         params["transformer.ln_f.bias"] = loaded_parameters[idx + 1]
-        params["transformer.wte.weight"] = loaded_parameters[idx + 2]
-        idx += 3
+        idx += 2
 
         params['lm_head.weight'] = params['transformer.wte.weight']
 
@@ -528,7 +515,7 @@ if __name__ == "__main__":
     load_model(model, "./model/gpt2.bin")
     # write_model(model, "model/gpt2.bin")
 
-    training_configs = TrainingConfig()
+    training_configs = TrainingConfig(eps=1e-8)
 
     trainer = Trainer(
         model = model,
