@@ -13,6 +13,7 @@
 // main training loop
 const char *tiny_shakespeare_train = "data/tiny_shakespeare/tiny_shakespeare_train.bin";
 const char *tiny_shakespeare_val = "data/tiny_shakespeare/tiny_shakespeare_val.bin";
+const char *checkpoint_path = "logs/checkpoint.bin";
 
 const int batch_size = 8;
 const int block_size = 128;
@@ -37,16 +38,16 @@ tensor_t **load_model(const char *file_path) {
         exit(1);
     }
     size_t max_block_size, vocab_size, n_layers, n_heads, n_embd;
-    size_t shape_header_size;
+    size_t shape_header_size, steps;
     max_block_size = headers[1];
     vocab_size = headers[2];
     n_layers = headers[3];
     n_heads = headers[4];
     n_embd = headers[5];
     shape_header_size = headers[6];
+    steps = headers[7];
 
-
-    printf("[GPT2]\n");
+    printf("[GPT2 | steps trained: %zu]\n", steps);
     printf("max_block_size: %zu\n", max_block_size);
     printf("vocab_size: %zu\n", vocab_size);
     printf("n_layers: %zu\n", n_layers);
@@ -83,7 +84,6 @@ tensor_t **load_model(const char *file_path) {
 }
 
 int main() {
-    tensor_t **params = load_model("./model/gpt2.bin");
 
     GPT2Config_t gpt2_config;
     gpt2_config.block_size = 1024;
@@ -93,8 +93,9 @@ int main() {
     gpt2_config.n_layers = 12;
 
     gpt2_t *gpt = GPT2(&gpt2_config);
+
+    tensor_t **params = load_model(checkpoint_path);
     gpt->fast_load_state_dict(gpt, params);
-    
     for (int i = 0; i < gpt->_num_param_tensors; i++)
         free_tensor(params[i]);
     free(params);
@@ -113,6 +114,10 @@ int main() {
 
     // create loss_fn
     cross_entropy_loss_t *loss = CrossEntropyLoss();
+
+    printf("\n------------------------\n");
+    printf("         Training       \n");
+    printf("------------------------\n");
 
     struct timespec start, end;
     for (int step = 1; step <= training_steps; step++) {

@@ -57,8 +57,8 @@ root_binaries: $(EXES)
 tests: 
 	$(CC) $(CFLAGS) $(INCLUDES) $(LDFLAGS) tests/test_bmm.c $(LDLIBS)
 
-valgrind: setup gpt
-	valgrind -s --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose ./build/gpt 
+valgrind: setup all
+	valgrind -s --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose ./train_gpt
 
 # Rule to create the build directory if it doesn't exist
 setup:

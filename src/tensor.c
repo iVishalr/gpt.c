@@ -32,18 +32,40 @@ float gaussRandom() {
     return gaussGenerator(&cache, &return_cache);
 }
 
-float rand_norm(float mu, float std) {
-    return mu + gaussRandom() * std;
-}
-
-/* https : // stackoverflow.com/questions/11641629/generating-a-uniform-distribution-of-integers-in-c
-*/
+// Implementation taken from
+// https://stackoverflow.com/questions/11641629/generating-a-uniform-distribution-of-integers-in-c
 float rand_uniform(float low, float high)
 {
     float r = rand() / (1.0f + RAND_MAX);
     float range = high - low + 1;
     float scaled = (r * range) + low;
     return scaled;
+}
+
+// Box-Muller transform to generate a random number from a normal distribution
+float rand_norm(double mean, double stddev)
+{
+    static int have_spare = 0;
+    static double spare;
+
+    if (have_spare)
+    {
+        have_spare = 0;
+        return mean + stddev * spare;
+    }
+
+    have_spare = 1;
+    double u, v, s;
+    do
+    {
+        u = rand_uniform(0, 1) * 2.0 - 1.0;
+        v = rand_uniform(0, 1) * 2.0 - 1.0;
+        s = u * u + v * v;
+    } while (s >= 1.0 || s == 0.0);
+
+    s = sqrt(-2.0 * log(s) / s);
+    spare = v * s;
+    return (float)(mean + stddev * (u * s));
 }
 
 tensor_t *create(const int *shape, const int n) {
