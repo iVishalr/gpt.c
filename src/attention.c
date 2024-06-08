@@ -19,7 +19,7 @@ attention_t *Attention(int n_embd, int n_heads, int block_size) {
 
     if (n_embd % n_heads != 0)
     {
-        printf("Expected n_embd to be divisble by n_heads, but got %d % d == %f\n", n_embd, n_heads, n_embd % n_heads);
+        printf("Expected n_embd to be divisble by n_heads, but got %d % d == %d\n", n_embd, n_heads, n_embd % n_heads);
         return NULL;
     }
 
