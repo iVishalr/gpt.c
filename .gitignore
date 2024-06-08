@@ -12,7 +12,7 @@ logs/
 data/
 *.pt
 model/
-
+__pycache__/
 # Object files
 *.o
 *.ko
