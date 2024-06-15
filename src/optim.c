@@ -111,26 +111,26 @@ void step_adamW(adamW_t *optimizer) {
         
         mul_(m_t, optimizer->beta1);
         mul_(v_t, optimizer->beta2);
-
+        
+        float beta1_scale = (1.0f - optimizer->beta1);
+        float beta2_scale = (1.0f - optimizer->beta2);
+        
         for (int j = 0; j < grad->length; j++) {
             float grad_j = grad->t[j];
-            m_t->t[j] += (1.0f - optimizer->beta1) * grad_j;
-            v_t->t[j] += (1.0f - optimizer->beta2) * grad_j * grad_j;
+            m_t->t[j] += beta1_scale * grad_j;
+            v_t->t[j] += beta2_scale * grad_j * grad_j;
         }
 
-        tensor_t *m_hat = create_tensor(m_t->shape, m_t->ndims);
-        tensor_t *v_hat = create_tensor(v_t->shape, v_t->ndims);
+        beta1_scale = 1.0f / (1.0f - powf(optimizer->beta1, optimizer->step_t));
+        beta2_scale = 1.0f / (1.0f - powf(optimizer->beta2, optimizer->step_t));
+
+        float m_hat_j = 0.0f;
+        float v_hat_j = 0.0f;
         for (int j = 0; j < grad->length; j++) {
-            m_hat->t[j] = m_t->t[j] / (1.0f - powf(optimizer->beta1, optimizer->step_t));
-            v_hat->t[j] = v_t->t[j] / (1.0f - powf(optimizer->beta2, optimizer->step_t));
+            m_hat_j = m_t->t[j] * beta1_scale;
+            v_hat_j = v_t->t[j] * beta2_scale;
+            param->t[j] -= lr * m_hat_j / (sqrtf(v_hat_j) + optimizer->eps);
         }
-
-        for (int j = 0; j < param->length; j++) {
-            param->t[j] -= lr * m_hat->t[j] / (sqrtf(v_hat->t[j]) + optimizer->eps);
-        }
-
-        free_tensor(m_hat);
-        free_tensor(v_hat);
     }   
 }
 

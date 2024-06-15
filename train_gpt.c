@@ -17,7 +17,7 @@ const char *checkpoint_path = "logs/checkpoint.bin";
 
 const int batch_size = 8;
 const int block_size = 128;
-const int training_steps = 298;
+const int training_steps = 10;
 const float lr = 3e-4f;
 const float beta1 = 0.9f;
 const float beta2 = 0.999f;

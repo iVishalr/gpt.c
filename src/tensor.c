@@ -269,9 +269,8 @@ void mul_(tensor_t *x, const float s) {
         printf("Required argument *x is NULL.\n");
         return;
     }
-
-    for (int i = 0; i < x->length; i++)
-        x->t[i] *= s;
+    
+    cblas_sscal(x->length, s, x->t, 1);
 }
 
 void pow_(tensor_t *x, const float p) {
