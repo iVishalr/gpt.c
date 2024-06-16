@@ -289,7 +289,7 @@ void *tensor_copy(tensor_t *dest, const tensor_t *src) {
         return NULL;
     }
 
-    memcpy(dest->t, src->t, src->length * sizeof(float));
+    cblas_scopy(src->length, src->t, 1, dest->t, 1);
     
     for (int i = 0; i < src->ndims; i++)
         dest->shape[i] = src->shape[i];
@@ -299,14 +299,14 @@ void *tensor_copy(tensor_t *dest, const tensor_t *src) {
     return dest;
 }
 
-void *uniform(tensor_t *tensor, const float low, const float hight) {
+void *uniform(tensor_t *tensor, const float low, const float high) {
     if (tensor == NULL) {
         printf("Expected required argument *t to be of type tensor_t, but got NULL.");
         return NULL;
     }
 
     for (int i = 0; i < tensor->length; i++) {
-        tensor->t[i] = rand_uniform(low, hight);
+        tensor->t[i] = rand_uniform(low, high);
     }
     return tensor;
 }

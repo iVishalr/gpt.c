@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <omp.h>
 #include "utils.h"
 #include "activation.h"
 
@@ -146,6 +147,7 @@ tensor_t *forward_softmax(softmax_t *softmax, tensor_t *x) {
 
     tensor_t *out = create_tensor(x->shape, x->ndims);
 
+    #pragma omp parallel for collapse(2)
     for (int b = 0; b < B; b++) {
         for (int t = 0; t < T; t++) {
             float *x_bt = x->t + b * T * C + t * C;

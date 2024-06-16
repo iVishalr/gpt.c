@@ -68,19 +68,18 @@ tensor_t *forward_layer_norm(layer_norm_t *norm, tensor_t *x) {
         return NULL;
     }
 
-    tensor_t *out = create_tensor(x->shape, x->ndims);
-    int cache_shape[1024];
-    for (int i = 0; i < x->ndims - 1; i++)
-        cache_shape[i] = x->shape[i];
+    int B, T, in_features;
+    B = x->shape[0];
+    T = x->shape[1];
+    in_features = x->shape[2];
 
-    norm->cache[0] = create_tensor(cache_shape, x->ndims - 1); // (B,T)
-    norm->cache[1] = create_tensor(cache_shape, x->ndims - 1); // (B,T)
+    tensor_t *out = create_tensor(x->shape, x->ndims); // (B, T, C)
+    norm->cache[0] = create_tensor(x->shape, x->ndims - 1); // (B, T)
+    norm->cache[1] = create_tensor(x->shape, x->ndims - 1); // (B, T)
 
-    int collapsed_dims = 1, row_size = x->shape[x->ndims - 1];
-    for (int i = 0; i < x->ndims - 1; i++)
-        collapsed_dims *= x->shape[i];
+    int row_size = in_features;
 
-    for (int i = 0; i < collapsed_dims; i++) {
+    for (int i = 0; i < B * T; i++) {
         float mean = 0.0f;
         for (int j = 0; j < row_size; j++) {
             mean += x->t[i * row_size + j];
@@ -157,6 +156,10 @@ tensor_t *backward_layer_norm(layer_norm_t *norm, tensor_t *global_grad) {
         dval *= rstd
         dX += dval
     */
+    int B, T, in_features;
+    B = global_grad->shape[0];
+    T = global_grad->shape[1];
+    in_features = global_grad->shape[2];
 
     tensor_t *mean, *rstd, *x, *out;
     mean = norm->cache[0];
@@ -170,13 +173,9 @@ tensor_t *backward_layer_norm(layer_norm_t *norm, tensor_t *global_grad) {
     if (!norm->db)
         norm->db = norm->use_bias > 0 ? zeros(norm->b->shape, norm->b->ndims) : NULL;
 
-    int collapsed_dims = 1;
-    for (int i = 0; i < x->ndims - 1; i++) 
-        collapsed_dims *= x->shape[i];
+    int row_size = in_features;
 
-    int row_size = norm->in_features;
-
-    for(int i = 0; i < collapsed_dims; i++) {
+    for(int i = 0; i < B * T; i++) {
         float dnorm_mean = 0.0f;
         float dnorm_norm_mean = 0.0f;
         for (int j = 0; j < row_size; j++) {
