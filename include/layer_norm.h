@@ -40,29 +40,31 @@ extern "C" {
 #endif
 
 typedef struct layer_norm {
-    int in_features;
-    int use_bias;
-    float eps;
-    
-    tensor_t *W;
-    tensor_t *b;
-    tensor_t *dW;
-    tensor_t *db;
-    tensor_t *cache[3];
-    
-    tensor_t *(*forward)(struct layer_norm *, tensor_t *);
-    tensor_t *(*backward)(struct layer_norm *, tensor_t *);
-    
-    void (*description)(const struct layer_norm *);
-    int (*num_parameters)(const struct layer_norm *);
-    void (*free_layer)(struct layer_norm *);
-    
-    tensor_t **(*parameters)(const struct layer_norm *);
-    tensor_t **(*gradients)(const struct layer_norm *);
-    void (*load_state_dict)(struct layer_norm *, tensor_t **);
+    // Integers grouped together
+    int in_features;        // 4 bytes
+    int use_bias;           // 4 bytes
+    int _num_param_tensors; // 4 bytes
 
-    int _num_param_tensors;
-} layer_norm_t;
+    // Floats grouped together
+    float eps; // 4 bytes
+
+    // Pointers grouped together
+    tensor_t *W;        // 8 bytes
+    tensor_t *b;        // 8 bytes
+    tensor_t *dW;       // 8 bytes
+    tensor_t *db;       // 8 bytes
+    tensor_t *cache[3]; // 24 bytes (3 * 8 bytes)
+
+    // Function pointers grouped together
+    tensor_t *(*forward)(struct layer_norm *, tensor_t *);     // 8 bytes
+    tensor_t *(*backward)(struct layer_norm *, tensor_t *);    // 8 bytes
+    void (*description)(const struct layer_norm *);            // 8 bytes
+    int (*num_parameters)(const struct layer_norm *);          // 8 bytes
+    void (*free_layer)(struct layer_norm *);                   // 8 bytes
+    tensor_t **(*parameters)(const struct layer_norm *);       // 8 bytes
+    tensor_t **(*gradients)(const struct layer_norm *);        // 8 bytes
+    void (*load_state_dict)(struct layer_norm *, tensor_t **); // 8 bytes
+} __attribute__((aligned(8))) layer_norm_t;                    // Ensure the structure is aligned to 8 bytes
 
 layer_norm_t *LayerNorm(int in_features, const float eps, const int use_bias);
 

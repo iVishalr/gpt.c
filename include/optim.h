@@ -40,24 +40,31 @@ extern "C" {
 #endif
 
 typedef struct adamW {
-    tensor_t **parameters;
-    tensor_t **gradients;
-    int n_parameters;
-    float lr;
-    float beta1;
-    float beta2;
-    float eps;
-    float weight_decay;
-    
-    int step_t;
-    tensor_t **m;
-    tensor_t **v;
-    
-    void (*step)(struct adamW *);
-    void (*zero_grad)(struct adamW *);
-    void (*free_layer)(struct adamW *);
-} adamW_t;
+    // Pointers grouped together
+    tensor_t **parameters; // 8 bytes
+    tensor_t **gradients;  // 8 bytes
+    tensor_t **m;          // 8 bytes
+    tensor_t **v;          // 8 bytes
 
+    // Floats grouped together
+    float lr;           // 4 bytes
+    float beta1;        // 4 bytes
+    float beta2;        // 4 bytes
+    float eps;          // 4 bytes
+    float weight_decay; // 4 bytes
+
+    // Integers grouped together
+    int n_parameters; // 4 bytes
+    int step_t;       // 4 bytes
+    
+    // Padding to ensure 8-byte alignment of the entire structure
+    char __padding[4]; // 4 bytes of padding
+
+    // Function pointers grouped together
+    void (*step)(struct adamW *);       // 8 bytes
+    void (*zero_grad)(struct adamW *);  // 8 bytes
+    void (*free_layer)(struct adamW *); // 8 bytes
+} __attribute__((aligned(8))) adamW_t;  // Ensure the structure is aligned to 8 bytes
 
 adamW_t *AdamW(tensor_t **parameters, tensor_t **gradients, const int n_parameters, const float lr, const float beta1, const float beta2, const float eps, const float weight_decay);
 

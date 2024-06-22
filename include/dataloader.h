@@ -41,18 +41,23 @@ extern "C" {
 #endif
 
 typedef struct dataloader {
-    int batch_size;
-    int block_size;
-    FILE *fp;
-    size_t _file_size;
-    size_t _curr_fp_ptr;
+    // Integers grouped together
+    int batch_size; // 4 bytes
+    int block_size; // 4 bytes
 
-    int *batch;
+    // Pointers grouped together
+    FILE *fp;   // 8 bytes
+    int *batch; // 8 bytes (assuming pointer size)
 
-    void (*next)(struct dataloader *, tensor_t **);
-    void (*reset)(struct dataloader *);
-    void (*free_layer)(struct dataloader *);
-} dataloader_t;
+    // Size_t members (may vary in size)
+    size_t _file_size;   // Size_t can vary (usually 8 bytes on 64-bit)
+    size_t _curr_fp_ptr; // Size_t can vary (usually 8 bytes on 64-bit)
+
+    // Function pointers grouped together
+    void (*next)(struct dataloader *, tensor_t **); // 8 bytes
+    void (*reset)(struct dataloader *);             // 8 bytes
+    void (*free_layer)(struct dataloader *);        // 8 bytes
+} __attribute__((aligned(8))) dataloader_t;         // Ensure the structure is aligned to 8 bytes
 
 dataloader_t *DataLoader(const char *filename, const int batch_size, const int block_size);
 

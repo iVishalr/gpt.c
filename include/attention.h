@@ -40,16 +40,21 @@ extern "C" {
 #endif
 
 typedef struct attention {
-    tensor_t *buffer;
-    tensor_t *cache[5];
-    tensor_t *(*forward)(struct attention *, tensor_t *);
-    tensor_t *(*backward)(struct attention *, tensor_t *);
-    void (*description)(const struct attention *);
-    int (*num_parameters)(const struct attention *);
-    void (*free_layer)(struct attention *);
-    int n_embd;
-    int n_heads;
-} attention_t;
+    // Pointers grouped together
+    tensor_t *buffer;   // 8 bytes
+    tensor_t *cache[5]; // 5 * 8 bytes = 40 bytes (assuming pointers are 8 bytes each)
+
+    // Function pointers grouped together
+    tensor_t *(*forward)(struct attention *, tensor_t *);  // 8 bytes
+    tensor_t *(*backward)(struct attention *, tensor_t *); // 8 bytes
+    void (*description)(const struct attention *);         // 8 bytes
+    int (*num_parameters)(const struct attention *);       // 8 bytes
+    void (*free_layer)(struct attention *);                // 8 bytes
+
+    // Integers grouped together
+    int n_embd;   // 4 bytes
+    int n_heads;  // 4 bytes
+} __attribute__((aligned(8))) attention_t; // Ensure the structure is aligned to 8 bytes
 
 attention_t *Attention(int n_embd, int n_heads, int block_size);
 

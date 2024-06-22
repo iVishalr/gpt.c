@@ -42,33 +42,32 @@ extern "C" {
 #endif
 
 typedef struct gpt2 {
-    int n_embd;
-    int n_heads;
-    int n_layers;
-    int block_size;
-    int vocab_size;
+    // Integer types grouped together
+    int n_embd;             // 4 bytes
+    int n_heads;            // 4 bytes
+    int n_layers;           // 4 bytes
+    int block_size;         // 4 bytes
+    int vocab_size;         // 4 bytes
+    int _num_param_tensors; // 4 bytes
 
-    block_t **layers;
+    // Pointers grouped together
+    block_t **layers;   // 8 bytes
+    embedding_t *wpe;   // 8 bytes
+    embedding_t *wte;   // 8 bytes
+    linear_t *lm_head;  // 8 bytes
+    layer_norm_t *ln_f; // 8 bytes
 
-    embedding_t *wpe;
-    embedding_t *wte;
-    linear_t *lm_head;
-    layer_norm_t *ln_f;
-
-    tensor_t *(*forward)(struct gpt2 *, tensor_t *);
-    tensor_t *(*backward)(struct gpt2 *, tensor_t *);
-
-    void (*description)(const struct gpt2 *);
-    int (*num_parameters)(const struct gpt2 *);
-    void (*free_layer)(struct gpt2 *);
-
-    tensor_t **(*parameters)(const struct gpt2 *);
-    tensor_t **(*gradients)(const struct gpt2 *);
-    void (*load_state_dict)(struct gpt2 *, tensor_t **);
-    void (*fast_load_state_dict)(struct gpt2 *, tensor_t **);
-
-    int _num_param_tensors;
-} gpt2_t;
+    // Function pointers grouped together
+    tensor_t *(*forward)(struct gpt2 *, tensor_t *);          // 8 bytes
+    tensor_t *(*backward)(struct gpt2 *, tensor_t *);         // 8 bytes
+    void (*description)(const struct gpt2 *);                 // 8 bytes
+    int (*num_parameters)(const struct gpt2 *);               // 8 bytes
+    void (*free_layer)(struct gpt2 *);                        // 8 bytes
+    tensor_t **(*parameters)(const struct gpt2 *);            // 8 bytes
+    tensor_t **(*gradients)(const struct gpt2 *);             // 8 bytes
+    void (*load_state_dict)(struct gpt2 *, tensor_t **);      // 8 bytes
+    void (*fast_load_state_dict)(struct gpt2 *, tensor_t **); // 8 bytes
+} gpt2_t; // Ensure the structure is aligned to 8 bytes
 
 typedef struct {
     int block_size;

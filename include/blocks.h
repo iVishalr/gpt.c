@@ -43,76 +43,83 @@ extern "C" {
 #endif
 
 typedef struct mlp {
-    int in_features;
-    int use_bias;
-    int expansion_factor;
-    
-    linear_t *c_fc;
-    gelu_t *gelu;
-    linear_t *c_proj;
-    
-    tensor_t *(*forward)(struct mlp *, tensor_t *);
-    tensor_t *(*backward)(struct mlp *, tensor_t *);
-    
-    void (*description)(const struct mlp *);
-    int (*num_parameters)(const struct mlp *);
-    void (*free_layer)(struct mlp *);
+    // Integers grouped together
+    int in_features;        // 4 bytes
+    int use_bias;           // 4 bytes
+    int expansion_factor;   // 4 bytes
+    int _num_param_tensors; // 4 bytes
 
-    tensor_t **(*parameters)(const struct mlp *);
-    tensor_t **(*gradients)(const struct mlp *);
-    void (*load_state_dict)(struct mlp *, tensor_t **);
+    // Pointers grouped together
+    linear_t *c_fc;   // 8 bytes
+    gelu_t *gelu;     // 8 bytes
+    linear_t *c_proj; // 8 bytes
 
-    int _num_param_tensors;
-} mlp_t;
+    // Function pointers grouped together
+    tensor_t *(*forward)(struct mlp *, tensor_t *);     // 8 bytes
+    tensor_t *(*backward)(struct mlp *, tensor_t *);    // 8 bytes
+    void (*description)(const struct mlp *);            // 8 bytes
+    int (*num_parameters)(const struct mlp *);          // 8 bytes
+    void (*free_layer)(struct mlp *);                   // 8 bytes
+    tensor_t **(*parameters)(const struct mlp *);       // 8 bytes
+    tensor_t **(*gradients)(const struct mlp *);        // 8 bytes
+    void (*load_state_dict)(struct mlp *, tensor_t **); // 8 bytes
+} __attribute__((aligned(8))) mlp_t;                    // Ensure the structure is aligned to 8 bytes
 
 typedef struct self_attention {
-    int n_embd;
-    int n_heads;
-    int use_bias;
-    int block_size;
-    
-    linear_t *qkv;
-    attention_t *attn;
-    linear_t *c_proj;
+    // Integers grouped together
+    int n_embd;             // 4 bytes
+    int n_heads;            // 4 bytes
+    int use_bias;           // 4 bytes
+    int block_size;         // 4 bytes
+    int _num_param_tensors; // 4 bytes
 
-    tensor_t *(*forward)(struct self_attention *, tensor_t *);
-    tensor_t *(*backward)(struct self_attention *, tensor_t *);
+    // Padding to maintain alignment of the entire struct
+    char __padding[4]; // 4 bytes
 
-    void (*description)(const struct self_attention *);
-    int (*num_parameters)(const struct self_attention *);
-    void (*free_layer)(struct self_attention *);
+    // Pointers grouped together
+    linear_t *qkv;     // 8 bytes
+    attention_t *attn; // 8 bytes
+    linear_t *c_proj;  // 8 bytes
 
-    tensor_t **(*parameters)(const struct self_attention *);
-    tensor_t **(*gradients)(const struct self_attention *);
-    void (*load_state_dict)(struct self_attention *, tensor_t **);
+    // Function pointers grouped together
+    tensor_t *(*forward)(struct self_attention *, tensor_t *);     // 8 bytes
+    tensor_t *(*backward)(struct self_attention *, tensor_t *);    // 8 bytes
+    void (*description)(const struct self_attention *);            // 8 bytes
+    int (*num_parameters)(const struct self_attention *);          // 8 bytes
+    void (*free_layer)(struct self_attention *);                   // 8 bytes
+    tensor_t **(*parameters)(const struct self_attention *);       // 8 bytes
+    tensor_t **(*gradients)(const struct self_attention *);        // 8 bytes
+    void (*load_state_dict)(struct self_attention *, tensor_t **); // 8 bytes
+} __attribute__((aligned(8))) self_attention_t;                    // Ensure the structure is aligned to 8 bytes
 
-    int _num_param_tensors;
-} self_attention_t;
+typedef struct block
+{
+    // Integers grouped together
+    int n_embd;             // 4 bytes
+    int n_heads;            // 4 bytes
+    int use_bias;           // 4 bytes
+    int block_size;         // 4 bytes
+    int _num_param_tensors; // 4 bytes
 
-typedef struct block {
-    int n_embd;
-    int n_heads;
-    int use_bias;
-    int block_size;
-    
-    layer_norm_t *ln1;
-    layer_norm_t *ln2;
-    mlp_t *mlp;
-    self_attention_t *attn;
+    // Padding to maintain alignment of the entire struct
+    char __padding[4]; // 4 bytes
 
-    tensor_t *(*forward)(struct block *, tensor_t *);
-    tensor_t *(*backward)(struct block *, tensor_t *);
+    // Pointers grouped together
+    layer_norm_t *ln1;      // 8 bytes
+    layer_norm_t *ln2;      // 8 bytes
+    mlp_t *mlp;             // 8 bytes
+    self_attention_t *attn; // 8 bytes
 
-    void (*description)(const struct block *);
-    int (*num_parameters)(const struct block *);
-    void (*free_layer)(struct block *);
-
-    tensor_t **(*parameters)(const struct block *);
-    tensor_t **(*gradients)(const struct block *);
-    void (*load_state_dict)(struct block *, tensor_t **);
-
-    int _num_param_tensors;
-} block_t;
+    // Function pointers grouped together
+    tensor_t *(*forward)(struct block *, tensor_t *);     // 8 bytes
+    tensor_t *(*backward)(struct block *, tensor_t *);    // 8 bytes
+    void (*description)(const struct block *);            // 8 bytes
+    int (*num_parameters)(const struct block *);          // 8 bytes
+    void (*free_layer)(struct block *);                   // 8 bytes
+    tensor_t **(*parameters)(const struct block *);       // 8 bytes
+    tensor_t **(*gradients)(const struct block *);        // 8 bytes
+    void (*load_state_dict)(struct block *, tensor_t **); // 8 bytes
+} __attribute__((aligned(8))) block_t;                    // Ensure the structure is aligned to 8 bytes
 
 mlp_t *MLP(const int in_features, int expansion_factor, const int use_bias);
 self_attention_t *SelfAttention(const int n_embd, const int n_heads, const int block_size, const int use_bias);

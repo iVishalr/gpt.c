@@ -41,14 +41,15 @@ extern "C" {
 #endif
 
 typedef struct cross_entropy_loss {
-    softmax_t *softmax;
-    tensor_t *cache[2];
-    tensor_t *(*forward)(struct cross_entropy_loss *, tensor_t *, tensor_t *);
-    tensor_t *(*backward)(struct cross_entropy_loss *, tensor_t *);
-    void (*description)(const struct cross_entropy_loss *);
-    int (*num_parameters)(const struct cross_entropy_loss *);
-    void (*free_layer)(struct cross_entropy_loss *);
-} cross_entropy_loss_t;
+    softmax_t *softmax;     // 8 bytes
+    tensor_t *cache[2];     // 16 bytes (2 * 8 bytes)
+
+    tensor_t *(*forward)(struct cross_entropy_loss *, tensor_t *, tensor_t *);      // 8 bytes
+    tensor_t *(*backward)(struct cross_entropy_loss *, tensor_t *);                 // 8 bytes
+    void (*description)(const struct cross_entropy_loss *);                         // 8 bytes
+    int (*num_parameters)(const struct cross_entropy_loss *);                       // 8 bytes
+    void (*free_layer)(struct cross_entropy_loss *);                                // 8 bytes
+} __attribute__((aligned(8))) cross_entropy_loss_t;
 
 cross_entropy_loss_t *CrossEntropyLoss();
 

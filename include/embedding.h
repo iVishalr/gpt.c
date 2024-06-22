@@ -40,26 +40,29 @@ extern "C" {
 #endif
 
 typedef struct embedding {
-    tensor_t *W;
-    tensor_t *dW;
-    tensor_t *cache;
-    
-    tensor_t *(*forward)(struct embedding *, tensor_t *);
-    tensor_t *(*backward)(struct embedding *, tensor_t *);
-    
-    void (*description)(const struct embedding *);
-    int (*num_parameters)(const struct embedding *);
-    void (*free_layer)(struct embedding *);
-    
-    tensor_t **(*parameters)(const struct embedding *);
-    tensor_t **(*gradients)(const struct embedding *);
-    void (*load_state_dict)(struct embedding *, tensor_t **);
+    // Pointers grouped together
+    tensor_t *W;     // 8 bytes
+    tensor_t *dW;    // 8 bytes
+    tensor_t *cache; // 8 bytes
 
-    int num_embeddings;
-    int embedding_dim;
+    // Function pointers grouped together
+    tensor_t *(*forward)(struct embedding *, tensor_t *);     // 8 bytes
+    tensor_t *(*backward)(struct embedding *, tensor_t *);    // 8 bytes
+    void (*description)(const struct embedding *);            // 8 bytes
+    int (*num_parameters)(const struct embedding *);          // 8 bytes
+    void (*free_layer)(struct embedding *);                   // 8 bytes
+    tensor_t **(*parameters)(const struct embedding *);       // 8 bytes
+    tensor_t **(*gradients)(const struct embedding *);        // 8 bytes
+    void (*load_state_dict)(struct embedding *, tensor_t **); // 8 bytes
 
-    int _num_param_tensors;
-} embedding_t;
+    // Integers grouped together
+    int num_embeddings;                    // 4 bytes
+    int embedding_dim;                     // 4 bytes
+    int _num_param_tensors;                // 4 bytes
+    
+    // Padding to maintain alignment of the entire struct
+    char __padding[4];                     // 4 bytes
+} __attribute__((aligned(8))) embedding_t; // Ensure the structure is aligned to 8 bytes
 
 embedding_t *Embedding(int num_embeddings, int embedding_dim);
 
