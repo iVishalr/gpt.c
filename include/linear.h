@@ -65,7 +65,7 @@ typedef struct linear {
 
     // Padding to maintain alignment of the entire struct
     char __padding[8]; // 8 bytes to align the struct size to a multiple of 8 bytes
-} __attribute__((aligned(8))) linear_t;
+} __attribute__((aligned(64))) linear_t;
 
 linear_t *Linear(const int in_features, const int out_features, const int use_bias);
 

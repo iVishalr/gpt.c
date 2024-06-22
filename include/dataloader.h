@@ -57,7 +57,7 @@ typedef struct dataloader {
     void (*next)(struct dataloader *, tensor_t **); // 8 bytes
     void (*reset)(struct dataloader *);             // 8 bytes
     void (*free_layer)(struct dataloader *);        // 8 bytes
-} __attribute__((aligned(8))) dataloader_t;         // Ensure the structure is aligned to 8 bytes
+} __attribute__((aligned(64))) dataloader_t;         // Ensure the structure is aligned to 8 bytes
 
 dataloader_t *DataLoader(const char *filename, const int batch_size, const int block_size);
 

@@ -62,7 +62,7 @@ typedef struct embedding {
     
     // Padding to maintain alignment of the entire struct
     char __padding[4];                     // 4 bytes
-} __attribute__((aligned(8))) embedding_t; // Ensure the structure is aligned to 8 bytes
+} __attribute__((aligned(64))) embedding_t; // Ensure the structure is aligned to 8 bytes
 
 embedding_t *Embedding(int num_embeddings, int embedding_dim);
 

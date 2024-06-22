@@ -85,7 +85,7 @@ tensor_t *create(const int *shape, const int n) {
         printf("Could not allocate memory when creating tensor object.\n");
         exit(EXIT_FAILURE);
     }
-    tensor->t = (float *)mallocCheck(sizeof(float) * total_elements);
+    tensor->t = (float *)alignedAllocCheck(64, sizeof(float) * total_elements);
 
     if (tensor->t == NULL) {
         printf("Could not allocate memory when creating tensor.t object.\n");
@@ -121,7 +121,8 @@ tensor_t *create_calloc(const int *shape, const int n)
         exit(EXIT_FAILURE);
     }
 
-    tensor->t = (float *)calloc(total_elements, sizeof(float));
+    tensor->t = (float *)alignedAllocCheck(64, total_elements * sizeof(float));
+    memset(tensor->t, 0, total_elements * sizeof(float));
 
     if (tensor->t == NULL)
     {

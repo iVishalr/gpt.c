@@ -54,7 +54,7 @@ typedef struct attention {
     // Integers grouped together
     int n_embd;   // 4 bytes
     int n_heads;  // 4 bytes
-} __attribute__((aligned(8))) attention_t; // Ensure the structure is aligned to 8 bytes
+} __attribute__((aligned(64))) attention_t; // Ensure the structure is aligned to 8 bytes
 
 attention_t *Attention(int n_embd, int n_heads, int block_size);
 

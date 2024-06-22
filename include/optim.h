@@ -64,7 +64,7 @@ typedef struct adamW {
     void (*step)(struct adamW *);       // 8 bytes
     void (*zero_grad)(struct adamW *);  // 8 bytes
     void (*free_layer)(struct adamW *); // 8 bytes
-} __attribute__((aligned(8))) adamW_t;  // Ensure the structure is aligned to 8 bytes
+} __attribute__((aligned(64))) adamW_t;  // Ensure the structure is aligned to 8 bytes
 
 adamW_t *AdamW(tensor_t **parameters, tensor_t **gradients, const int n_parameters, const float lr, const float beta1, const float beta2, const float eps, const float weight_decay);
 

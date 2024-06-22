@@ -49,7 +49,7 @@ typedef struct cross_entropy_loss {
     void (*description)(const struct cross_entropy_loss *);                         // 8 bytes
     int (*num_parameters)(const struct cross_entropy_loss *);                       // 8 bytes
     void (*free_layer)(struct cross_entropy_loss *);                                // 8 bytes
-} __attribute__((aligned(8))) cross_entropy_loss_t;
+} __attribute__((aligned(64))) cross_entropy_loss_t;
 
 cross_entropy_loss_t *CrossEntropyLoss();
 

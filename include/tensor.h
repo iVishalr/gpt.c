@@ -42,7 +42,7 @@ typedef struct tensor {
     int ndims;      // 4 bytes
     int length;     // 4 bytes
     int shape[8];   // 32 bytes
-} __attribute__((aligned(8))) tensor_t;
+} __attribute__((aligned(64))) tensor_t;
 
 tensor_t *create_tensor(const int *shape, const int n);
 tensor_t *randn(const int *shape, const int n);

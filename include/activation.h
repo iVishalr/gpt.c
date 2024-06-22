@@ -40,20 +40,20 @@ extern "C" {
 #endif
 
 typedef struct gelu {
-    tensor_t *cache;                                  // 8 bytes (assuming pointer size)
-    tensor_t *(*forward)(struct gelu *, tensor_t *);  // 8 bytes (assuming pointer size)
-    tensor_t *(*backward)(struct gelu *, tensor_t *); // 8 bytes (assuming pointer size)
-    void (*description)(const struct gelu *);         // 8 bytes (assuming pointer size)
-    void (*free_layer)(struct gelu *);                // 8 bytes (assuming pointer size)
-} __attribute__((aligned(8))) gelu_t;
+    tensor_t *cache;                                  // 8 bytes
+    tensor_t *(*forward)(struct gelu *, tensor_t *);  // 8 bytes
+    tensor_t *(*backward)(struct gelu *, tensor_t *); // 8 bytes
+    void (*description)(const struct gelu *);         // 8 bytes
+    void (*free_layer)(struct gelu *);                // 8 bytes
+} __attribute__((aligned(64))) gelu_t;
 
 typedef struct softmax {
-    tensor_t *cache;                                     // 8 bytes (assuming pointer size)
-    tensor_t *(*forward)(struct softmax *, tensor_t *);  // 8 bytes (assuming pointer size)
-    tensor_t *(*backward)(struct softmax *, tensor_t *); // 8 bytes (assuming pointer size)
-    void (*description)(const struct softmax *);         // 8 bytes (assuming pointer size)
-    void (*free_layer)(struct softmax *);                // 8 bytes (assuming pointer size)
-} __attribute__((aligned(8))) softmax_t;
+    tensor_t *cache;                                     // 8 bytes
+    tensor_t *(*forward)(struct softmax *, tensor_t *);  // 8 bytes
+    tensor_t *(*backward)(struct softmax *, tensor_t *); // 8 bytes
+    void (*description)(const struct softmax *);         // 8 bytes
+    void (*free_layer)(struct softmax *);                // 8 bytes
+} __attribute__((aligned(64))) softmax_t;
 
 gelu_t *GELU();
 softmax_t *Softmax();

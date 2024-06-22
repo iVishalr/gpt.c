@@ -64,7 +64,7 @@ typedef struct layer_norm {
     tensor_t **(*parameters)(const struct layer_norm *);       // 8 bytes
     tensor_t **(*gradients)(const struct layer_norm *);        // 8 bytes
     void (*load_state_dict)(struct layer_norm *, tensor_t **); // 8 bytes
-} __attribute__((aligned(8))) layer_norm_t;                    // Ensure the structure is aligned to 8 bytes
+} __attribute__((aligned(64))) layer_norm_t;                    // Ensure the structure is aligned to 8 bytes
 
 layer_norm_t *LayerNorm(int in_features, const float eps, const int use_bias);
 
