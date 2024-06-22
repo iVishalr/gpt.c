@@ -41,7 +41,7 @@ typedef struct tensor {
     float *t;
     int ndims;
     int length;
-    int shape[1024];
+    int shape[8];
 } tensor_t;
 
 tensor_t *create_tensor(const int *shape, const int n);
