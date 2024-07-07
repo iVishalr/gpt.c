@@ -74,6 +74,7 @@ void *shape(const tensor_t *tensor, char *shape);
 void view(tensor_t *tensor, const int *shape, const int n);
 
 tensor_t *tensor_load(FILE *fp, const int *shape, int n);
+void tensor_save(FILE *fp, const tensor_t *tensor);
 void free_tensor(tensor_t *tensor);
 void print_tensor(const tensor_t *tensor, const int compact);
 void print_shape(const tensor_t *tensor);

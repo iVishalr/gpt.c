@@ -86,7 +86,7 @@ void *malloc_check(size_t size, const char *file, int line)
     return ptr;
 }
 
-void *aligned_alloc_check(size_t alignment, size_t size, const char *file, int line)
+void *aligned_malloc_check(size_t alignment, size_t size, const char *file, int line)
 {
     void *ptr = aligned_alloc(alignment, size);
     if (ptr == NULL)

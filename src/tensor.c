@@ -80,17 +80,7 @@ tensor_t *create(const int *shape, const int n) {
         total_elements *= shape[i];
 
     tensor_t *tensor = (tensor_t *)mallocCheck(sizeof(tensor_t));
-
-    if (tensor == NULL) {
-        printf("Could not allocate memory when creating tensor object.\n");
-        exit(EXIT_FAILURE);
-    }
-    tensor->t = (float *)alignedAllocCheck(64, sizeof(float) * total_elements);
-
-    if (tensor->t == NULL) {
-        printf("Could not allocate memory when creating tensor.t object.\n");
-        exit(EXIT_FAILURE);
-    }
+    tensor->t = (float *)alignedMallocCheck(64, sizeof(float) * total_elements);
 
     for (int i = 0; i < n; i++)
         tensor->shape[i] = shape[i];
@@ -114,21 +104,8 @@ tensor_t *create_calloc(const int *shape, const int n)
         total_elements *= shape[i];
 
     tensor_t *tensor = (tensor_t *)mallocCheck(sizeof(tensor_t));
-
-    if (tensor == NULL)
-    {
-        printf("Could not allocate memory when creating tensor object.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    tensor->t = (float *)alignedAllocCheck(64, total_elements * sizeof(float));
+    tensor->t = (float *)alignedMallocCheck(64, total_elements * sizeof(float));
     memset(tensor->t, 0, total_elements * sizeof(float));
-
-    if (tensor->t == NULL)
-    {
-        printf("Could not allocate memory when creating tensor.t object.\n");
-        exit(EXIT_FAILURE);
-    }
 
     for (int i = 0; i < n; i++)
         tensor->shape[i] = shape[i];
@@ -314,13 +291,27 @@ void *uniform(tensor_t *tensor, const float low, const float high) {
 
 tensor_t *tensor_load(FILE *fp, const int *shape, int n) {
     if (fp == NULL) {
-        printf("Invalid FILE ptr *fp.");
+        printf("Invalid FILE ptr *fp.\n");
         exit(1);
     }
 
     tensor_t *tensor = create_tensor(shape, n);
     freadCheck(tensor->t, sizeof(float), tensor->length, fp);
     return tensor;
+}
+
+void tensor_save(FILE *fp, const tensor_t *tensor) {
+    if (fp == NULL) {
+        printf("Invalid FILE ptr *fp.\n");
+        exit(1);
+    }
+
+    if (tensor == NULL) {
+        printf("Expected *tensor to be of type tensor_t. Got NULL.\n");
+        exit(1);
+    }
+
+    fwrite(tensor->t, sizeof(float), tensor->length, fp);
 }
 
 void free_tensor(tensor_t *tensor) {

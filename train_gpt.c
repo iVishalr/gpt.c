@@ -14,27 +14,30 @@
 const char *tiny_shakespeare_train = "data/tiny_shakespeare/tiny_shakespeare_train.bin";
 const char *tiny_shakespeare_val = "data/tiny_shakespeare/tiny_shakespeare_val.bin";
 const char *checkpoint_path = "logs/checkpoint.bin";
+const char *c_checkpoint_path = "logs/c_checkpoint.bin";
 
 const int batch_size = 8;
 const int block_size = 128;
-const int training_steps = 10;
+const int training_steps = 298;
 const float lr = 3e-4f;
 const float beta1 = 0.9f;
 const float beta2 = 0.999f;
 const float eps = 1e-8f;
 const float weight_decay = 0.00f;
 
-tensor_t **load_model(const char *file_path) {
-    FILE *fp = fopenCheck(file_path, "rb");
-    if (fp == NULL) {
-        printf("No such file or directory. %s\n", file_path);
+int load_model(const char *file_path, gpt2_t *model) {
+    if (model == NULL) {
+        printf("Expected *model to be of type gpt2_t. Got NULL.\n");
         exit(1);
     }
+
+    FILE *fp = fopenCheck(file_path, "rb");
     printf("Loading checkpoint from %s\n",file_path);
     int headers[256];
     freadCheck(headers, sizeof(int), 256, fp);
     if (headers[0] != 20240415) {
         printf("Bad magic model file\n");
+        fcloseCheck(fp);
         exit(1);
     }
     size_t max_block_size, vocab_size, n_layers, n_heads, n_embd;
@@ -46,6 +49,34 @@ tensor_t **load_model(const char *file_path) {
     n_embd = headers[5];
     shape_header_size = headers[6];
     steps = headers[7];
+
+    // validate model configurations
+    int config_valid = 1;
+    if (model->block_size != max_block_size) {
+        printf("ValueError: model->block_size does not match block_size in checkpoint. Got %d != %zu\n", model->block_size, max_block_size);
+        config_valid = 0;
+    } 
+    if (model->vocab_size != vocab_size) {
+        printf("ValueError: model->vocab_size does not match vocab_size in checkpoint. Got %d != %zu\n", model->vocab_size, vocab_size);
+        config_valid = 0;
+    }
+    if (model->n_layers != n_layers) {
+        printf("ValueError: model->n_layers does not match n_layers in checkpoint. Got %d != %zu\n", model->n_layers, n_layers);
+        config_valid = 0;
+    }
+    if (model->n_heads != n_heads) {
+        printf("ValueError: model->n_heads does not match n_heads in checkpoint. Got %d != %zu\n", model->n_heads, n_heads);
+        config_valid = 0;
+    }
+    if (model->n_embd != n_embd) {
+        printf("ValueError: model->n_embd does not match n_embd in checkpoint. Got %d != %zu\n", model->n_embd, n_embd);
+        config_valid = 0;
+    }
+
+    if (!config_valid) {
+        fcloseCheck(fp);
+        exit(1);
+    }
 
     printf("[GPT2 | steps trained: %zu]\n", steps);
     printf("max_block_size: %zu\n", max_block_size);
@@ -70,7 +101,7 @@ tensor_t **load_model(const char *file_path) {
     int param_index = 0;
     while (shape_index < shape_header_size) {
         int ndims = shape_buffer[shape_index];
-        int shape[1024];
+        int shape[8];
         for (int i = 0; i < ndims; i++)
             shape[i] = shape_buffer[shape_index + 1 + i];
         
@@ -78,9 +109,74 @@ tensor_t **load_model(const char *file_path) {
         shape_index += ndims + 1;
     }
 
-    fcloseCheck(fp);
+    model->fast_load_state_dict(model, parameters);
+    for (int i = 0; i < model->_num_param_tensors; i++)
+        free_tensor(parameters[i]);
+    free(parameters);
+
     free(shape_buffer);
-    return parameters;
+    fcloseCheck(fp);
+    return steps;
+}
+
+void save_model(const char *file_path, const gpt2_t *model, size_t steps) {
+    if (model == NULL) {
+        printf("Expected *model to be of type gpt2_t. Got NULL.\n");
+        exit(1);
+    }
+
+    size_t max_block_size, vocab_size, n_layers, n_heads, n_embd;
+    size_t shape_header_size = 0;
+
+    max_block_size = model->block_size;
+    vocab_size = model->vocab_size;
+    n_layers = model->n_layers;
+    n_heads = model->n_heads;
+    n_embd = model->n_embd;
+
+    tensor_t **parameters = model->parameters(model);
+    for (int i = 0; i < model->_num_param_tensors; i++) {
+        tensor_t *parameter = parameters[i];
+        shape_header_size += parameter->ndims + 1; // (ndims, shape[0], shape[1], ..., shape[ndims - 1])
+    }
+
+    FILE *fp = fopenCheck(file_path, "wb");
+    int *headers = (int*)mallocCheck(256 * sizeof(int));
+    headers[0] = 20240415; // magic number
+    headers[1] = max_block_size;
+    headers[2] = vocab_size;
+    headers[3] = n_layers;
+    headers[4] = n_heads;
+    headers[5] = n_embd;
+    headers[6] = shape_header_size;
+    headers[7] = steps;
+    for (int i = 8; i < 256; i++)
+        headers[i] = 0;
+
+    int *shape_headers = (int*)mallocCheck(shape_header_size * sizeof(int));
+    size_t shape_headers_index = 0;
+    int parameter_index = 0;
+
+    // Loops over all parameters in the model and stores 
+    // the ndims and shape[j] in shape_headers
+    while (shape_headers_index < shape_header_size && parameter_index < model->_num_param_tensors) {
+        tensor_t *parameter = parameters[parameter_index++];
+        shape_headers[shape_headers_index++] = parameter->ndims;
+        for (int j = 0; j < parameter->ndims; j++)
+            shape_headers[shape_headers_index++] = parameter->shape[j];
+    }
+
+    fwrite(headers, sizeof(int), 256, fp);
+    fwrite(shape_headers, sizeof(int), shape_header_size, fp);
+
+    // save model parameters
+    for (int i = 0; i < model->_num_param_tensors; i++)
+        tensor_save(fp, parameters[i]);
+
+    free(headers);
+    free(shape_headers);
+    free(parameters); // we are only freeing the memory that holds pointers to parameters. We are not freeing the model parameters.
+    fcloseCheck(fp);
 }
 
 int main() {
@@ -93,12 +189,7 @@ int main() {
     gpt2_config.n_layers = 12;
 
     gpt2_t *gpt = GPT2(&gpt2_config);
-
-    tensor_t **params = load_model(checkpoint_path);
-    gpt->fast_load_state_dict(gpt, params);
-    for (int i = 0; i < gpt->_num_param_tensors; i++)
-        free_tensor(params[i]);
-    free(params);
+    int ckpt_steps = load_model(checkpoint_path, gpt);
 
     // create the dataloaders for training and validation
     dataloader_t *train_loader = DataLoader(tiny_shakespeare_train, batch_size, block_size);
@@ -165,6 +256,9 @@ int main() {
         free_tensor(logits);
         free_tensor(_x);
         free_tensor(_targets);
+
+        save_model(c_checkpoint_path, gpt, step + ckpt_steps);
+        printf("Model saved at %s.\n", c_checkpoint_path);
     }
 
     gpt->free_layer(gpt);

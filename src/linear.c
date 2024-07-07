@@ -3,6 +3,7 @@
 #include <string.h>
 #include <math.h>
 #include <cblas.h>
+#include <omp.h>
 #include "utils.h"
 #include "linear.h"
 
@@ -163,7 +164,7 @@ tensor_t *forward_linear(linear_t *linear, tensor_t *x) {
     // add bias to out tensor (B * T, out_features) + (out_features)
     if (linear->b) {
         int row_size = linear->out_features;
-        for (int row = 0; row < B * T; row++){
+        for (int row = 0; row < B * T; row++) {
             for (int j = 0; j < row_size; j++) {
                 out->t[row * row_size + j] += linear->b->t[j];
             }
