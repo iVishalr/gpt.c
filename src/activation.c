@@ -114,6 +114,7 @@ void free_cache_gelu(gelu_t *gelu) {
         return;
 
     free_tensor(gelu->cache);
+    gelu->cache = NULL;
 }
 
 
@@ -224,4 +225,5 @@ void free_cache_softmax(softmax_t *softmax) {
         return;
 
     free_tensor(softmax->cache);
+    softmax->cache = NULL;
 }

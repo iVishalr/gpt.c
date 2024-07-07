@@ -180,4 +180,6 @@ void free_cache_cross_entropy_loss(cross_entropy_loss_t *loss) {
 
     free_tensor(loss->cache[0]);
     free_tensor(loss->cache[1]);
+    loss->cache[0] = NULL;
+    loss->cache[1] = NULL;
 }

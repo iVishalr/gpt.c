@@ -421,4 +421,9 @@ void free_cache_attention(attention_t *attn) {
     free_tensor(attn->cache[2]);
     free_tensor(attn->cache[3]);
     free_tensor(attn->cache[4]);
+    attn->cache[0] = NULL;
+    attn->cache[1] = NULL;
+    attn->cache[2] = NULL;
+    attn->cache[3] = NULL;
+    attn->cache[4] = NULL;
 }

@@ -8,8 +8,6 @@
 #include "dataloader.h"
 #include "utils.h"
 
-#define True 1
-#define False 0
 
 // main training loop
 const char *tiny_shakespeare_train = "data/tiny_shakespeare/tiny_shakespeare_train.bin";
@@ -20,7 +18,7 @@ const char *c_checkpoint_path = "logs/c_checkpoint.bin";
 // training settings
 const int batch_size = 8;
 const int block_size = 128;
-const int training_steps = 298;
+const int training_steps = 100;
 const float lr = 3e-4f;
 const float beta1 = 0.9f;
 const float beta2 = 0.999f;
@@ -218,10 +216,6 @@ int main() {
     float best_training_loss = INFINITY;
     float best_validation_loss = INFINITY;
 
-    printf("\n------------------------\n");
-    printf("         Training       \n");
-    printf("------------------------\n");
-
     struct timespec train_start, train_end, val_start, val_end;
     for (int step = 1; step <= training_steps; step++) {
         tensor_t *training_batch[2];
@@ -263,7 +257,7 @@ int main() {
 
         clock_gettime(CLOCK_MONOTONIC, &train_end);
         double time_elapsed_s = (train_end.tv_sec - train_start.tv_sec) + (train_end.tv_nsec - train_start.tv_nsec) / 1e9;
-        printf("step %d: train loss %f (took %f ms)\n", step, training_mean_loss, time_elapsed_s * 1000);
+        printf("step %d: train loss: %f lr: %.4e | took %.4f ms\n", step, training_mean_loss, lr, time_elapsed_s * 1000);
 
         if (training_mean_loss < best_training_loss)
             best_training_loss = training_mean_loss;
@@ -302,16 +296,21 @@ int main() {
             mean_validation_loss /= num_validation_steps;
             clock_gettime(CLOCK_MONOTONIC, &val_end);
             double val_time_elapsed_s = (val_end.tv_sec - val_start.tv_sec) + (val_end.tv_nsec - val_start.tv_nsec) / 1e9;
-            printf("val loss: %f | val_batches: %d | validation took %f s\n", mean_validation_loss, num_validation_steps, val_time_elapsed_s);
+            printf("val loss: %f | val_batches: %d | validation took %.4f seconds\n", mean_validation_loss, num_validation_steps, val_time_elapsed_s);
 
             if (mean_validation_loss < best_validation_loss) {
                 best_validation_loss = mean_validation_loss;
                 save_model(c_checkpoint_path, gpt, step + ckpt_steps);
-                printf("Model saved at %s.\n", c_checkpoint_path);
+                printf("Model saved at %s\n", c_checkpoint_path);
             }
             printf("\n");
         }
     }
+
+    printf("\nTraining Statistics\n");
+    printf("Best training loss: %f\n", best_training_loss);
+    printf("Best validation loss: %f\n", best_validation_loss);
+    printf("Latest model checkpoint: %s\n", c_checkpoint_path);
 
     gpt->free_layer(gpt);
     optimizer->free_layer(optimizer);

@@ -164,6 +164,7 @@ void free_cache_embedding(embedding_t *embedding) {
         return;
 
     free_tensor(embedding->cache);
+    embedding->cache = NULL;
 }
 
 

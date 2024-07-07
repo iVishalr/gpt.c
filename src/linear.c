@@ -324,6 +324,7 @@ void free_layer_linear(linear_t *linear) {
 
 void free_cache_linear(linear_t *linear) {
     free_tensor(linear->cache);
+    linear->cache = NULL;
 }
 
 

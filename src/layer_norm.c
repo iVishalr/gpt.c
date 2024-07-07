@@ -280,8 +280,10 @@ void free_cache_layer_norm(layer_norm_t *norm) {
     free_tensor(norm->cache[0]);
     free_tensor(norm->cache[1]);
     free_tensor(norm->cache[2]); 
+    norm->cache[0] = NULL;
+    norm->cache[1] = NULL;
+    norm->cache[2] = NULL;
 }
-
 
 tensor_t **parameters_layer_norm(const layer_norm_t *norm) {
     if (norm == NULL)
