@@ -9,6 +9,7 @@ tensor_t *backward_self_attention(self_attention_t *self_attn, tensor_t *global_
 void description_self_attention(const self_attention_t *self_attn); 
 int num_parameters_self_attention(const self_attention_t *self_attn);
 void free_layer_self_attention(self_attention_t *self_attn);
+void free_cache_self_attention(self_attention_t *self_attn);
 tensor_t **parameters_self_attention(const self_attention_t *self_attn);
 tensor_t **gradients_self_attention(const self_attention_t *self_attn); 
 void load_state_dict_self_attention(self_attention_t *self_attn, tensor_t **state);
@@ -32,6 +33,7 @@ self_attention_t *SelfAttention(const int n_embd, const int n_heads, const int b
     self_attn->description = description_self_attention;
     self_attn->num_parameters = num_parameters_self_attention;
     self_attn->free_layer = free_layer_self_attention;
+    self_attn->free_cache = free_cache_self_attention;
     self_attn->parameters = parameters_self_attention;
     self_attn->gradients = gradients_self_attention;
     self_attn->load_state_dict = load_state_dict_self_attention;
@@ -142,6 +144,22 @@ void free_layer_self_attention(self_attention_t *self_attn) {
     qkv->free_layer(qkv);
     c_proj->free_layer(c_proj);
     free(self_attn);
+}
+
+
+void free_cache_self_attention(self_attention_t *self_attn) {
+    if (self_attn == NULL)
+        return;
+
+    attention_t *_attn;
+    linear_t *qkv, *c_proj;
+    _attn = self_attn->attn;
+    qkv = self_attn->qkv;
+    c_proj = self_attn->c_proj;
+
+    _attn->free_cache(_attn);
+    qkv->free_cache(qkv);
+    c_proj->free_cache(c_proj);
 }
 
 

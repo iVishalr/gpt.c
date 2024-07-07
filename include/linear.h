@@ -53,6 +53,7 @@ typedef struct linear {
     void (*description)(const struct linear *);            // 8 bytes
     int (*num_parameters)(const struct linear *);          // 8 bytes
     void (*free_layer)(struct linear *);                   // 8 bytes
+    void (*free_cache)(struct linear *);                   // 8 bytes
     tensor_t **(*parameters)(const struct linear *);       // 8 bytes
     tensor_t **(*gradients)(const struct linear *);        // 8 bytes
     void (*load_state_dict)(struct linear *, tensor_t **); // 8 bytes

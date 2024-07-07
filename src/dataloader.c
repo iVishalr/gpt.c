@@ -5,6 +5,7 @@
 
 
 void dataloader_next(dataloader_t *loader, tensor_t **batch);
+int dataloader_len(dataloader_t *loader);
 void dataloader_reset(dataloader_t *loader);
 void dataloader_free_layer(dataloader_t *loader);
 
@@ -40,6 +41,7 @@ dataloader_t *DataLoader(const char *filename, const int batch_size, const int b
     }
 
     loader->next = dataloader_next;
+    loader->len = dataloader_len;
     loader->free_layer = dataloader_free_layer;
     loader->reset = dataloader_reset;
     return loader;
@@ -76,6 +78,14 @@ void dataloader_next(dataloader_t *loader, tensor_t **batch) {
 
     batch[0] = inputs;
     batch[1] = targets;
+}
+
+
+int dataloader_len(dataloader_t *loader) {
+    if (loader == NULL)
+        return 0;
+
+    return (int)loader->_file_size / ((loader->batch_size * loader->block_size + 1) * sizeof(int));
 }
 
 

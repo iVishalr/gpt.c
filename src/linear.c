@@ -15,6 +15,7 @@ tensor_t *backward_linear(linear_t *linear, tensor_t *global_grad);
 void description_linear(const linear_t *linear);
 int num_parameters_linear(const linear_t *linear);
 void free_layer_linear(linear_t *linear);
+void free_cache_linear(linear_t *linear);
 tensor_t **parameters_linear(const linear_t *linear);
 tensor_t **gradients_linear(const linear_t *linear);
 void load_state_dict_linear(linear_t *linear, tensor_t **state);
@@ -54,6 +55,7 @@ linear_t *Linear(const int in_features, const int out_features, const int use_bi
     linear->backward = backward_linear;
     linear->description = description_linear;
     linear->free_layer = free_layer_linear;
+    linear->free_cache = free_cache_linear;
     linear->num_parameters = num_parameters_linear;
     linear->parameters = parameters_linear;
     linear->gradients = gradients_linear;
@@ -317,6 +319,11 @@ void free_layer_linear(linear_t *linear) {
     free_tensor(linear->dW);
     free_tensor(linear->db);
     free(linear);
+}
+
+
+void free_cache_linear(linear_t *linear) {
+    free_tensor(linear->cache);
 }
 
 

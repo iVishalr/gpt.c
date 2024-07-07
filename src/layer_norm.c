@@ -13,6 +13,7 @@ tensor_t *backward_layer_norm(layer_norm_t *norm, tensor_t *global_grad);
 void description_layer_norm(const layer_norm_t *norm);
 int num_parameters_layer_norm(const layer_norm_t *norm);
 void free_layer_layer_norm(layer_norm_t *norm);
+void free_cache_layer_norm(layer_norm_t *norm);
 tensor_t **parameters_layer_norm(const layer_norm_t *norm);
 tensor_t **gradients_layer_norm(const layer_norm_t *norm);
 void load_state_dict_layer_norm(layer_norm_t *norm, tensor_t **state);
@@ -48,6 +49,7 @@ layer_norm_t *LayerNorm(int in_features, const float eps, const int use_bias) {
     norm->description = description_layer_norm;
     norm->num_parameters = num_parameters_layer_norm;
     norm->free_layer = free_layer_layer_norm;
+    norm->free_cache = free_cache_layer_norm;
     norm->parameters = parameters_layer_norm;
     norm->gradients = gradients_layer_norm;
     norm->load_state_dict = load_state_dict_layer_norm;
@@ -268,6 +270,16 @@ void free_layer_layer_norm(layer_norm_t *norm) {
     free_tensor(norm->cache[1]);
     free_tensor(norm->cache[2]);
     free(norm);    
+}
+
+
+void free_cache_layer_norm(layer_norm_t *norm) {
+    if (norm == NULL)
+        return;
+
+    free_tensor(norm->cache[0]);
+    free_tensor(norm->cache[1]);
+    free_tensor(norm->cache[2]); 
 }
 
 

@@ -60,6 +60,7 @@ typedef struct mlp {
     void (*description)(const struct mlp *);            // 8 bytes
     int (*num_parameters)(const struct mlp *);          // 8 bytes
     void (*free_layer)(struct mlp *);                   // 8 bytes
+    void (*free_cache)(struct mlp *);                   // 8 bytes
     tensor_t **(*parameters)(const struct mlp *);       // 8 bytes
     tensor_t **(*gradients)(const struct mlp *);        // 8 bytes
     void (*load_state_dict)(struct mlp *, tensor_t **); // 8 bytes
@@ -87,6 +88,7 @@ typedef struct self_attention {
     void (*description)(const struct self_attention *);            // 8 bytes
     int (*num_parameters)(const struct self_attention *);          // 8 bytes
     void (*free_layer)(struct self_attention *);                   // 8 bytes
+    void (*free_cache)(struct self_attention *);                   // 8 bytes
     tensor_t **(*parameters)(const struct self_attention *);       // 8 bytes
     tensor_t **(*gradients)(const struct self_attention *);        // 8 bytes
     void (*load_state_dict)(struct self_attention *, tensor_t **); // 8 bytes
@@ -116,6 +118,7 @@ typedef struct block
     void (*description)(const struct block *);            // 8 bytes
     int (*num_parameters)(const struct block *);          // 8 bytes
     void (*free_layer)(struct block *);                   // 8 bytes
+    void (*free_cache)(struct block *);                   // 8 bytes
     tensor_t **(*parameters)(const struct block *);       // 8 bytes
     tensor_t **(*gradients)(const struct block *);        // 8 bytes
     void (*load_state_dict)(struct block *, tensor_t **); // 8 bytes

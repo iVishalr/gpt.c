@@ -45,6 +45,7 @@ typedef struct gelu {
     tensor_t *(*backward)(struct gelu *, tensor_t *); // 8 bytes
     void (*description)(const struct gelu *);         // 8 bytes
     void (*free_layer)(struct gelu *);                // 8 bytes
+    void (*free_cache)(struct gelu *);                // 8 bytes
 } __attribute__((aligned(64))) gelu_t;
 
 typedef struct softmax {
@@ -53,6 +54,7 @@ typedef struct softmax {
     tensor_t *(*backward)(struct softmax *, tensor_t *); // 8 bytes
     void (*description)(const struct softmax *);         // 8 bytes
     void (*free_layer)(struct softmax *);                // 8 bytes
+    void (*free_cache)(struct softmax *);                // 8 bytes
 } __attribute__((aligned(64))) softmax_t;
 
 gelu_t *GELU();

@@ -12,6 +12,7 @@ tensor_t *backward_transformer(gpt2_t *gpt, tensor_t *global_grad);
 int num_parameters_transformer(const gpt2_t *gpt);
 void description_transformer(const gpt2_t *gpt);
 void free_layer_transformer(gpt2_t *gpt);
+void free_cache_transformer(gpt2_t *gpt);
 tensor_t **parameters_transformer(const gpt2_t *gpt);
 tensor_t **gradients_transformer(const gpt2_t *gpt);
 void load_state_dict_transformer(gpt2_t *gpt, tensor_t **state);
@@ -46,6 +47,7 @@ gpt2_t *GPT2(GPT2Config_t *config) {
     gpt->forward = forward_transformer;
     gpt->backward = backward_transformer;
     gpt->free_layer = free_layer_transformer;
+    gpt->free_cache = free_cache_transformer;
     gpt->description = description_transformer;
     gpt->num_parameters = num_parameters_transformer;
     gpt->parameters = parameters_transformer;
@@ -275,6 +277,32 @@ void free_layer_transformer(gpt2_t *gpt) {
 
     free(layers);
     free(gpt);
+}
+
+
+void free_cache_transformer(gpt2_t *gpt) {
+    if (gpt == NULL)
+        return;
+
+    block_t **layers;
+    embedding_t *wpe, *wte;
+    linear_t *lm_head;
+    layer_norm_t *ln;
+
+    wpe = gpt->wpe;
+    wte = gpt->wte;
+    lm_head = gpt->lm_head;
+    layers = gpt->layers;
+    ln = gpt->ln_f;
+
+    wpe->free_cache(wpe);
+    wte->free_cache(wte);
+
+    for (int i = 0; i < gpt->n_layers; i++)
+        layers[i]->free_cache(layers[i]);
+
+    ln->free_cache(ln);
+    lm_head->free_cache(lm_head);
 }
 
 

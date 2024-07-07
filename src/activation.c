@@ -12,6 +12,7 @@ tensor_t *forward_gelu(gelu_t *gelu, tensor_t *x);
 tensor_t *backward_gelu(gelu_t *gelu, tensor_t *global_grad);
 void description_gelu(const gelu_t *gelu);
 void free_layer_gelu(gelu_t *gelu);
+void free_cache_gelu(gelu_t *gelu);
 
 
 // GELU Class
@@ -24,6 +25,7 @@ gelu_t *GELU() {
     gelu->backward = backward_gelu;
     gelu->description = description_gelu;
     gelu->free_layer = free_layer_gelu;
+    gelu->free_cache = free_cache_gelu;
     return gelu;
 }
 
@@ -107,10 +109,20 @@ void free_layer_gelu(gelu_t *gelu) {
 }
 
 
+void free_cache_gelu(gelu_t *gelu) {
+    if (gelu == NULL) 
+        return;
+
+    free_tensor(gelu->cache);
+}
+
+
 tensor_t *forward_softmax(softmax_t *softmax, tensor_t *x);
 tensor_t *backward_softmax(softmax_t *softmax, tensor_t *global_grad);
 void description_softmax(const softmax_t *softmax);
 void free_layer_softmax(softmax_t *softmax);
+void free_cache_softmax(softmax_t *softmax);
+
 
 // Softmax Class
 softmax_t *Softmax()
@@ -123,7 +135,7 @@ softmax_t *Softmax()
     softmax->backward = backward_softmax;
     softmax->description = description_softmax;
     softmax->free_layer = free_layer_softmax;
-
+    softmax->free_cache = free_cache_softmax;
     return softmax;
 }
 
@@ -205,4 +217,11 @@ void free_layer_softmax(softmax_t *softmax) {
 
     free_tensor(softmax->cache);
     free(softmax);
+}
+
+void free_cache_softmax(softmax_t *softmax) {
+    if (softmax == NULL) 
+        return;
+
+    free_tensor(softmax->cache);
 }

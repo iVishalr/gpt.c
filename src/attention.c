@@ -12,6 +12,7 @@ tensor_t *backward_attention(attention_t *attn, tensor_t *global_grad);
 void description_attention(const attention_t *attn);
 int num_parameters_attention(const attention_t *attn);
 void free_layer_attention(attention_t *attn);
+void free_cache_attention(attention_t *attn);
 
 
 // Attention Class
@@ -48,6 +49,7 @@ attention_t *Attention(int n_embd, int n_heads, int block_size) {
     attn->description = description_attention;
     attn->num_parameters = num_parameters_attention;
     attn->free_layer = free_layer_attention;
+    attn->free_cache = free_cache_attention;
     return attn;
 }
 
@@ -407,4 +409,16 @@ void free_layer_attention(attention_t *attn) {
     free_tensor(attn->cache[3]);
     free_tensor(attn->cache[4]);
     free(attn);
+}
+
+
+void free_cache_attention(attention_t *attn) {
+    if (attn == NULL)
+        return;
+
+    free_tensor(attn->cache[0]);
+    free_tensor(attn->cache[1]);
+    free_tensor(attn->cache[2]);
+    free_tensor(attn->cache[3]);
+    free_tensor(attn->cache[4]);
 }

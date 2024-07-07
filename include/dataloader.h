@@ -55,6 +55,7 @@ typedef struct dataloader {
 
     // Function pointers grouped together
     void (*next)(struct dataloader *, tensor_t **); // 8 bytes
+    int (*len)(struct dataloader *);                // 8 bytes
     void (*reset)(struct dataloader *);             // 8 bytes
     void (*free_layer)(struct dataloader *);        // 8 bytes
 } __attribute__((aligned(64))) dataloader_t;         // Ensure the structure is aligned to 8 bytes

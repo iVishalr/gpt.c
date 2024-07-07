@@ -63,6 +63,7 @@ typedef struct gpt2 {
     void (*description)(const struct gpt2 *);                 // 8 bytes
     int (*num_parameters)(const struct gpt2 *);               // 8 bytes
     void (*free_layer)(struct gpt2 *);                        // 8 bytes
+    void (*free_cache)(struct gpt2 *);                        // 8 bytes
     tensor_t **(*parameters)(const struct gpt2 *);            // 8 bytes
     tensor_t **(*gradients)(const struct gpt2 *);             // 8 bytes
     void (*load_state_dict)(struct gpt2 *, tensor_t **);      // 8 bytes

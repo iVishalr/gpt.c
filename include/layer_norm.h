@@ -61,6 +61,7 @@ typedef struct layer_norm {
     void (*description)(const struct layer_norm *);            // 8 bytes
     int (*num_parameters)(const struct layer_norm *);          // 8 bytes
     void (*free_layer)(struct layer_norm *);                   // 8 bytes
+    void (*free_cache)(struct layer_norm *);                   // 8 bytes
     tensor_t **(*parameters)(const struct layer_norm *);       // 8 bytes
     tensor_t **(*gradients)(const struct layer_norm *);        // 8 bytes
     void (*load_state_dict)(struct layer_norm *, tensor_t **); // 8 bytes

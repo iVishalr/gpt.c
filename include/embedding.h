@@ -51,6 +51,7 @@ typedef struct embedding {
     void (*description)(const struct embedding *);            // 8 bytes
     int (*num_parameters)(const struct embedding *);          // 8 bytes
     void (*free_layer)(struct embedding *);                   // 8 bytes
+    void (*free_cache)(struct embedding *);                   // 8 bytes
     tensor_t **(*parameters)(const struct embedding *);       // 8 bytes
     tensor_t **(*gradients)(const struct embedding *);        // 8 bytes
     void (*load_state_dict)(struct embedding *, tensor_t **); // 8 bytes

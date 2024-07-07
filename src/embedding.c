@@ -11,6 +11,7 @@ tensor_t *backward_embedding(embedding_t *embedding, tensor_t *global_grad);
 int num_parameters_embedding(const embedding_t *embedding);
 void description_embedding(const embedding_t *embedding);
 void free_layer_embedding(embedding_t *embedding);
+void free_cache_embedding(embedding_t *embedding);
 tensor_t **parameters_embedding(const embedding_t *embedding);
 tensor_t **gradients_embedding(const embedding_t *embedding);
 void load_state_dict_embedding(embedding_t *embedding, tensor_t **state);
@@ -32,6 +33,7 @@ embedding_t *Embedding(int num_embeddings, int embedding_dim) {
     embedding->description = description_embedding;
     embedding->num_parameters = num_parameters_embedding;
     embedding->free_layer = free_layer_embedding;
+    embedding->free_cache = free_cache_embedding;
     embedding->parameters = parameters_embedding;
     embedding->gradients = gradients_embedding;
     embedding->load_state_dict = load_state_dict_embedding;
@@ -120,6 +122,7 @@ tensor_t *backward_embedding(embedding_t * embedding, tensor_t *global_grad) {
     return NULL;
 }
 
+
 int num_parameters_embedding(const embedding_t *embedding) {
     if (embedding == NULL)
         return 0;
@@ -127,6 +130,7 @@ int num_parameters_embedding(const embedding_t *embedding) {
     int total_parameters = embedding->W->length;
     return total_parameters;
 }
+
 
 void description_embedding(const embedding_t *embedding) {
     if (embedding == NULL)
@@ -143,6 +147,7 @@ void description_embedding(const embedding_t *embedding) {
     printf("  W [%s]: %d\n\n", wshape, embedding->W->length);
 }
 
+
 void free_layer_embedding(embedding_t *embedding) {
     if (embedding == NULL) 
         return;
@@ -153,6 +158,15 @@ void free_layer_embedding(embedding_t *embedding) {
     free(embedding);
 }
 
+
+void free_cache_embedding(embedding_t *embedding) {
+    if (embedding == NULL)
+        return;
+
+    free_tensor(embedding->cache);
+}
+
+
 tensor_t **parameters_embedding(const embedding_t *embedding) {
     if (embedding == NULL)
         return NULL;
@@ -162,6 +176,7 @@ tensor_t **parameters_embedding(const embedding_t *embedding) {
     return parameters;
 }
 
+
 tensor_t **gradients_embedding(const embedding_t *embedding) {
     if (embedding == NULL)
         return NULL;
@@ -170,6 +185,7 @@ tensor_t **gradients_embedding(const embedding_t *embedding) {
     gradients[0] = embedding->dW;
     return gradients;
 }
+
 
 void load_state_dict_embedding(embedding_t *embedding, tensor_t **state)
 {

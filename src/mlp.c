@@ -9,6 +9,7 @@ tensor_t *backward_mlp(mlp_t *mlp, tensor_t *global_grad);
 void description_mlp(const mlp_t *mlp);
 int num_parameters_mlp(const mlp_t *mlp);
 void free_layer_mlp(mlp_t *mlp);
+void free_cache_mlp(mlp_t *mlp);
 tensor_t **parameters_mlp(const mlp_t *mlp);
 tensor_t **gradients_mlp(const mlp_t *mlp);
 void load_state_dict_mlp(mlp_t *mlp, tensor_t **state);
@@ -31,6 +32,7 @@ mlp_t *MLP(const int in_features, const int expansion_factor, const int use_bias
     mlp->description = description_mlp;
     mlp->num_parameters = num_parameters_mlp;
     mlp->free_layer = free_layer_mlp;
+    mlp->free_cache = free_cache_mlp;
     mlp->parameters = parameters_mlp;
     mlp->gradients = gradients_mlp;
     mlp->load_state_dict = load_state_dict_mlp;
@@ -122,6 +124,16 @@ void free_layer_mlp(mlp_t *mlp) {
     mlp->c_fc = NULL;
     mlp->c_proj = NULL;
     free(mlp);
+}
+
+
+void free_cache_mlp(mlp_t *mlp) {
+    if (mlp == NULL)
+        return;
+
+    mlp->c_fc->free_cache(mlp->c_fc);
+    mlp->gelu->free_cache(mlp->gelu);
+    mlp->c_proj->free_cache(mlp->c_proj);
 }
 
 

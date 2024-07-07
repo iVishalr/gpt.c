@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <math.h>
 
 #include "transformer.h"
 #include "optim.h"
@@ -16,6 +17,7 @@ const char *tiny_shakespeare_val = "data/tiny_shakespeare/tiny_shakespeare_val.b
 const char *checkpoint_path = "logs/checkpoint.bin";
 const char *c_checkpoint_path = "logs/c_checkpoint.bin";
 
+// training settings
 const int batch_size = 8;
 const int block_size = 128;
 const int training_steps = 298;
@@ -24,6 +26,12 @@ const float beta1 = 0.9f;
 const float beta2 = 0.999f;
 const float eps = 1e-8f;
 const float weight_decay = 0.00f;
+
+// validation settings
+const int validation_batch_size = 8;
+const int validation_block_size = 128;
+const int validation_interval = 50;
+
 
 int load_model(const char *file_path, gpt2_t *model) {
     if (model == NULL) {
@@ -119,6 +127,7 @@ int load_model(const char *file_path, gpt2_t *model) {
     return steps;
 }
 
+
 void save_model(const char *file_path, const gpt2_t *model, size_t steps) {
     if (model == NULL) {
         printf("Expected *model to be of type gpt2_t. Got NULL.\n");
@@ -179,6 +188,7 @@ void save_model(const char *file_path, const gpt2_t *model, size_t steps) {
     fcloseCheck(fp);
 }
 
+
 int main() {
 
     GPT2Config_t gpt2_config;
@@ -193,7 +203,7 @@ int main() {
 
     // create the dataloaders for training and validation
     dataloader_t *train_loader = DataLoader(tiny_shakespeare_train, batch_size, block_size);
-    // dataloader_t *val_loader = DataLoader(tiny_shakespeare_val, batch_size, block_size);
+    dataloader_t *val_loader = DataLoader(tiny_shakespeare_val, validation_batch_size, validation_block_size);
 
     // create optimizer
     adamW_t *optimizer = AdamW(
@@ -205,16 +215,18 @@ int main() {
 
     // create loss_fn
     cross_entropy_loss_t *loss = CrossEntropyLoss();
+    float best_training_loss = INFINITY;
+    float best_validation_loss = INFINITY;
 
     printf("\n------------------------\n");
     printf("         Training       \n");
     printf("------------------------\n");
 
-    struct timespec start, end;
+    struct timespec train_start, train_end, val_start, val_end;
     for (int step = 1; step <= training_steps; step++) {
-        tensor_t *batch[2];
-        train_loader->next(train_loader, batch);
-        tensor_t *_x = batch[0], *_targets = batch[1];
+        tensor_t *training_batch[2];
+        train_loader->next(train_loader, training_batch);
+        tensor_t *_x = training_batch[0], *_targets = training_batch[1];
 
         // we need to copy the tensors as the model always free's its inputs in backward pass
         // hence copying prevents us from losing the current batch's inputs and targets
@@ -228,16 +240,16 @@ int main() {
         // zero the gradients
         optimizer->zero_grad(optimizer);
 
-        clock_gettime(CLOCK_MONOTONIC, &start);
+        clock_gettime(CLOCK_MONOTONIC, &train_start);
         tensor_t *logits = gpt->forward(gpt, x);
 
         // calculate loss
         tensor_t *losses = loss->forward(loss, logits, targets);
 
-        float mean_loss = 0.0f;
+        float training_mean_loss = 0.0f;
         for (int i = 0; i < losses->length; i++)
-            mean_loss += losses->t[i];
-        mean_loss /= losses->length;
+            training_mean_loss += losses->t[i];
+        training_mean_loss /= losses->length;
 
         // backward pass
         for (int i = 0; i < losses->length; i++)
@@ -249,16 +261,56 @@ int main() {
         // update parameters
         optimizer->step(optimizer);
 
-        clock_gettime(CLOCK_MONOTONIC, &end);
-        double time_elapsed_s = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
-        printf("step %d: train loss %f (took %f ms)\n", step, mean_loss, time_elapsed_s * 1000);
+        clock_gettime(CLOCK_MONOTONIC, &train_end);
+        double time_elapsed_s = (train_end.tv_sec - train_start.tv_sec) + (train_end.tv_nsec - train_start.tv_nsec) / 1e9;
+        printf("step %d: train loss %f (took %f ms)\n", step, training_mean_loss, time_elapsed_s * 1000);
+
+        if (training_mean_loss < best_training_loss)
+            best_training_loss = training_mean_loss;
 
         free_tensor(logits);
         free_tensor(_x);
         free_tensor(_targets);
 
-        save_model(c_checkpoint_path, gpt, step + ckpt_steps);
-        printf("Model saved at %s.\n", c_checkpoint_path);
+        // run validation every validation_interval
+        if (step % validation_interval == 0 && val_loader) {
+            printf("\nRunning validation\n");
+            float mean_validation_loss = 0.0f;
+            val_loader->reset(val_loader);
+            int num_validation_steps = val_loader->len(val_loader);
+            clock_gettime(CLOCK_MONOTONIC, &val_start);
+            for (int val_step = 1; val_step <= num_validation_steps; val_step++)
+            {
+                tensor_t *validation_batch[2];
+                val_loader->next(val_loader, validation_batch);
+                tensor_t *val_x = validation_batch[0], *val_targets = validation_batch[1];
+
+                tensor_t *val_logits = gpt->forward(gpt, val_x);
+                tensor_t *val_losses = loss->forward(loss, val_logits, val_targets);
+
+                float validation_batch_loss = 0.0f;
+                for (int i = 0; i < val_losses->length; i++)
+                    validation_batch_loss += val_losses->t[i];
+                validation_batch_loss /= val_losses->length;
+                mean_validation_loss += validation_batch_loss;
+
+                gpt->free_cache(gpt);
+                loss->free_cache(loss);
+                free_tensor(val_losses);
+                free_tensor(val_logits);
+            }
+            mean_validation_loss /= num_validation_steps;
+            clock_gettime(CLOCK_MONOTONIC, &val_end);
+            double val_time_elapsed_s = (val_end.tv_sec - val_start.tv_sec) + (val_end.tv_nsec - val_start.tv_nsec) / 1e9;
+            printf("val loss: %f | val_batches: %d | validation took %f s\n", mean_validation_loss, num_validation_steps, val_time_elapsed_s);
+
+            if (mean_validation_loss < best_validation_loss) {
+                best_validation_loss = mean_validation_loss;
+                save_model(c_checkpoint_path, gpt, step + ckpt_steps);
+                printf("Model saved at %s.\n", c_checkpoint_path);
+            }
+            printf("\n");
+        }
     }
 
     gpt->free_layer(gpt);

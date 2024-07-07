@@ -10,6 +10,7 @@ tensor_t *backward_block(block_t *blk, tensor_t *global_grad);
 void description_block(const block_t *blk);
 int num_parameters_block(const block_t *blk); 
 void free_layer_block(block_t *blk);
+void free_cache_block(block_t *blk);
 tensor_t **parameters_block(const block_t *blk);
 tensor_t **gradients_block(const block_t *blk);
 void load_state_dict_block(block_t *blk, tensor_t **state);
@@ -33,6 +34,7 @@ block_t *Block(const int n_embd, const int n_heads, const int block_size, const 
     blk->backward = backward_block;
     blk->description = description_block;
     blk->free_layer = free_layer_block;
+    blk->free_cache = free_cache_block;
     blk->num_parameters = num_parameters_block;
 
     blk->parameters = parameters_block;
@@ -200,6 +202,26 @@ void free_layer_block(block_t *blk) {
     attn->free_layer(attn);
     mlp->free_layer(mlp);
     free(blk);
+}
+
+
+void free_cache_block(block_t *blk) {
+    if (blk == NULL)
+        return;
+
+    self_attention_t *attn;
+    layer_norm_t *ln1, *ln2;
+    mlp_t *mlp;
+
+    ln1 = blk->ln1;
+    ln2 = blk->ln2;
+    attn = blk->attn;
+    mlp = blk->mlp;
+
+    ln1->free_cache(ln1);
+    ln2->free_cache(ln2);
+    attn->free_cache(attn);
+    mlp->free_cache(mlp);
 }
 
 

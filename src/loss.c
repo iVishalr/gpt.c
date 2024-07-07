@@ -10,6 +10,7 @@ tensor_t *backward_cross_entropy_loss(cross_entropy_loss_t *loss, tensor_t *glob
 int num_parameters_cross_entropy_loss(const cross_entropy_loss_t *loss);
 void description_cross_entropy_loss(const cross_entropy_loss_t *loss);
 void free_layer_cross_entropy_loss(cross_entropy_loss_t *loss);
+void free_cache_cross_entropy_loss(cross_entropy_loss_t *loss);
 
 
 // CrossEntropyLoss Class
@@ -23,6 +24,7 @@ cross_entropy_loss_t *CrossEntropyLoss() {
     loss->description = description_cross_entropy_loss;
     loss->num_parameters = num_parameters_cross_entropy_loss;
     loss->free_layer = free_layer_cross_entropy_loss;
+    loss->free_cache = free_cache_cross_entropy_loss;
     return loss;
 }
 
@@ -169,4 +171,13 @@ void free_layer_cross_entropy_loss(cross_entropy_loss_t *loss) {
     free_tensor(loss->cache[0]);
     free_tensor(loss->cache[1]);
     free(loss);
+}
+
+
+void free_cache_cross_entropy_loss(cross_entropy_loss_t *loss) {
+    if (loss == NULL)
+        return;
+
+    free_tensor(loss->cache[0]);
+    free_tensor(loss->cache[1]);
 }

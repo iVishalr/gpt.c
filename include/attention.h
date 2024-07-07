@@ -50,6 +50,7 @@ typedef struct attention {
     void (*description)(const struct attention *);         // 8 bytes
     int (*num_parameters)(const struct attention *);       // 8 bytes
     void (*free_layer)(struct attention *);                // 8 bytes
+    void (*free_cache)(struct attention *);                // 8 bytes
 
     // Integers grouped together
     int n_embd;   // 4 bytes
