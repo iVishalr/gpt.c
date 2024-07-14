@@ -2,33 +2,192 @@
 #include <stdlib.h>
 #include <time.h>
 #include <math.h>
+#include <argp.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "transformer.h"
 #include "optim.h"
 #include "dataloader.h"
 #include "utils.h"
 
+// define command line options
+const char *argp_program_version = "train_gpt version 1.0";
+static char *doc = "Trains a GPT2 model";
+static struct argp_option options[] = {
+    // dataloader settings
+    {"train-data", 101, "TRAIN_DATA_PATH", 0, "Path to training data."},
+    {"val-data", 102, "VAL_DATA_PATH", OPTION_ARG_OPTIONAL, "Path to validation data. Default: None"},
 
-// main training loop
-const char *tiny_shakespeare_train = "data/tiny_shakespeare/tiny_shakespeare_train.bin";
-const char *tiny_shakespeare_val = "data/tiny_shakespeare/tiny_shakespeare_val.bin";
-const char *checkpoint_path = "logs/checkpoint.bin";
-const char *c_checkpoint_path = "logs/c_checkpoint.bin";
+    // training settings
+    {"max-epochs", 201, "MAX_EPOCHS", OPTION_ARG_OPTIONAL, "Number of epochs to train the model. Default: 10"},
+    {"batch-size", 202, "BATCH_SIZE", OPTION_ARG_OPTIONAL, "Batch size to use for training the model. Default: 8"},
+    {"block-size", 203, "BLOCK_SIZE", OPTION_ARG_OPTIONAL, "Block size to use for Dataloader for training the model. Default: 128"},
+    {"log-dir", 204, "LOG_DIR", OPTION_ARG_OPTIONAL, "Path to log directory to store checkpoints. Default: 'logs/'"},
+    {"output", 205, "OUTPUT", OPTION_ARG_OPTIONAL, "Name of the model checkpoint. Default: 'checkpoint'"},
+    {"load-checkpoint", 206, "LOAD_CHECKPOINT_PATH", OPTION_ARG_OPTIONAL, "Path to C model checkpoint to load the model from. Default: None"},
 
-// training settings
-const int batch_size = 8;
-const int block_size = 128;
-const int training_steps = 100;
-const float lr = 3e-4f;
-const float beta1 = 0.9f;
-const float beta2 = 0.999f;
-const float eps = 1e-8f;
-const float weight_decay = 0.00f;
+    // validation settings
+    {"val-batch-size", 301, "VAL_BATCH_SIZE", OPTION_ARG_OPTIONAL, "Batch size to use for validation. Default: 8"},
+    {"val-block-size", 302, "VAL_BLOCK_SIZE", OPTION_ARG_OPTIONAL, "Block size to use for validation. Default: 128"},
+    {"val-interval", 303, "VAL_INTERVAL", OPTION_ARG_OPTIONAL, "Perform validation after every 'x' epochs. Default: 1"},
 
-// validation settings
-const int validation_batch_size = 8;
-const int validation_block_size = 128;
-const int validation_interval = 50;
+    // optimizer settings
+    {"lr", 401, "OPTIMIZER_LR", OPTION_ARG_OPTIONAL, "Learning rate to use for optimization. Default: 3e-4"},
+    {"weight-decay", 402, "OPTIMIZER_WEIGHT_DECAY", OPTION_ARG_OPTIONAL, "Weight decay to use for optimization. Default: 0.00"},
+    {"beta1", 403, "OPTIMIZER_BETA1", OPTION_ARG_OPTIONAL, "Beta1 to use for optimization. Default: 0.9"},
+    {"beta2", 404, "OPTIMIZER_BETA2", OPTION_ARG_OPTIONAL, "Beta2 to use for optimization. Default: 0.99"},
+    {"eps", 405, "OPTIMIZER_EPS", OPTION_ARG_OPTIONAL, "Epsilon value to use for optimization. Default: 1e-8"},
+    {0}
+};
+
+struct arguments {
+    // dataloader settings
+    char *train_data;
+    char *val_data;
+
+    // training settings
+    int max_epochs;
+    int batch_size;
+    int block_size;
+    char *log_dir;
+    char *output;
+    char *load_checkpoint;
+
+    // validation settings
+    int validation_batch_size;
+    int validation_block_size;
+    int validation_interval;
+
+    // optimizer settings
+    float lr;
+    float weight_decay;
+    float beta1;
+    float beta2;
+    float eps;
+};
+
+
+static void init_arguments(struct arguments *args) {
+    if (!args) return;
+    args->train_data = NULL;
+    args->val_data = NULL;
+
+    args->max_epochs = 10;
+    args->batch_size = 8;
+    args->block_size = 128;
+    args->log_dir = "logs";
+    args->output = "checkpoint";
+    args->load_checkpoint = NULL;
+
+    args->validation_batch_size = 8;
+    args->validation_block_size = 128;
+    args->validation_interval = 1;
+    
+    args->lr = 3e-4f;
+    args->weight_decay = 0.0f;
+    args->beta1 = 0.9f;
+    args->beta2 = 0.99f;
+    args->eps = 1e-8f;
+}
+
+
+static error_t parse_options(int key, char *arg, struct argp_state *state) {
+    struct arguments *arguments = state->input;
+    char *ext = NULL;
+    switch (key) {
+        case 101:
+            if (!(access(arg, F_OK) == 0))
+                argp_failure(state, 1, ENOENT, "%s", arg);
+            if (!(access(arg, R_OK) == 0))
+                argp_failure(state, 1, EACCES, "An error occured when opening the file '%s'", arg);
+            ext = strrchr(arg, '.');
+            if (!ext)
+                argp_failure(state, 1, 0, "FileExtensionError: Expected the file '%s' to have '.bin' extension. Got NULL", arg);
+            ext += 1;
+            if (strcmp(ext, "bin") != 0)
+                argp_failure(state, 1, 0, "FileExtensionError: Expected the file '%s' to have '.bin' extension. Got '%s'", arg, ext);
+            arguments->train_data = arg;
+            break;
+        case 102:
+            if (arg == NULL) {
+                arguments->val_data = NULL;
+                break;
+            }
+            if (!(access(arg, F_OK) == 0))
+                argp_failure(state, 1, ENOENT, "%s", arg);
+            if (!(access(arg, R_OK) == 0))
+                argp_failure(state, 1, EACCES, "An error occured when opening the file %s", arg);
+            ext = strrchr(arg, '.');
+            if (!ext)
+                argp_failure(state, 1, 0, "FileExtensionError: Expected the file '%s' to have '.bin' extension. Got NULL", arg);
+            ext += 1;
+            if (strcmp(ext, "bin") != 0)
+                argp_failure(state, 1, 0, "FileExtensionError: Expected the file '%s' to have '.bin' extension. Got '%s'", arg, ext);
+            arguments->val_data = arg;
+            break;
+
+        case 201:
+            if (arg != NULL) arguments->max_epochs = atoi(arg);
+            break;
+        case 202:
+            if (arg != NULL) arguments->batch_size = atoi(arg);
+            break;
+        case 203:
+            if (arg != NULL) arguments->block_size = atoi(arg);
+            break;
+        case 204:
+            if (arg != NULL) arguments->log_dir = arg;
+            break;
+        case 205:
+            if (arg != NULL) arguments->output = arg;
+            break;
+        case 206:
+            if (arg == NULL || !(access(arg, R_OK) == 0)) {
+                argp_failure(state, 1, EACCES, "An error occured when opening the checkpoint file %s\n", arg);
+                break;
+            }
+            arguments->load_checkpoint = arg;
+            break;
+
+        case 301:
+            if (arg != NULL) arguments->validation_batch_size = atoi(arg);
+            break;
+        case 302:
+            if (arg != NULL) arguments->validation_block_size = atoi(arg);
+            break;
+        case 303:
+            if (arg != NULL) arguments->validation_interval = atoi(arg);
+            break;
+
+        case 401:
+            if (arg != NULL) arguments->lr = atof(arg);
+            break;
+        case 402:
+            if (arg != NULL) arguments->weight_decay = atof(arg);
+            break;
+        case 403:
+            if (arg != NULL) arguments->beta1 = atof(arg);
+            break;
+        case 404:
+            if (arg != NULL) arguments->beta2 = atof(arg);
+            break;
+        case 405:
+            if (arg != NULL) arguments->eps = atof(arg);
+            break;
+
+        case ARGP_KEY_ARG:
+            return 0;
+        default:
+            return ARGP_ERR_UNKNOWN;
+    }
+    return 0;
+}
+
+
+static struct argp argp = {options, parse_options, 0, 0};
 
 
 int load_model(const char *file_path, gpt2_t *model) {
@@ -187,8 +346,41 @@ void save_model(const char *file_path, const gpt2_t *model, size_t steps) {
 }
 
 
-int main() {
+int main(int argc, char **argv) {
+    struct arguments training_config;
+    init_arguments(&training_config);
 
+    // parse commandline args
+    if (argp_parse(&argp, argc, argv, 0, 0, &training_config) != 0)
+        return 1;
+
+    const char *train_data = training_config.train_data;
+    const char *val_data = training_config.val_data;
+    const int max_epochs = training_config.max_epochs;
+    const int batch_size = training_config.batch_size;
+    const int block_size = training_config.block_size;
+    const char *load_checkpoint = training_config.load_checkpoint;
+    const float lr = training_config.lr;
+
+    struct stat log_dir_stat;
+    int err = stat(training_config.log_dir, &log_dir_stat);
+    if (err == -1) {
+        printf("hi\n");
+        if (ENOENT == errno) {
+            printf("Creating logging directory: %s\n", training_config.log_dir);
+            mkdir(training_config.log_dir, 0750);
+        }
+    } else {
+        if (!S_ISDIR(log_dir_stat.st_mode)) {
+            printf("Error: %s is not a directory.", training_config.log_dir);
+            exit(1);
+        }
+    }
+
+    char save_checkpoint_path[1024];
+    sprintf(save_checkpoint_path, "%s/%s.bin", training_config.log_dir, training_config.output);
+
+    // define GPT2 model
     GPT2Config_t gpt2_config;
     gpt2_config.block_size = 1024;
     gpt2_config.vocab_size = 50257;
@@ -197,84 +389,124 @@ int main() {
     gpt2_config.n_layers = 12;
 
     gpt2_t *gpt = GPT2(&gpt2_config);
-    int ckpt_steps = load_model(checkpoint_path, gpt);
+    int ckpt_steps = load_model(load_checkpoint, gpt);
 
     // create the dataloaders for training and validation
-    dataloader_t *train_loader = DataLoader(tiny_shakespeare_train, batch_size, block_size);
-    dataloader_t *val_loader = DataLoader(tiny_shakespeare_val, validation_batch_size, validation_block_size);
+    dataloader_t *train_loader = DataLoader(
+        training_config.train_data, 
+        batch_size, 
+        block_size
+    );
+
+    dataloader_t *val_loader = val_data ? DataLoader(
+        training_config.val_data, 
+        training_config.validation_batch_size, 
+        training_config.validation_block_size
+    ) : NULL;
 
     // create optimizer
     adamW_t *optimizer = AdamW(
-        gpt->parameters(gpt), 
-        gpt->gradients(gpt), 
-        gpt->_num_param_tensors, 
-        lr, beta1, beta2, eps, weight_decay
+        gpt->parameters(gpt),
+        gpt->gradients(gpt),
+        gpt->_num_param_tensors,
+        lr, training_config.beta1, training_config.beta2, 
+        training_config.eps, training_config.weight_decay
     );
 
     // create loss_fn
     cross_entropy_loss_t *loss = CrossEntropyLoss();
+
+    printf("\ntrain_data: %s\n", train_data);
+    printf("val_data: %s\n", val_data);
+    printf("log_dir: %s\n", training_config.log_dir);
+    printf("save_checkpoint: %s\n\n", save_checkpoint_path);
+
+    printf("max_epochs: %d\n", max_epochs);
+    printf("train_batch_size: %d\n", batch_size);
+    printf("train_block_size: %d\n", block_size);
+    printf("num_train_batches: %d\n", train_loader->len(train_loader));
+    printf("total_train_steps: %d\n\n", train_loader->len(train_loader) * max_epochs);
+
+    printf("validation_enabled: %s\n", val_data ? "true" : "false");
+    printf("val_batch_size: %d\n", training_config.validation_batch_size);
+    printf("val_block_size: %d\n", training_config.validation_block_size);
+    printf("val_interval: %d\n", training_config.validation_interval);
+    printf("num_val_batches: %d\n\n", val_loader ? val_loader->len(val_loader) : 0);
+
+    printf("lr: %.4e\n", lr);
+    printf("weight_decay: %.4e\n", training_config.weight_decay);
+    printf("beta1: %.4f\n", training_config.beta1);
+    printf("beta2: %.4f\n", training_config.beta2);
+    printf("eps: %.4e\n\n", training_config.eps);
+
     float best_training_loss = INFINITY;
     float best_validation_loss = INFINITY;
 
     struct timespec train_start, train_end, val_start, val_end;
-    for (int step = 1; step <= training_steps; step++) {
-        tensor_t *training_batch[2];
-        train_loader->next(train_loader, training_batch);
-        tensor_t *_x = training_batch[0], *_targets = training_batch[1];
+    int total_training_steps = ckpt_steps;
+    int training_steps = train_loader->len(train_loader);
 
-        // we need to copy the tensors as the model always free's its inputs in backward pass
-        // hence copying prevents us from losing the current batch's inputs and targets
-        int inp_shape[2] = {batch_size, block_size};
-        tensor_t *x = create_tensor(inp_shape, 2);
-        tensor_t *targets = create_tensor(inp_shape, 2);
+    for (int epoch = 1; epoch <= max_epochs; epoch++) {
+        for (int step = 1; step <= training_steps; step++) {
+            total_training_steps += 1;
 
-        tensor_copy(x, _x);
-        tensor_copy(targets, _targets);
+            tensor_t *training_batch[2];
+            train_loader->next(train_loader, training_batch);
+            tensor_t *_x = training_batch[0], *_targets = training_batch[1];
 
-        // zero the gradients
-        optimizer->zero_grad(optimizer);
+            // we need to copy the tensors as the model always free's its inputs in backward pass
+            // hence copying prevents us from losing the current batch's inputs and targets
+            int inp_shape[2] = {batch_size, block_size};
+            tensor_t *x = create_tensor(inp_shape, 2);
+            tensor_t *targets = create_tensor(inp_shape, 2);
 
-        clock_gettime(CLOCK_MONOTONIC, &train_start);
-        tensor_t *logits = gpt->forward(gpt, x);
+            tensor_copy(x, _x);
+            tensor_copy(targets, _targets);
 
-        // calculate loss
-        tensor_t *losses = loss->forward(loss, logits, targets);
+            // zero the gradients
+            optimizer->zero_grad(optimizer);
 
-        float training_mean_loss = 0.0f;
-        for (int i = 0; i < losses->length; i++)
-            training_mean_loss += losses->t[i];
-        training_mean_loss /= losses->length;
+            clock_gettime(CLOCK_MONOTONIC, &train_start);
+            tensor_t *logits = gpt->forward(gpt, x);
 
-        // backward pass
-        for (int i = 0; i < losses->length; i++)
-            losses->t[i] = 1.0f / losses->length;
+            // calculate loss
+            tensor_t *losses = loss->forward(loss, logits, targets);
 
-        tensor_t *global_grad = loss->backward(loss, losses);
-        global_grad = gpt->backward(gpt, global_grad);
+            float training_mean_loss = 0.0f;
+            for (int i = 0; i < losses->length; i++)
+                training_mean_loss += losses->t[i];
+            training_mean_loss /= losses->length;
 
-        // update parameters
-        optimizer->step(optimizer);
+            // backward pass
+            for (int i = 0; i < losses->length; i++)
+                losses->t[i] = 1.0f / losses->length;
 
-        clock_gettime(CLOCK_MONOTONIC, &train_end);
-        double time_elapsed_s = (train_end.tv_sec - train_start.tv_sec) + (train_end.tv_nsec - train_start.tv_nsec) / 1e9;
-        printf("step %d: train loss: %f lr: %.4e | took %.4f ms\n", step, training_mean_loss, lr, time_elapsed_s * 1000);
+            tensor_t *global_grad = loss->backward(loss, losses);
+            global_grad = gpt->backward(gpt, global_grad);
 
-        if (training_mean_loss < best_training_loss)
-            best_training_loss = training_mean_loss;
+            // update parameters
+            optimizer->step(optimizer);
 
-        free_tensor(logits);
-        free_tensor(_x);
-        free_tensor(_targets);
+            clock_gettime(CLOCK_MONOTONIC, &train_end);
+            double time_elapsed_s = (train_end.tv_sec - train_start.tv_sec) + (train_end.tv_nsec - train_start.tv_nsec) / 1e9;
+            printf("epoch: %d step %d | train loss: %f lr: %.4e | took %.4f ms\n", epoch, step, training_mean_loss, lr, time_elapsed_s * 1000);
 
+            if (training_mean_loss < best_training_loss)
+                best_training_loss = training_mean_loss;
+
+            free_tensor(logits);
+            free_tensor(_x);
+            free_tensor(_targets);
+        }
         // run validation every validation_interval
-        if (step % validation_interval == 0 && val_loader) {
+        if (val_loader && epoch % training_config.validation_interval == 0) {
             printf("\nRunning validation\n");
             float mean_validation_loss = 0.0f;
             val_loader->reset(val_loader);
             int num_validation_steps = val_loader->len(val_loader);
             clock_gettime(CLOCK_MONOTONIC, &val_start);
-            for (int val_step = 1; val_step <= num_validation_steps; val_step++)
-            {
+            
+            for (int val_step = 1; val_step <= num_validation_steps; val_step++) {
                 tensor_t *validation_batch[2];
                 val_loader->next(val_loader, validation_batch);
                 tensor_t *val_x = validation_batch[0], *val_targets = validation_batch[1];
@@ -294,14 +526,15 @@ int main() {
                 free_tensor(val_logits);
             }
             mean_validation_loss /= num_validation_steps;
+            
             clock_gettime(CLOCK_MONOTONIC, &val_end);
             double val_time_elapsed_s = (val_end.tv_sec - val_start.tv_sec) + (val_end.tv_nsec - val_start.tv_nsec) / 1e9;
             printf("val loss: %f | val_batches: %d | validation took %.4f seconds\n", mean_validation_loss, num_validation_steps, val_time_elapsed_s);
 
             if (mean_validation_loss < best_validation_loss) {
                 best_validation_loss = mean_validation_loss;
-                save_model(c_checkpoint_path, gpt, step + ckpt_steps);
-                printf("Model saved at %s\n", c_checkpoint_path);
+                save_model(save_checkpoint_path, gpt, total_training_steps);
+                printf("Model saved at %s\n", save_checkpoint_path);
             }
             printf("\n");
         }
@@ -310,7 +543,7 @@ int main() {
     printf("\nTraining Statistics\n");
     printf("Best training loss: %f\n", best_training_loss);
     printf("Best validation loss: %f\n", best_validation_loss);
-    printf("Latest model checkpoint: %s\n", c_checkpoint_path);
+    printf("Latest model checkpoint: %s\n", save_checkpoint_path);
 
     gpt->free_layer(gpt);
     optimizer->free_layer(optimizer);
