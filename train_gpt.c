@@ -197,7 +197,7 @@ int load_model(const char *file_path, gpt2_t *model) {
     }
 
     FILE *fp = fopenCheck(file_path, "rb");
-    printf("Loading checkpoint from %s\n",file_path);
+
     int headers[256];
     freadCheck(headers, sizeof(int), 256, fp);
     if (headers[0] != 20240415) {
@@ -243,14 +243,31 @@ int load_model(const char *file_path, gpt2_t *model) {
         exit(1);
     }
 
-    printf("[GPT2 | steps trained: %zu]\n", steps);
-    printf("max_block_size: %zu\n", max_block_size);
-    printf("vocab_size: %zu\n", vocab_size);
-    printf("n_layers: %zu\n", n_layers);
-    printf("n_heads: %zu\n", n_heads);
-    printf("n_embd: %zu\n", n_embd);
+    char *keys[7] = {
+        "max_block_size",
+        "vocab_size",
+        "n_layers",
+        "n_heads",
+        "n_embd",
+        "checkpoint_path",
+        "steps_trained"
+    };
+    char vals[7][1024];
+    sprintf(vals[0], "%zu", max_block_size);
+    sprintf(vals[1], "%zu", vocab_size);
+    sprintf(vals[2], "%zu", n_layers);
+    sprintf(vals[3], "%zu", n_heads);
+    sprintf(vals[4], "%zu", n_embd);
+    sprintf(vals[5], "%s", file_path);
+    sprintf(vals[6], "%zu", steps);
 
-    int *shape_buffer = (int*)mallocCheck(sizeof(int) * shape_header_size);
+    char *values[7] = { vals[0], vals[1], vals[2], vals[3], vals[4], vals[5], vals[6] };
+
+    printf("GPT2 Model Settings\n");
+    print_table(keys, values, 7);
+    printf("\n");
+
+    int *shape_buffer = (int *)mallocCheck(sizeof(int) * shape_header_size);
     freadCheck(shape_buffer, sizeof(int), shape_header_size, fp);
 
     int shape_index = 0;
@@ -416,28 +433,57 @@ int main(int argc, char **argv) {
     // create loss_fn
     cross_entropy_loss_t *loss = CrossEntropyLoss();
 
-    printf("\ntrain_data: %s\n", train_data);
-    printf("val_data: %s\n", val_data);
-    printf("log_dir: %s\n", training_config.log_dir);
-    printf("save_checkpoint: %s\n\n", save_checkpoint_path);
+    char *keys[100] = {
+        "train_data",
+        "val_data",
+        "log_dir",
+        "save_checkpoint",
+        "max_epochs",
+        "train_batch_size",
+        "train_block_size",
+        "num_train_batches",
+        "total_train_steps",
+        "validation_enabled",
+        "val_batch_size",
+        "val_block_size",
+        "val_interval",
+        "num_val_batches",
+        "lr",
+        "weight_decay",
+        "beta1",
+        "beta2",
+        "eps"
+    };
 
-    printf("max_epochs: %d\n", max_epochs);
-    printf("train_batch_size: %d\n", batch_size);
-    printf("train_block_size: %d\n", block_size);
-    printf("num_train_batches: %d\n", train_loader->len(train_loader));
-    printf("total_train_steps: %d\n\n", train_loader->len(train_loader) * max_epochs);
+    char vals[100][1024];
+    sprintf(vals[0], "%s", training_config.train_data);
+    sprintf(vals[1], "%s", training_config.val_data);
+    sprintf(vals[2], "%s", training_config.log_dir);
+    sprintf(vals[3], "%s", save_checkpoint_path);
+    sprintf(vals[4], "%d", max_epochs);
+    sprintf(vals[5], "%d", batch_size);
+    sprintf(vals[6], "%d", block_size);
+    sprintf(vals[7], "%d", train_loader->len(train_loader));
+    sprintf(vals[8], "%d", train_loader->len(train_loader) * max_epochs);
+    sprintf(vals[9], "%s", val_data ? "true" : "false");
+    sprintf(vals[10], "%d", training_config.validation_batch_size);
+    sprintf(vals[11], "%d", training_config.validation_block_size);
+    sprintf(vals[12], "%d", training_config.validation_interval);
+    sprintf(vals[13], "%d", val_loader ? val_loader->len(val_loader) : 0);
+    sprintf(vals[14], "%.4e", lr);
+    sprintf(vals[15], "%.4e", training_config.weight_decay);
+    sprintf(vals[16], "%.4e", training_config.beta1);
+    sprintf(vals[17], "%.4e", training_config.beta2);
+    sprintf(vals[18], "%.4e", training_config.eps);
 
-    printf("validation_enabled: %s\n", val_data ? "true" : "false");
-    printf("val_batch_size: %d\n", training_config.validation_batch_size);
-    printf("val_block_size: %d\n", training_config.validation_block_size);
-    printf("val_interval: %d\n", training_config.validation_interval);
-    printf("num_val_batches: %d\n\n", val_loader ? val_loader->len(val_loader) : 0);
+    int total_rows = 19;
+    char *values[1024];
+    for (int i = 0; i < total_rows; i++)
+        values[i] = vals[i];
 
-    printf("lr: %.4e\n", lr);
-    printf("weight_decay: %.4e\n", training_config.weight_decay);
-    printf("beta1: %.4f\n", training_config.beta1);
-    printf("beta2: %.4f\n", training_config.beta2);
-    printf("eps: %.4e\n\n", training_config.eps);
+    printf("Training Settings\n");
+    print_table(keys, values, 19);
+    printf("\n");
 
     float best_training_loss = INFINITY;
     float best_validation_loss = INFINITY;

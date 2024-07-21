@@ -46,6 +46,8 @@ void *aligned_malloc_check(size_t alignment, size_t size, const char *file, int 
 
 #define alignedMallocCheck(alignment, size) aligned_malloc_check(alignment, size, __FILE__, __LINE__);
 
+void print_table(char **key, char **value, size_t n);
+
 #ifdef __cplusplus
 }
 #endif
