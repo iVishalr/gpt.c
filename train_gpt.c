@@ -535,7 +535,7 @@ int main(int argc, char **argv) {
 
             clock_gettime(CLOCK_MONOTONIC, &train_end);
             double time_elapsed_s = (train_end.tv_sec - train_start.tv_sec) + (train_end.tv_nsec - train_start.tv_nsec) / 1e9;
-            printf("epoch: %d step %d | train loss: %f lr: %.4e | took %.4f ms\n", epoch, step, training_mean_loss, lr, time_elapsed_s * 1000);
+            printf("epoch: %d step: %d | train loss: %f lr: %.4e | took %.4f ms\n", epoch, step, training_mean_loss, lr, time_elapsed_s * 1000);
 
             if (training_mean_loss < best_training_loss)
                 best_training_loss = training_mean_loss;

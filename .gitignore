@@ -9,6 +9,7 @@ build/
 .vscode
 logs/
 *.log
+*.bin
 data/
 *.pt
 model/
