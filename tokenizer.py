@@ -23,7 +23,7 @@ def write_tokenizer(encoder: tiktoken.Encoding, filename: str):
         os.makedirs(dirname)
 
     n = encoder.max_token_value + 1
-    header = torch.zeros(256, dtype=torch.float32)
+    header = torch.zeros(256, dtype=torch.int32)
     header[0] = 20240415
     header[1] = n
     header[2] = encoder.eot_token # EOT Token
@@ -65,7 +65,7 @@ if __name__ == "__main__":
     if args.encode and args.decode:
         raise argparse.ArgumentError(None, "Pass either --encode or --decode flags, not both.")
     
-    if len(args.prompt) == 0:
+    if len(args.prompt) == 0 and not args.save:
         raise argparse.ArgumentError(None, f"Expected prompt to be of atleast length 1. Got {len(args.prompt)}")
     
     if not args.encode and not args.decode and not args.save:
