@@ -382,7 +382,6 @@ int main(int argc, char **argv) {
     struct stat log_dir_stat;
     int err = stat(training_config.log_dir, &log_dir_stat);
     if (err == -1) {
-        printf("hi\n");
         if (ENOENT == errno) {
             printf("Creating logging directory: %s\n", training_config.log_dir);
             mkdir(training_config.log_dir, 0750);
