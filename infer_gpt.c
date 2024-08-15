@@ -9,6 +9,7 @@
 #include <unistd.h>
 
 #include "transformer.h"
+#include "tokenizer.h"
 #include "utils.h"
 
 // define command line options
@@ -17,26 +18,32 @@ static char *doc = "Infers from a GPT2 model";
 static struct argp_option options[] = {
     // model settings
     {"load-checkpoint", 101, "LOAD_CHECKPOINT_PATH", 0, "Path to C model checkpoint to load the model. (Required)"},
-    {"prompt", 102, "PROMPT", 0, "Prompt tokens to the model to kick off autoregressive prediction. (Required)"},
-    {"max_tokens", 103, "MAX_TOKENS", OPTION_ARG_OPTIONAL, "Max number of tokens to generate. Default: 1024"},
+    {"tokenizer", 102, "TOKENIZER", 0, "Path to tokenizer checkpoint. (Required)"},
+    {"prompt", 103, "PROMPT", 0, "Prompt tokens to the model to kick off autoregressive prediction. (Required)"},
+    {"max_tokens", 104, "MAX_TOKENS", OPTION_ARG_OPTIONAL, "Max number of tokens to generate. Default: 1024"},
+    {"temperature", 105, "TEMPERATURE", OPTION_ARG_OPTIONAL, "Temperature to use during generation. Default: 1.0f"},
     {0}
 };
 
 
 struct arguments {
     char *load_checkpoint;
+    char *tokenizer_checkpoint;
     int *prompt;
     int num_init_tokens;
     int max_tokens;
+    float temperature;
 };
 
 
 static void init_arguments(struct arguments *args) {
     if (!args) return;
     args->load_checkpoint = NULL;
+    args->tokenizer_checkpoint = NULL;
     args->prompt = NULL;
     args->max_tokens = 1024;
     args->num_init_tokens = 0;
+    args->temperature = 1.0f;
 }
 
 
@@ -78,6 +85,19 @@ static error_t parse_options(int key, char *arg, struct argp_state *state) {
             arguments->load_checkpoint = arg;
             break;
         case 102:
+            if (!(access(arg, F_OK) == 0))
+                argp_failure(state, 1, ENOENT, "%s", arg);
+            if (!(access(arg, R_OK) == 0))
+                argp_failure(state, 1, EACCES, "An error occured when opening the file '%s'", arg);
+            ext = strrchr(arg, '.');
+            if (!ext)
+                argp_failure(state, 1, 0, "FileExtensionError: Expected the file '%s' to have '.bin' extension. Got NULL", arg);
+            ext += 1;
+            if (strcmp(ext, "bin") != 0)
+                argp_failure(state, 1, 0, "FileExtensionError: Expected the file '%s' to have '.bin' extension. Got '%s'", arg, ext);
+            arguments->tokenizer_checkpoint = arg;
+            break;
+        case 103:
             arg = trim_whitespace(arg);
             size_t prompt_len = strlen(arg);
             if (arg[0] == '[' && arg[prompt_len - 1] == ']') {
@@ -101,9 +121,13 @@ static error_t parse_options(int key, char *arg, struct argp_state *state) {
             arguments->prompt = prompt_tokens;
             arguments->num_init_tokens = num_tokens;
             break;
-        case 103:
+        case 104:
             if (arg != NULL)
                 arguments->max_tokens = atoi(arg);
+            break;
+        case 105:
+            if (arg != NULL)
+                arguments->temperature = atof(arg);
             break;
         case ARGP_KEY_ARG:
             return 0;
@@ -117,12 +141,7 @@ static error_t parse_options(int key, char *arg, struct argp_state *state) {
 static struct argp argp = {options, parse_options, 0, 0};
 
 
-int load_model(const char *file_path, gpt2_t *model) {
-    if (model == NULL) {
-        printf("Expected *model to be of type gpt2_t. Got NULL.\n");
-        exit(1);
-    }
-
+gpt2_t* load_model(const char *file_path) {
     FILE *fp = fopenCheck(file_path, "rb");
 
     int headers[256];
@@ -143,32 +162,32 @@ int load_model(const char *file_path, gpt2_t *model) {
     steps = headers[7];
 
     // validate model configurations
-    int config_valid = 1;
-    if (model->block_size != max_block_size) {
-        printf("ValueError: model->block_size does not match block_size in checkpoint. Got %d != %zu\n", model->block_size, max_block_size);
-        config_valid = 0;
-    } 
-    if (model->vocab_size != vocab_size) {
-        printf("ValueError: model->vocab_size does not match vocab_size in checkpoint. Got %d != %zu\n", model->vocab_size, vocab_size);
-        config_valid = 0;
-    }
-    if (model->n_layers != n_layers) {
-        printf("ValueError: model->n_layers does not match n_layers in checkpoint. Got %d != %zu\n", model->n_layers, n_layers);
-        config_valid = 0;
-    }
-    if (model->n_heads != n_heads) {
-        printf("ValueError: model->n_heads does not match n_heads in checkpoint. Got %d != %zu\n", model->n_heads, n_heads);
-        config_valid = 0;
-    }
-    if (model->n_embd != n_embd) {
-        printf("ValueError: model->n_embd does not match n_embd in checkpoint. Got %d != %zu\n", model->n_embd, n_embd);
-        config_valid = 0;
-    }
+    // int config_valid = 1;
+    // if (model->block_size != max_block_size) {
+    //     printf("ValueError: model->block_size does not match block_size in checkpoint. Got %d != %zu\n", model->block_size, max_block_size);
+    //     config_valid = 0;
+    // } 
+    // if (model->vocab_size != vocab_size) {
+    //     printf("ValueError: model->vocab_size does not match vocab_size in checkpoint. Got %d != %zu\n", model->vocab_size, vocab_size);
+    //     config_valid = 0;
+    // }
+    // if (model->n_layers != n_layers) {
+    //     printf("ValueError: model->n_layers does not match n_layers in checkpoint. Got %d != %zu\n", model->n_layers, n_layers);
+    //     config_valid = 0;
+    // }
+    // if (model->n_heads != n_heads) {
+    //     printf("ValueError: model->n_heads does not match n_heads in checkpoint. Got %d != %zu\n", model->n_heads, n_heads);
+    //     config_valid = 0;
+    // }
+    // if (model->n_embd != n_embd) {
+    //     printf("ValueError: model->n_embd does not match n_embd in checkpoint. Got %d != %zu\n", model->n_embd, n_embd);
+    //     config_valid = 0;
+    // }
 
-    if (!config_valid) {
-        fcloseCheck(fp);
-        exit(1);
-    }
+    // if (!config_valid) {
+    //     fcloseCheck(fp);
+    //     exit(1);
+    // }
 
     char *keys[7] = {
         "max_block_size",
@@ -193,6 +212,15 @@ int load_model(const char *file_path, gpt2_t *model) {
     printf("GPT2 Model Settings\n");
     print_table(keys, values, 7);
     printf("\n");
+
+    GPT2Config_t gpt2_config;
+    gpt2_config.block_size = max_block_size;
+    gpt2_config.vocab_size = vocab_size;
+    gpt2_config.n_embd = n_embd;
+    gpt2_config.n_heads = n_heads;
+    gpt2_config.n_layers = n_layers;
+
+    gpt2_t *model = GPT2(&gpt2_config);
 
     int *shape_buffer = (int *)mallocCheck(sizeof(int) * shape_header_size);
     freadCheck(shape_buffer, sizeof(int), shape_header_size, fp);
@@ -225,7 +253,32 @@ int load_model(const char *file_path, gpt2_t *model) {
 
     free(shape_buffer);
     fcloseCheck(fp);
-    return steps;
+    return model;
+}
+
+
+unsigned int random_u32(uint64_t *state) {
+    // xorshift rng: https://en.wikipedia.org/wiki/Xorshift#xorshift.2A
+    *state ^= *state >> 12;
+    *state ^= *state << 25;
+    *state ^= *state >> 27;
+    return (*state * 0x2545F4914F6CDD1Dull) >> 32;
+}
+float random_f32(uint64_t *state) { // random float32 in [0,1)
+    return (random_u32(state) >> 8) / 16777216.0f;
+}
+
+int sample_mult(float* probabilities, int n, float coin) {
+    // sample index from probabilities (they must sum to 1!)
+    // coin is a random number in [0, 1), usually from random_f32()
+    float cdf = 0.0f;
+    for (int i = 0; i < n; i++) {
+        cdf += probabilities[i];
+        if (coin < cdf) {
+            return i;
+        }
+    }
+    return n - 1; // in case of rounding errors
 }
 
 
@@ -255,8 +308,11 @@ int main(int argc, char **argv) {
         exit(1);
     }
 
-    gpt2_t *gpt = GPT2(&gpt2_config);
-    int ckpt_steps = load_model(inference_args.load_checkpoint, gpt);
+    // create Tokenizer
+    tokenizer_t *tokenizer = Tokenizer(inference_args.tokenizer_checkpoint);
+    uint64_t rng_state = 0;
+
+    gpt2_t *gpt = load_model(inference_args.load_checkpoint);
 
     int total_tokens = inference_args.num_init_tokens + inference_args.max_tokens;
     int block_size_multiple = total_tokens / gpt2_config.block_size;
@@ -281,17 +337,70 @@ int main(int argc, char **argv) {
         X->t[i] = (float)inference_args.prompt[i];
 
     int start_index = 0;
+    struct timespec inference_start, inference_end;
+    clock_gettime(CLOCK_MONOTONIC, &inference_start);
+
+    printf("Starting Inference\n");
+
     for (int i = inference_args.num_init_tokens; i < total_tokens; i++) {
         int window_input_shape[2] = {1, gpt2_config.block_size};
         tensor_t *window_input = create_tensor(window_input_shape, 2);
 
-        start_index += i % gpt2_config.block_size;
-        memcpy(window_input->t, X->t + start_index, gpt2_config.block_size);
+        start_index += i < gpt2_config.block_size ? 0 : 1;
+        memcpy(window_input->t, X->t + start_index, gpt2_config.block_size * sizeof(float));
 
         tensor_t *logits = gpt->forward(gpt, window_input);
+        gpt->free_cache(gpt); // frees up window_input and other cached tensors
 
+        // we only care about the (i-1)th prediction 
+        // pluck out logits[:, [i-1], :]
+        int logits_offset = i < gpt2_config.block_size ? i - 1 : gpt2_config.block_size - 1; // make this better
+
+        float *logits_last_idx = logits->t + (logits_offset) * gpt2_config.vocab_size;
+
+        // scale by temperature
+        for (int j = 0; j < gpt2_config.vocab_size; j++)
+            logits_last_idx[j] = logits_last_idx[j] / inference_args.temperature;
+        
+        // calculate softmax
+        float maxval = -INFINITY;
+        for (int j = 0; j < gpt2_config.vocab_size; j++)
+            if (logits_last_idx[j] > maxval)
+                maxval = logits_last_idx[j];
+        
+        float sum = 0.0f;
+        for (int j = 0; j < gpt2_config.vocab_size; j++) {
+            logits_last_idx[j] = expf(logits_last_idx[j] - maxval);
+            sum += logits_last_idx[j];
+        }
+        for (int j = 0; j < gpt2_config.vocab_size; j++)
+            logits_last_idx[j] /= sum;
+
+        // sample
+        float coin = random_f32(&rng_state);
+        int next_token = sample_mult(logits_last_idx, gpt2_config.vocab_size, coin);
+        X->t[i] = (float)next_token;
+        free_tensor(logits);
+        logits_last_idx = NULL;
     }
+    
+    clock_gettime(CLOCK_MONOTONIC, &inference_end);
+    double inference_time_s = (inference_end.tv_sec - inference_start.tv_sec) + (inference_end.tv_nsec - inference_start.tv_nsec) / 1e9;
+
+    int *tokens = (int *)mallocCheck(sizeof(int) * total_tokens);
+    for (int i = 0; i < total_tokens; i++)
+        tokens[i] = (int)X->t[i];
+    
+    uint32_t length = tokenizer->decode_length(tokenizer, tokens, total_tokens);
+    char *dest = (char *)malloc(sizeof(char) * length + 1);
+    tokenizer->decode_tokens(tokenizer, tokens, total_tokens, dest, length + 1);
+    printf("\n%s\n", dest);
+    printf("\nInference Time: %.4f seconds | tokens/s: %.2f\n", inference_time_s, (total_tokens - inference_args.num_init_tokens) / inference_time_s);
 
     free(inference_args.prompt);
+    free(tokens);
+    free(dest);
+    free_tensor(X);
+    tokenizer->free_layer(tokenizer);
     return 0;
 }

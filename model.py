@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+import os
 
 class CausalSelfAttention(nn.Module):
     def __init__(self, config) -> None:
@@ -204,3 +205,77 @@ class GPT(nn.Module):
             idx = torch.cat((idx, idx_next), dim=1)
 
         return idx
+    
+
+def write_fp32(tensor, file):
+    if tensor is None:
+        return
+    t = tensor.detach().cpu().to(torch.float32)
+    b = t.numpy().tobytes()
+    file.write(b)
+
+def write_tensors(model_tensors, L, file):
+    write_fp32(model_tensors["transformer.wte.weight"], file) # (vocab_size, C)
+    write_fp32(model_tensors["transformer.wpe.weight"], file) # (block_size, C)
+    
+    # write block's parameters
+    for i in range(L):
+        write_fp32(model_tensors[f"transformer.h.{i}.ln_1.weight"], file)
+        write_fp32(model_tensors[f"transformer.h.{i}.ln_1.bias"], file)
+        write_fp32(model_tensors[f"transformer.h.{i}.attn.c_attn.weight"], file)
+        write_fp32(model_tensors[f"transformer.h.{i}.attn.c_attn.bias"], file)
+        write_fp32(model_tensors[f"transformer.h.{i}.attn.c_proj.weight"], file)
+        write_fp32(model_tensors[f"transformer.h.{i}.attn.c_proj.bias"], file)
+        write_fp32(model_tensors[f"transformer.h.{i}.ln_2.weight"], file)
+        write_fp32(model_tensors[f"transformer.h.{i}.ln_2.bias"], file)
+        write_fp32(model_tensors[f"transformer.h.{i}.mlp.c_fc.weight"], file)
+        write_fp32(model_tensors[f"transformer.h.{i}.mlp.c_fc.bias"], file)
+        write_fp32(model_tensors[f"transformer.h.{i}.mlp.c_proj.weight"], file)
+        write_fp32(model_tensors[f"transformer.h.{i}.mlp.c_proj.bias"], file)
+    write_fp32(model_tensors["transformer.ln_f.weight"], file)
+    write_fp32(model_tensors["transformer.ln_f.bias"], file)
+
+
+def write_model(model: GPT, filename: str, step: int = 0):
+    dirname, filename = os.path.dirname(filename), os.path.basename(filename)
+    if not os.path.exists(dirname):
+        os.makedirs(dirname)
+
+    header = torch.zeros(256, dtype=torch.int32)
+    header[0] = 20240415
+    header[1] = model.config.block_size
+    header[2] = model.config.vocab_size
+    header[3] = model.config.n_layer
+    header[4] = model.config.n_head
+    header[5] = model.config.n_embd
+
+    params = {name: param.cpu() for name, param in model.named_parameters()}
+    num_required_shape_headers = 0
+    shapes = []
+    for name, param in params.items():
+        _shape = list(param.shape)
+        num_required_shape_headers += len(_shape) + 1
+        shapes.append(_shape)
+    
+    shape_headers = torch.zeros(num_required_shape_headers, dtype=torch.int32)
+    shape_headers_index = 0
+    for i in range(len(shapes)):
+        shape_headers[shape_headers_index] = len(shapes[i])
+        shape_headers_index += 1
+        for j in shapes[i]:
+            shape_headers[shape_headers_index] = j
+            shape_headers_index += 1
+
+    header[6] = num_required_shape_headers
+    header[7] = step
+
+    with open(os.path.join(dirname, filename), "wb") as file:
+        file.write(header.numpy().tobytes())
+        file.write(shape_headers.numpy().tobytes())
+        write_tensors(params, model.config.n_layer, file)
+    print(f"Model saved at {filename}")
+
+
+if __name__ == "__main__":
+    model = GPT.from_pretrained("gpt2-medium")
+    write_model(model, "model/gpt2-350M.bin")

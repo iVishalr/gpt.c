@@ -1,6 +1,6 @@
 CC = gcc
-# CFLAGS = -O3 -Ofast -march=native -Wno-unused-result -ggdb3 -fPIC -fopenmp -DOMP
-CFLAGS = -Wno-unused-result -O0 -ggdb3 -fPIC -fopenmp -DOMP
+CFLAGS = -O3 -Ofast -march=native -Wno-unused-result -ggdb3 -fPIC -fopenmp -DOMP
+# CFLAGS = -Wno-unused-result -O0 -ggdb3 -fPIC -fopenmp -DOMP
 INCLUDES = -I include/ -I /opt/OpenBLAS/include/
 LDLIBS = -lm -lopenblas -lgomp
 LDFLAGS = -L /opt/OpenBLAS/lib
