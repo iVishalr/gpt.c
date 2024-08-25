@@ -31,7 +31,7 @@ ROOT_SRCS = $(wildcard ./*.c)
 # Generate executable names from root source file names
 EXES = $(patsubst ./%.c, ./%, $(ROOT_SRCS))
 
-.PHONY: all clean shared_lib root_binaries setup valgrind tests
+.PHONY: all clean third_party shared_lib root_binaries setup valgrind tests
 
 # Default rule to build the shared library and root binaries
 all: setup shared_lib root_binaries
@@ -48,6 +48,11 @@ $(SHARED_LIB): $(OBJS)
 $(EXES): $(ROOT_SRCS) $(SHARED_LIB)
 	$(CC) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -o $@ $@.c -L . -l$(LIB_NAME) $(LDLIBS)
 
+# Rule to build third_party libraries
+third_party:
+	@if ! test -d third_party/OpenBLAS/lib;\
+		then cd third_party/OpenBLAS && make -j && make PREFIX=../../third_party/OpenBLAS install;\
+	fi
 # Rule to build the shared library
 shared_lib: $(SHARED_LIB)
 
@@ -61,7 +66,7 @@ valgrind: setup all
 	valgrind -s --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose ./train_gpt
 
 # Rule to create the build directory if it doesn't exist
-setup:
+setup: third_party
 	@if ! test -d $(BUILD);\
 		then echo "\033[93mSetting up build directory...\033[0m"; mkdir -p build;\
 	fi
