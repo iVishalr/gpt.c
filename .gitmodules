@@ -1,0 +1,4 @@
+[submodule "third_party/OpenBLAS"]
+    ignore = dirty
+    path = third_party/OpenBLAS
+    url = https://github.com/OpenMathLib/OpenBLAS.git
