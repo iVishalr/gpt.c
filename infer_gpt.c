@@ -161,34 +161,6 @@ gpt2_t* load_model(const char *file_path) {
     shape_header_size = headers[6];
     steps = headers[7];
 
-    // validate model configurations
-    // int config_valid = 1;
-    // if (model->block_size != max_block_size) {
-    //     printf("ValueError: model->block_size does not match block_size in checkpoint. Got %d != %zu\n", model->block_size, max_block_size);
-    //     config_valid = 0;
-    // } 
-    // if (model->vocab_size != vocab_size) {
-    //     printf("ValueError: model->vocab_size does not match vocab_size in checkpoint. Got %d != %zu\n", model->vocab_size, vocab_size);
-    //     config_valid = 0;
-    // }
-    // if (model->n_layers != n_layers) {
-    //     printf("ValueError: model->n_layers does not match n_layers in checkpoint. Got %d != %zu\n", model->n_layers, n_layers);
-    //     config_valid = 0;
-    // }
-    // if (model->n_heads != n_heads) {
-    //     printf("ValueError: model->n_heads does not match n_heads in checkpoint. Got %d != %zu\n", model->n_heads, n_heads);
-    //     config_valid = 0;
-    // }
-    // if (model->n_embd != n_embd) {
-    //     printf("ValueError: model->n_embd does not match n_embd in checkpoint. Got %d != %zu\n", model->n_embd, n_embd);
-    //     config_valid = 0;
-    // }
-
-    // if (!config_valid) {
-    //     fcloseCheck(fp);
-    //     exit(1);
-    // }
-
     char *keys[7] = {
         "max_block_size",
         "vocab_size",
@@ -354,7 +326,7 @@ int main(int argc, char **argv) {
 
         // we only care about the (i-1)th prediction 
         // pluck out logits[:, [i-1], :]
-        int logits_offset = i < gpt2_config.block_size ? i - 1 : gpt2_config.block_size - 1; // make this better
+        int logits_offset = i < gpt2_config.block_size ? i - 1 : gpt2_config.block_size - 1;
 
         float *logits_last_idx = logits->t + (logits_offset) * gpt2_config.vocab_size;
 
