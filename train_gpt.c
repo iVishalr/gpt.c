@@ -18,28 +18,28 @@ const char *argp_program_version = "train_gpt version 1.0";
 static char *doc = "Trains a GPT2 model";
 static struct argp_option options[] = {
     // dataloader settings
-    {"train-data", 101, "TRAIN_DATA_PATH", 0, "Path to training data."},
-    {"val-data", 102, "VAL_DATA_PATH", OPTION_ARG_OPTIONAL, "Path to validation data. Default: None"},
+    {"train-data", 201, "TRAIN_DATA_PATH", 0, "Path to training data."},
+    {"val-data", 202, "VAL_DATA_PATH", OPTION_ARG_OPTIONAL, "Path to validation data. Default: None"},
 
     // training settings
-    {"max-epochs", 201, "MAX_EPOCHS", OPTION_ARG_OPTIONAL, "Number of epochs to train the model. Default: 10"},
-    {"batch-size", 202, "BATCH_SIZE", OPTION_ARG_OPTIONAL, "Batch size to use for training the model. Default: 8"},
-    {"block-size", 203, "BLOCK_SIZE", OPTION_ARG_OPTIONAL, "Block size to use for Dataloader for training the model. Default: 128"},
-    {"log-dir", 204, "LOG_DIR", OPTION_ARG_OPTIONAL, "Path to log directory to store checkpoints. Default: 'logs/'"},
-    {"output", 205, "OUTPUT", OPTION_ARG_OPTIONAL, "Name of the model checkpoint. Default: 'checkpoint'"},
-    {"load-checkpoint", 206, "LOAD_CHECKPOINT_PATH", OPTION_ARG_OPTIONAL, "Path to C model checkpoint to load the model from. Default: None"},
+    {"max-epochs", 301, "MAX_EPOCHS", OPTION_ARG_OPTIONAL, "Number of epochs to train the model. Default: 10"},
+    {"batch-size", 302, "BATCH_SIZE", OPTION_ARG_OPTIONAL, "Batch size to use for training the model. Default: 8"},
+    {"block-size", 303, "BLOCK_SIZE", OPTION_ARG_OPTIONAL, "Block size to use for Dataloader for training the model. Default: 128"},
+    {"log-dir", 304, "LOG_DIR", OPTION_ARG_OPTIONAL, "Path to log directory to store checkpoints. Default: 'logs/'"},
+    {"output", 305, "OUTPUT", OPTION_ARG_OPTIONAL, "Name of the model checkpoint. Default: 'checkpoint'"},
+    {"load-checkpoint", 306, "LOAD_CHECKPOINT_PATH", OPTION_ARG_OPTIONAL, "Path to C model checkpoint to load the model from. Default: None"},
 
     // validation settings
-    {"val-batch-size", 301, "VAL_BATCH_SIZE", OPTION_ARG_OPTIONAL, "Batch size to use for validation. Default: 8"},
-    {"val-block-size", 302, "VAL_BLOCK_SIZE", OPTION_ARG_OPTIONAL, "Block size to use for validation. Default: 128"},
-    {"val-interval", 303, "VAL_INTERVAL", OPTION_ARG_OPTIONAL, "Perform validation after every 'x' epochs. Default: 1"},
+    {"val-batch-size", 401, "VAL_BATCH_SIZE", OPTION_ARG_OPTIONAL, "Batch size to use for validation. Default: 8"},
+    {"val-block-size", 402, "VAL_BLOCK_SIZE", OPTION_ARG_OPTIONAL, "Block size to use for validation. Default: 128"},
+    {"val-interval", 403, "VAL_INTERVAL", OPTION_ARG_OPTIONAL, "Perform validation after every 'x' epochs. Default: 1"},
 
     // optimizer settings
-    {"lr", 401, "OPTIMIZER_LR", OPTION_ARG_OPTIONAL, "Learning rate to use for optimization. Default: 3e-4"},
-    {"weight-decay", 402, "OPTIMIZER_WEIGHT_DECAY", OPTION_ARG_OPTIONAL, "Weight decay to use for optimization. Default: 0.00"},
-    {"beta1", 403, "OPTIMIZER_BETA1", OPTION_ARG_OPTIONAL, "Beta1 to use for optimization. Default: 0.9"},
-    {"beta2", 404, "OPTIMIZER_BETA2", OPTION_ARG_OPTIONAL, "Beta2 to use for optimization. Default: 0.99"},
-    {"eps", 405, "OPTIMIZER_EPS", OPTION_ARG_OPTIONAL, "Epsilon value to use for optimization. Default: 1e-8"},
+    {"lr", 501, "OPTIMIZER_LR", OPTION_ARG_OPTIONAL, "Learning rate to use for optimization. Default: 3e-4"},
+    {"weight-decay", 502, "OPTIMIZER_WEIGHT_DECAY", OPTION_ARG_OPTIONAL, "Weight decay to use for optimization. Default: 0.00"},
+    {"beta1", 503, "OPTIMIZER_BETA1", OPTION_ARG_OPTIONAL, "Beta1 to use for optimization. Default: 0.9"},
+    {"beta2", 504, "OPTIMIZER_BETA2", OPTION_ARG_OPTIONAL, "Beta2 to use for optimization. Default: 0.99"},
+    {"eps", 505, "OPTIMIZER_EPS", OPTION_ARG_OPTIONAL, "Epsilon value to use for optimization. Default: 1e-8"},
     {0}
 };
 
@@ -98,7 +98,7 @@ static error_t parse_options(int key, char *arg, struct argp_state *state) {
     struct arguments *arguments = state->input;
     char *ext = NULL;
     switch (key) {
-        case 101:
+        case 201:
             if (!(access(arg, F_OK) == 0))
                 argp_failure(state, 1, ENOENT, "%s", arg);
             if (!(access(arg, R_OK) == 0))
@@ -111,7 +111,7 @@ static error_t parse_options(int key, char *arg, struct argp_state *state) {
                 argp_failure(state, 1, 0, "FileExtensionError: Expected the file '%s' to have '.bin' extension. Got '%s'", arg, ext);
             arguments->train_data = arg;
             break;
-        case 102:
+        case 202:
             if (arg == NULL) {
                 arguments->val_data = NULL;
                 break;
@@ -129,22 +129,22 @@ static error_t parse_options(int key, char *arg, struct argp_state *state) {
             arguments->val_data = arg;
             break;
 
-        case 201:
+        case 301:
             if (arg != NULL) arguments->max_epochs = atoi(arg);
             break;
-        case 202:
+        case 302:
             if (arg != NULL) arguments->batch_size = atoi(arg);
             break;
-        case 203:
+        case 303:
             if (arg != NULL) arguments->block_size = atoi(arg);
             break;
-        case 204:
+        case 304:
             if (arg != NULL) arguments->log_dir = arg;
             break;
-        case 205:
+        case 305:
             if (arg != NULL) arguments->output = arg;
             break;
-        case 206:
+        case 306:
             if (arg == NULL || !(access(arg, R_OK) == 0)) {
                 argp_failure(state, 1, EACCES, "An error occured when opening the checkpoint file %s\n", arg);
                 break;
@@ -152,29 +152,29 @@ static error_t parse_options(int key, char *arg, struct argp_state *state) {
             arguments->load_checkpoint = arg;
             break;
 
-        case 301:
+        case 401:
             if (arg != NULL) arguments->validation_batch_size = atoi(arg);
             break;
-        case 302:
+        case 402:
             if (arg != NULL) arguments->validation_block_size = atoi(arg);
             break;
-        case 303:
+        case 403:
             if (arg != NULL) arguments->validation_interval = atoi(arg);
             break;
 
-        case 401:
+        case 501:
             if (arg != NULL) arguments->lr = atof(arg);
             break;
-        case 402:
+        case 502:
             if (arg != NULL) arguments->weight_decay = atof(arg);
             break;
-        case 403:
+        case 503:
             if (arg != NULL) arguments->beta1 = atof(arg);
             break;
-        case 404:
+        case 504:
             if (arg != NULL) arguments->beta2 = atof(arg);
             break;
-        case 405:
+        case 505:
             if (arg != NULL) arguments->eps = atof(arg);
             break;
 
