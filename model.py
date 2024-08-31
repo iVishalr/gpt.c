@@ -7,6 +7,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 import os
+import argparse
+
 
 class CausalSelfAttention(nn.Module):
     def __init__(self, config) -> None:
@@ -51,6 +53,7 @@ class CausalSelfAttention(nn.Module):
         y = self.c_proj(y)
         return y
 
+
 class MLP(nn.Module):
     def __init__(self, config) -> None:
         super().__init__()
@@ -65,6 +68,7 @@ class MLP(nn.Module):
         x = self.c_proj(x)
         return x
 
+
 class Block(nn.Module):
     def __init__(self, config):
         super().__init__()
@@ -78,13 +82,15 @@ class Block(nn.Module):
         x = x + self.mlp(self.ln_2(x))
         return x
 
+
 @dataclass
 class GPTConfig:
     block_size: int = 1024
     vocab_size: int = 50257
     n_layer: int = 12
     n_head: int = 12
-    n_embd: int = 768
+    n_embd: int = 768       
+
 
 class GPT(nn.Module):
     def __init__(self, config: GPTConfig):
@@ -134,7 +140,7 @@ class GPT(nn.Module):
 
         assert model_type in {'gpt2', 'gpt2-medium', 'gpt2-large', 'gpt2-xl'}
         from transformers import GPT2LMHeadModel
-        print(f"loading weight from pretrained gpt: {model_type}")
+        print(f"Loading weight from pretrained gpt: {model_type}")
 
         # n_layer, n_head and n_embd are determined from model_type
         config_args = {
@@ -214,6 +220,7 @@ def write_fp32(tensor, file):
     b = t.numpy().tobytes()
     file.write(b)
 
+
 def write_tensors(model_tensors, L, file):
     write_fp32(model_tensors["transformer.wte.weight"], file) # (vocab_size, C)
     write_fp32(model_tensors["transformer.wpe.weight"], file) # (block_size, C)
@@ -277,5 +284,42 @@ def write_model(model: GPT, filename: str, step: int = 0):
 
 
 if __name__ == "__main__":
-    model = GPT.from_pretrained("gpt2-medium")
-    write_model(model, "model/gpt2-350M.bin")
+    parser = argparse.ArgumentParser(
+        prog="model.py",
+        description="Reference GPT2 implementation using PyTorch."
+    )
+    parser.add_argument("--block-size", required=False, default=1024, help="Block size of the model. Default: 1024")
+    parser.add_argument("--vocab-size", required=False, default=50257, help="Vocab size of the model. Default: 50257")
+    parser.add_argument("--layers", required=False, default=12, help="Number of layers in the model. Default: 12")
+    parser.add_argument("--heads", required=False, default=12, help="Number of heads in the model. Default: 12")
+    parser.add_argument("--embd", required=False, default=768, help="Embedding dimension of the model. Default: 768")
+    parser.add_argument("--from-pretrained", required=False, default=None, help="Pass name of model (gpt2, gpt2-medium, gpt2-large, gpt2-xl) to load pretrained weights.")
+    parser.add_argument("--output", required=False, default="model", help="Pass path to directory to store model weights. Default: model/")
+    parser.add_argument("--name", required=False, default="gpt2", help="Pass a name for the model.")
+
+    args = parser.parse_args()
+
+    if isinstance(args.from_pretrained, str):
+        if args.from_pretrained in ["gpt2", "gpt2-medium", "gpt2-large", "gpt2-xl"]:
+            model = GPT.from_pretrained(args.from_pretrained)
+        else:
+            raise ValueError(f"No pretrained weights available for {args.from_pretrained}.")
+    elif args.from_pretrained is None:
+        config = GPTConfig(
+            block_size=args.block_size,
+            vocab_size=args.vocab_size,
+            n_head=args.heads,
+            n_layer=args.layers,
+            n_embd=args.embd
+        )
+        model = GPT(config)
+    else:
+        raise ValueError(f"Expected a Optional[str] value for --from-pretrained. Got {type(args.from_pretrained).__name__}")
+    
+    print("Model configs:")
+    print(model.config)
+
+    print(f"Parameters: {sum([torch.numel(p) for p in model.parameters()]) / 1e6:.2f}M")
+
+    model_save_path = os.path.join(args.output, f"{args.name}.bin")
+    write_model(model, model_save_path, 0)
