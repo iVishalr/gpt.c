@@ -17,11 +17,11 @@ const char *argp_program_version = "infer_gpt version 1.0";
 static char *doc = "Infers from a GPT2 model";
 static struct argp_option options[] = {
     // model settings
-    {"load-checkpoint", 101, "LOAD_CHECKPOINT_PATH", 0, "Path to C model checkpoint to load the model. (Required)"},
-    {"tokenizer", 102, "TOKENIZER", 0, "Path to tokenizer checkpoint. (Required)"},
-    {"prompt", 103, "PROMPT", 0, "Prompt tokens to the model to kick off autoregressive prediction. (Required)"},
-    {"max_tokens", 104, "MAX_TOKENS", OPTION_ARG_OPTIONAL, "Max number of tokens to generate. Default: 1024"},
-    {"temperature", 105, "TEMPERATURE", OPTION_ARG_OPTIONAL, "Temperature to use during generation. Default: 1.0f"},
+    {"load-checkpoint", 201, "LOAD_CHECKPOINT_PATH", 0, "Path to C model checkpoint to load the model. (Required)"},
+    {"tokenizer", 202, "TOKENIZER", 0, "Path to tokenizer checkpoint. (Required)"},
+    {"prompt", 203, "PROMPT", 0, "Prompt tokens to the model to kick off autoregressive prediction. (Required)"},
+    {"max_tokens", 204, "MAX_TOKENS", OPTION_ARG_OPTIONAL, "Max number of tokens to generate. Default: 1024"},
+    {"temperature", 205, "TEMPERATURE", OPTION_ARG_OPTIONAL, "Temperature to use during generation. Default: 1.0f"},
     {0}
 };
 
@@ -71,7 +71,7 @@ static error_t parse_options(int key, char *arg, struct argp_state *state) {
     struct arguments *arguments = state->input;
     char *ext = NULL;
     switch(key) {
-        case 101:
+        case 201:
             if (!(access(arg, F_OK) == 0))
                 argp_failure(state, 1, ENOENT, "%s", arg);
             if (!(access(arg, R_OK) == 0))
@@ -84,7 +84,7 @@ static error_t parse_options(int key, char *arg, struct argp_state *state) {
                 argp_failure(state, 1, 0, "FileExtensionError: Expected the file '%s' to have '.bin' extension. Got '%s'", arg, ext);
             arguments->load_checkpoint = arg;
             break;
-        case 102:
+        case 202:
             if (!(access(arg, F_OK) == 0))
                 argp_failure(state, 1, ENOENT, "%s", arg);
             if (!(access(arg, R_OK) == 0))
@@ -97,7 +97,7 @@ static error_t parse_options(int key, char *arg, struct argp_state *state) {
                 argp_failure(state, 1, 0, "FileExtensionError: Expected the file '%s' to have '.bin' extension. Got '%s'", arg, ext);
             arguments->tokenizer_checkpoint = arg;
             break;
-        case 103:
+        case 203:
             arg = trim_whitespace(arg);
             size_t prompt_len = strlen(arg);
             if (arg[0] == '[' && arg[prompt_len - 1] == ']') {
@@ -121,11 +121,11 @@ static error_t parse_options(int key, char *arg, struct argp_state *state) {
             arguments->prompt = prompt_tokens;
             arguments->num_init_tokens = num_tokens;
             break;
-        case 104:
+        case 204:
             if (arg != NULL)
                 arguments->max_tokens = atoi(arg);
             break;
-        case 105:
+        case 205:
             if (arg != NULL)
                 arguments->temperature = atof(arg);
             break;
