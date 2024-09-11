@@ -269,19 +269,12 @@ int main(int argc, char **argv) {
     if (argp_parse(&argp, argc, argv, 0, 0, &inference_args) != 0)
         return 1;
 
-    // define GPT2 model
-    GPT2Config_t gpt2_config;
-    gpt2_config.block_size = 1024;
-    gpt2_config.vocab_size = 50257;
-    gpt2_config.n_embd = 768;
-    gpt2_config.n_heads = 12;
-    gpt2_config.n_layers = 12;
-
-    if (inference_args.num_init_tokens > gpt2_config.block_size) {
+    gpt2_t *gpt = load_model(inference_args.load_checkpoint);
+    if (inference_args.num_init_tokens > gpt->block_size) {
         printf(
             "Error: Prompt length %d exceeds model's block_size %d\n", 
             inference_args.num_init_tokens, 
-            gpt2_config.block_size
+            gpt->block_size
         );
         free(inference_args.prompt);
         exit(1);
@@ -291,13 +284,11 @@ int main(int argc, char **argv) {
     tokenizer_t *tokenizer = Tokenizer(inference_args.tokenizer_checkpoint);
     uint64_t rng_state = inference_args.rand_seed;
 
-    gpt2_t *gpt = load_model(inference_args.load_checkpoint);
-
     int total_tokens = inference_args.num_init_tokens + inference_args.max_tokens;
-    int block_size_multiple = total_tokens / gpt2_config.block_size;
-    block_size_multiple = total_tokens % gpt2_config.block_size == 0 ? block_size_multiple : block_size_multiple + 1;
+    int block_size_multiple = total_tokens / gpt->block_size;
+    block_size_multiple = total_tokens % gpt->block_size == 0 ? block_size_multiple : block_size_multiple + 1;
     
-    int input_shape[2] = {1, gpt2_config.block_size * block_size_multiple};
+    int input_shape[2] = {1, gpt->block_size * block_size_multiple};
     tensor_t *X = fill(input_shape, 2, 50256);
 
     // We need to hack the tensor here because model can only process block_size
@@ -322,42 +313,42 @@ int main(int argc, char **argv) {
     printf("Starting Inference\n");
 
     for (int i = inference_args.num_init_tokens; i < total_tokens; i++) {
-        int window_input_shape[2] = {1, gpt2_config.block_size};
+        int window_input_shape[2] = {1, gpt->block_size};
         tensor_t *window_input = create_tensor(window_input_shape, 2);
 
-        start_index += i < gpt2_config.block_size ? 0 : 1;
-        memcpy(window_input->t, X->t + start_index, gpt2_config.block_size * sizeof(float));
+        start_index += i < gpt->block_size ? 0 : 1;
+        memcpy(window_input->t, X->t + start_index, gpt->block_size * sizeof(float));
 
         tensor_t *logits = gpt->forward(gpt, window_input);
         gpt->free_cache(gpt); // frees up window_input and other cached tensors
 
         // we only care about the (i-1)th prediction 
         // pluck out logits[:, [i-1], :]
-        int logits_offset = i < gpt2_config.block_size ? i - 1 : gpt2_config.block_size - 1;
+        int logits_offset = i < gpt->block_size ? i - 1 : gpt->block_size - 1;
 
-        float *logits_last_idx = logits->t + (logits_offset) * gpt2_config.vocab_size;
+        float *logits_last_idx = logits->t + (logits_offset) * gpt->vocab_size;
 
         // scale by temperature
-        for (int j = 0; j < gpt2_config.vocab_size; j++)
+        for (int j = 0; j < gpt->vocab_size; j++)
             logits_last_idx[j] = logits_last_idx[j] / inference_args.temperature;
         
         // calculate softmax
         float maxval = -INFINITY;
-        for (int j = 0; j < gpt2_config.vocab_size; j++)
+        for (int j = 0; j < gpt->vocab_size; j++)
             if (logits_last_idx[j] > maxval)
                 maxval = logits_last_idx[j];
         
         float sum = 0.0f;
-        for (int j = 0; j < gpt2_config.vocab_size; j++) {
+        for (int j = 0; j < gpt->vocab_size; j++) {
             logits_last_idx[j] = expf(logits_last_idx[j] - maxval);
             sum += logits_last_idx[j];
         }
-        for (int j = 0; j < gpt2_config.vocab_size; j++)
+        for (int j = 0; j < gpt->vocab_size; j++)
             logits_last_idx[j] /= sum;
 
         // sample
         float coin = random_f32(&rng_state);
-        int next_token = sample_mult(logits_last_idx, gpt2_config.vocab_size, coin);
+        int next_token = sample_mult(logits_last_idx, gpt->vocab_size, coin);
         X->t[i] = (float)next_token;
         free_tensor(logits);
         logits_last_idx = NULL;
