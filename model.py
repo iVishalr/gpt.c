@@ -293,9 +293,9 @@ if __name__ == "__main__":
     parser.add_argument("--layers", required=False, default=12, help="Number of layers in the model. Default: 12")
     parser.add_argument("--heads", required=False, default=12, help="Number of heads in the model. Default: 12")
     parser.add_argument("--embd", required=False, default=768, help="Embedding dimension of the model. Default: 768")
-    parser.add_argument("--from-pretrained", required=False, default=None, help="Pass name of model (gpt2, gpt2-medium, gpt2-large, gpt2-xl) to load pretrained weights.")
-    parser.add_argument("--output", required=False, default="model", help="Pass path to directory to store model weights. Default: model/")
-    parser.add_argument("--name", required=False, default="gpt2", help="Pass a name for the model.")
+    parser.add_argument("--from-pretrained", required=False, default=None, help="Pass name of model (gpt2, gpt2-medium, gpt2-large, gpt2-xl) to load pretrained weights. Default: None")
+    parser.add_argument("--output", required=False, default="model", help="Pass path to directory to store model weights. Default: 'model/'")
+    parser.add_argument("--name", required=False, default="gpt2", help="Pass a name for the model. Default: gpt2")
 
     args = parser.parse_args()
 

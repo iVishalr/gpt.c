@@ -1,4 +1,4 @@
-CC = gcc
+CC ?= gcc
 CFLAGS = -O3 -Ofast -march=native -Wno-unused-result -ggdb3 -fPIC -fopenmp -DOMP
 # CFLAGS = -Wno-unused-result -O0 -ggdb3 -fPIC -fopenmp -DOMP
 INCLUDES = -I include/ -I third_party/OpenBLAS/include/
@@ -34,11 +34,11 @@ EXES = $(patsubst ./%.c, ./%, $(ROOT_SRCS))
 .PHONY: all clean third_party shared_lib root_binaries setup valgrind tests
 
 # Default rule to build the shared library and root binaries
-all: setup shared_lib root_binaries
+all: setup third_party shared_lib root_binaries
 
 # Compile rule for object files
 $(BUILD)/%.o: $(SRC_DIR)/%.c
-	$(CC) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -c $< -o $@ $(LDLIBS)
+	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
 # Rule to create the shared library
 $(SHARED_LIB): $(OBJS)

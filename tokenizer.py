@@ -54,12 +54,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         prog="tokenizer.py",
     )
-    parser.add_argument("-t","--tokenizer", type=str, required=False, default="gpt2", help="Pass name of tokenizer.")
-    parser.add_argument("-p","--prompt", type=str, default="", required=False, help="Pass the prompt for encoding.")
+    parser.add_argument("-t","--tokenizer", type=str, required=False, default="gpt2", help="Pass name of tokenizer. Default: gpt2")
+    parser.add_argument("-p","--prompt", type=str, default="", required=False, help="Pass the prompt for encoding. Default: ''")
     parser.add_argument("-e","--encode", required=False, action="store_true", help="Pass this flag for encoding the prompt.")
     parser.add_argument("-d","--decode", required=False, action="store_true", help="Pass this flag for decoding the prompt.")
     parser.add_argument("-s","--save", required=False, action="store_true", help="Pass this flag for saving the tokenizer.")
-    parser.add_argument("-f","--file", type=str, default="tokenizer.bin", required=False, help="Path to the file (.bin extension) to save the tokenizer.")
+    parser.add_argument("-f","--file", type=str, default="tokenizer.bin", required=False, help="Path to the file (.bin extension) to save the tokenizer. Default: tokenizer.bin")
     args = parser.parse_args()
 
     if args.encode and args.decode:
