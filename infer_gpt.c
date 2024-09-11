@@ -20,8 +20,9 @@ static struct argp_option options[] = {
     {"load-checkpoint", 201, "LOAD_CHECKPOINT_PATH", 0, "Path to C model checkpoint to load the model. (Required)"},
     {"tokenizer", 202, "TOKENIZER", 0, "Path to tokenizer checkpoint. (Required)"},
     {"prompt", 203, "PROMPT", 0, "Prompt tokens to the model to kick off autoregressive prediction. (Required)"},
-    {"max_tokens", 204, "MAX_TOKENS", OPTION_ARG_OPTIONAL, "Max number of tokens to generate. Default: 1024"},
+    {"max-tokens", 204, "MAX_TOKENS", OPTION_ARG_OPTIONAL, "Max number of tokens to generate. Default: 1024"},
     {"temperature", 205, "TEMPERATURE", OPTION_ARG_OPTIONAL, "Temperature to use during generation. Default: 1.0f"},
+    {"rand-seed", 206, "RAND_SEED", OPTION_ARG_OPTIONAL, "Seed to initialize random generator. Default: 1337"},
     {0}
 };
 
@@ -33,6 +34,7 @@ struct arguments {
     int num_init_tokens;
     int max_tokens;
     float temperature;
+    int rand_seed;
 };
 
 
@@ -44,6 +46,7 @@ static void init_arguments(struct arguments *args) {
     args->max_tokens = 1024;
     args->num_init_tokens = 0;
     args->temperature = 1.0f;
+    args->rand_seed = 1337;
 }
 
 
@@ -128,6 +131,10 @@ static error_t parse_options(int key, char *arg, struct argp_state *state) {
         case 205:
             if (arg != NULL)
                 arguments->temperature = atof(arg);
+            break;
+        case 206:
+            if (arg != NULL)
+                arguments->rand_seed = atoi(arg);
             break;
         case ARGP_KEY_ARG:
             return 0;
@@ -282,7 +289,7 @@ int main(int argc, char **argv) {
 
     // create Tokenizer
     tokenizer_t *tokenizer = Tokenizer(inference_args.tokenizer_checkpoint);
-    uint64_t rng_state = 0;
+    uint64_t rng_state = inference_args.rand_seed;
 
     gpt2_t *gpt = load_model(inference_args.load_checkpoint);
 
