@@ -23,6 +23,7 @@ static struct argp_option options[] = {
     {"max-tokens", 204, "MAX_TOKENS", OPTION_ARG_OPTIONAL, "Max number of tokens to generate. Default: 1024"},
     {"temperature", 205, "TEMPERATURE", OPTION_ARG_OPTIONAL, "Temperature to use during generation. Default: 1.0f"},
     {"rand-seed", 206, "RAND_SEED", OPTION_ARG_OPTIONAL, "Seed to initialize random generator. Default: 1337"},
+    {"interactive", 207, "INTERACTIVE", OPTION_ARG_OPTIONAL, "Set this flag to enable live token generation. Default: disabled"},
     {0}
 };
 
@@ -35,6 +36,7 @@ struct arguments {
     int max_tokens;
     float temperature;
     int rand_seed;
+    int interactive;
 };
 
 
@@ -47,6 +49,7 @@ static void init_arguments(struct arguments *args) {
     args->num_init_tokens = 0;
     args->temperature = 1.0f;
     args->rand_seed = 1337;
+    args->interactive = 0;
 }
 
 
@@ -102,21 +105,21 @@ static error_t parse_options(int key, char *arg, struct argp_state *state) {
             break;
         case 203:
             arg = trim_whitespace(arg);
-            size_t prompt_len = strlen(arg);
+            int prompt_len = strlen(arg);
             if (arg[0] == '[' && arg[prompt_len - 1] == ']') {
                 arg++;
                 arg[prompt_len - 2] = '\0';
             }
 
             // count number of tokens in the prompt
-            size_t num_tokens = 1;
+            int num_tokens = 1;
             for (char *i = arg; *i!='\0'; i++) {
                 if (*i == ',') num_tokens++;
             }
 
             // allocate memory to prompt int array
             int *prompt_tokens = (int *)mallocCheck(sizeof(int) * num_tokens);
-            size_t index = 0;
+            int index = 0;
             for (char *p = strtok(arg, ","); p != NULL && index < num_tokens; p = strtok(NULL, ",")) {
                 if (*p == ' ') p++;
                 prompt_tokens[index++] = atoi(p);
@@ -135,6 +138,9 @@ static error_t parse_options(int key, char *arg, struct argp_state *state) {
         case 206:
             if (arg != NULL)
                 arguments->rand_seed = atoi(arg);
+            break;
+        case 207:
+            arguments->interactive = 1;
             break;
         case ARGP_KEY_ARG:
             return 0;
@@ -289,7 +295,7 @@ int main(int argc, char **argv) {
     block_size_multiple = total_tokens % gpt->block_size == 0 ? block_size_multiple : block_size_multiple + 1;
     
     int input_shape[2] = {1, gpt->block_size * block_size_multiple};
-    tensor_t *X = fill(input_shape, 2, 50256);
+    tensor_t *X = fill(input_shape, 2, 50256.0f);
 
     // We need to hack the tensor here because model can only process block_size
     // tokens at a time. If max_tokens + num_init_tokens is greater than block_size,
@@ -310,7 +316,7 @@ int main(int argc, char **argv) {
     struct timespec inference_start, inference_end;
     clock_gettime(CLOCK_MONOTONIC, &inference_start);
 
-    printf("Starting Inference\n");
+    printf("Starting Inference\n\n");
 
     for (int i = inference_args.num_init_tokens; i < total_tokens; i++) {
         int window_input_shape[2] = {1, gpt->block_size};
@@ -350,27 +356,39 @@ int main(int argc, char **argv) {
         float coin = random_f32(&rng_state);
         int next_token = sample_mult(logits_last_idx, gpt->vocab_size, coin);
         X->t[i] = (float)next_token;
+        
+        if (inference_args.interactive == 1) {
+            safe_printf(tokenizer->decode(tokenizer, next_token));
+            fflush(stdout);
+        }
+
         free_tensor(logits);
+        logits = NULL;
         logits_last_idx = NULL;
     }
     
     clock_gettime(CLOCK_MONOTONIC, &inference_end);
     double inference_time_s = (inference_end.tv_sec - inference_start.tv_sec) + (inference_end.tv_nsec - inference_start.tv_nsec) / 1e9;
 
-    int *tokens = (int *)mallocCheck(sizeof(int) * total_tokens);
-    for (int i = 0; i < total_tokens; i++)
-        tokens[i] = (int)X->t[i];
-    
-    uint32_t length = tokenizer->decode_length(tokenizer, tokens, total_tokens);
-    char *dest = (char *)malloc(sizeof(char) * length + 1);
-    tokenizer->decode_tokens(tokenizer, tokens, total_tokens, dest, length + 1);
-    printf("\n%s\n", dest);
-    printf("\nInference Time: %.4f seconds | tokens/s: %.2f\n", inference_time_s, (total_tokens - inference_args.num_init_tokens) / inference_time_s);
+    if (inference_args.interactive == 0) {
+        int *tokens = (int *)mallocCheck(sizeof(int) * total_tokens);
+        for (int i = 0; i < total_tokens; i++)
+            tokens[i] = (int)X->t[i];
+        
+        uint32_t length = tokenizer->decode_length(tokenizer, tokens, total_tokens);
+        char *dest = (char *)malloc(sizeof(char) * length + 1);
+        tokenizer->decode_tokens(tokenizer, tokens, total_tokens, dest, length + 1);
+        printf("%s", dest);
+        fflush(stdout);
+        free(tokens);
+        free(dest);
+    }
+
+    printf("\n\nInference Time: %.4f seconds | tokens/s: %.2f\n", inference_time_s, (total_tokens - inference_args.num_init_tokens) / inference_time_s);
 
     free(inference_args.prompt);
-    free(tokens);
-    free(dest);
     free_tensor(X);
+    gpt->free_layer(gpt);
     tokenizer->free_layer(tokenizer);
     return 0;
 }

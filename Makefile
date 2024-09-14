@@ -31,7 +31,7 @@ ROOT_SRCS = $(wildcard ./*.c)
 # Generate executable names from root source file names
 EXES = $(patsubst ./%.c, ./%, $(ROOT_SRCS))
 
-.PHONY: all clean third_party shared_lib root_binaries setup valgrind tests
+.PHONY: all clean third_party shared_lib root_binaries setup valgrind_inference tests
 
 # Default rule to build the shared library and root binaries
 all: setup third_party shared_lib root_binaries
@@ -62,8 +62,11 @@ root_binaries: $(EXES)
 tests: 
 	$(CC) $(CFLAGS) $(INCLUDES) $(LDFLAGS) tests/test_bmm.c $(LDLIBS)
 
-valgrind: setup all
-	valgrind -s --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose ./train_gpt
+valgrind_inference: setup all
+	@if ! test -d "model/valgrind-model.bin"; then\
+		python3 model.py --block-size=128 --layers=1 --heads=1 --embd=128 --name=valgrind-model;\
+	fi
+	valgrind -s --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose ./infer_gpt --load-checkpoint=model/valgrind-model.bin --tokenizer=tokenizer.bin --prompt="[50256, 17250]" --max-tokens=10
 
 # Rule to create the build directory if it doesn't exist
 setup: third_party

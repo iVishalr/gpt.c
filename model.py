@@ -306,11 +306,11 @@ if __name__ == "__main__":
             raise ValueError(f"No pretrained weights available for {args.from_pretrained}.")
     elif args.from_pretrained is None:
         config = GPTConfig(
-            block_size=args.block_size,
-            vocab_size=args.vocab_size,
-            n_head=args.heads,
-            n_layer=args.layers,
-            n_embd=args.embd
+            block_size=int(args.block_size),
+            vocab_size=int(args.vocab_size),
+            n_head=int(args.heads),
+            n_layer=int(args.layers),
+            n_embd=int(args.embd)
         )
         model = GPT(config)
     else:

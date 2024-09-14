@@ -41,6 +41,7 @@ tokenizer_t *Tokenizer(const char *filename) {
         token_bytes[length] = '\0';
         tokenizer->token_map[i] = token_bytes;
     }
+    fcloseCheck(file);
 
     tokenizer->decode = decode_tokenizer;
     tokenizer->decode_tokens = decode_tokens_tokenizer;
