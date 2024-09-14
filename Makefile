@@ -18,6 +18,8 @@ ifeq "$(PLATFORM)" "Linux"
     SHARED_SUFFIX=so
 endif
 SHARED_LIB = lib$(LIB_NAME).$(SHARED_SUFFIX)
+# Check if Valgrind is installed
+VALGRIND := $(shell command -v valgrind)
 
 # Find all source files in the src directory
 SRCS = $(wildcard $(SRC_DIR)/*.c)
@@ -63,8 +65,19 @@ tests:
 	$(CC) $(CFLAGS) $(INCLUDES) $(LDFLAGS) tests/test_bmm.c $(LDLIBS)
 
 valgrind_inference: setup all
-	@if ! test -d "model/valgrind-model.bin"; then\
-		python3 model.py --block-size=128 --layers=1 --heads=1 --embd=128 --name=valgrind-model;\
+ifeq "$(VALGRIND)" ""
+	@echo "Valgrind is not installed on your system!"
+ifeq "$(PLATFORM)" "Darwin"
+	@echo "If you are using brew, valgrind can be installed using 'brew install valgrind'"
+	@exit 1
+endif
+ifeq "$(PLATFORM)" "Linux"
+	@echo "Valgrind can be installed using 'sudo apt install valgrind'"
+	@exit 1
+endif
+endif
+	@if ! test -f "model/valgrind-model.bin"; then \
+		python3 model.py --block-size=128 --layers=1 --heads=1 --embd=128 --name=valgrind-model; \
 	fi
 	valgrind -s --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose ./infer_gpt --load-checkpoint=model/valgrind-model.bin --tokenizer=tokenizer.bin --prompt="[50256, 17250]" --max-tokens=10
 
