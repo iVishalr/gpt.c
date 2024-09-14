@@ -1,23 +1,35 @@
 CC ?= gcc
-CFLAGS = -O3 -Ofast -march=native -Wno-unused-result -ggdb3 -fPIC -fopenmp -DOMP
-# CFLAGS = -Wno-unused-result -O0 -ggdb3 -fPIC -fopenmp -DOMP
+BUILD ?= release
+CFLAGS_RELEASE = -O3 -Ofast -march=native -Wno-unused-result -ggdb3 -fPIC -fopenmp -DOMP
+CFLAGS_DEBUG = -Wno-unused-result -O0 -ggdb3 -fPIC -fopenmp -DOMP
+
+ifeq ($(BUILD), release)
+	CFLAGS = $(CFLAGS_RELEASE)
+else ifeq ($(BUILD), debug)
+	CFLAGS = $(CFLAGS_DEBUG)
+else
+	$(error Invalid BUILD '$(BUILD)', expected 'release' or 'debug')
+endif
+
 INCLUDES = -I include/ -I third_party/OpenBLAS/include/
 LDLIBS = -lm -lopenblas -lgomp
 LDFLAGS = -L third_party/OpenBLAS/lib/
 
 SRC_DIR = src
 INCLUDE_DIR = include
-BUILD = build
-LIB_NAME=gpt
+BUILD_DIR = build
+LIBRARY_NAME=gpt
 SHARED_SUFFIX=dll
 PLATFORM=$(shell uname -s)
+
 ifeq "$(PLATFORM)" "Darwin"
     SHARED_SUFFIX=dylib
 endif
 ifeq "$(PLATFORM)" "Linux"
     SHARED_SUFFIX=so
 endif
-SHARED_LIB = lib$(LIB_NAME).$(SHARED_SUFFIX)
+
+SHARED_LIB = lib$(LIBRARY_NAME).$(SHARED_SUFFIX)
 # Check if Valgrind is installed
 VALGRIND := $(shell command -v valgrind)
 
@@ -25,7 +37,7 @@ VALGRIND := $(shell command -v valgrind)
 SRCS = $(wildcard $(SRC_DIR)/*.c)
 
 # Generate object file names from source file names
-OBJS = $(patsubst $(SRC_DIR)/%.c, $(BUILD)/%.o, $(SRCS))
+OBJS = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(SRCS))
 
 # Find all C files in the project root directory
 ROOT_SRCS = $(wildcard ./*.c)
@@ -39,7 +51,7 @@ EXES = $(patsubst ./%.c, ./%, $(ROOT_SRCS))
 all: setup third_party shared_lib root_binaries
 
 # Compile rule for object files
-$(BUILD)/%.o: $(SRC_DIR)/%.c
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
 # Rule to create the shared library
@@ -48,7 +60,7 @@ $(SHARED_LIB): $(OBJS)
 
 # Compile rule for root source files into executables
 $(EXES): $(ROOT_SRCS) $(SHARED_LIB)
-	$(CC) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -o $@ $@.c -L . -l$(LIB_NAME) $(LDLIBS)
+	$(CC) $(CFLAGS) $(INCLUDES) $(LDFLAGS) -L . -o $@ $@.c -l$(LIBRARY_NAME) $(LDLIBS)
 
 # Rule to build third_party libraries
 third_party:
@@ -83,10 +95,10 @@ endif
 
 # Rule to create the build directory if it doesn't exist
 setup: third_party
-	@if ! test -d $(BUILD);\
+	@if ! test -d $(BUILD_DIR);\
 		then echo "\033[93mSetting up build directory...\033[0m"; mkdir -p build;\
 	fi
 
 # Clean rule to remove all generated files
 clean:
-	rm -rf $(BUILD) a.out $(SHARED_LIB) $(EXES)
+	rm -rf $(BUILD_DIR) a.out $(SHARED_LIB) $(EXES)
