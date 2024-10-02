@@ -189,13 +189,9 @@ static error_t parse_options(int key, char *arg, struct argp_state *state) {
 
 static struct argp argp = {options, parse_options, 0, 0};
 
+int ckpt_steps = 0;
 
-int load_model(const char *file_path, gpt2_t *model) {
-    if (model == NULL) {
-        printf("Expected *model to be of type gpt2_t. Got NULL.\n");
-        exit(1);
-    }
-
+gpt2_t* load_model(const char *file_path) {
     FILE *fp = fopenCheck(file_path, "rb");
 
     int headers[256];
@@ -214,34 +210,6 @@ int load_model(const char *file_path, gpt2_t *model) {
     n_embd = headers[5];
     shape_header_size = headers[6];
     steps = headers[7];
-
-    // validate model configurations
-    int config_valid = 1;
-    if (model->block_size != max_block_size) {
-        printf("ValueError: model->block_size does not match block_size in checkpoint. Got %d != %zu\n", model->block_size, max_block_size);
-        config_valid = 0;
-    } 
-    if (model->vocab_size != vocab_size) {
-        printf("ValueError: model->vocab_size does not match vocab_size in checkpoint. Got %d != %zu\n", model->vocab_size, vocab_size);
-        config_valid = 0;
-    }
-    if (model->n_layers != n_layers) {
-        printf("ValueError: model->n_layers does not match n_layers in checkpoint. Got %d != %zu\n", model->n_layers, n_layers);
-        config_valid = 0;
-    }
-    if (model->n_heads != n_heads) {
-        printf("ValueError: model->n_heads does not match n_heads in checkpoint. Got %d != %zu\n", model->n_heads, n_heads);
-        config_valid = 0;
-    }
-    if (model->n_embd != n_embd) {
-        printf("ValueError: model->n_embd does not match n_embd in checkpoint. Got %d != %zu\n", model->n_embd, n_embd);
-        config_valid = 0;
-    }
-
-    if (!config_valid) {
-        fcloseCheck(fp);
-        exit(1);
-    }
 
     char *keys[7] = {
         "max_block_size",
@@ -266,6 +234,15 @@ int load_model(const char *file_path, gpt2_t *model) {
     printf("GPT2 Model Settings\n");
     print_table(keys, values, 7);
     printf("\n");
+
+    GPT2Config_t gpt2_config;
+    gpt2_config.block_size = max_block_size;
+    gpt2_config.vocab_size = vocab_size;
+    gpt2_config.n_embd = n_embd;
+    gpt2_config.n_heads = n_heads;
+    gpt2_config.n_layers = n_layers;
+
+    gpt2_t *model = GPT2(&gpt2_config);
 
     int *shape_buffer = (int *)mallocCheck(sizeof(int) * shape_header_size);
     freadCheck(shape_buffer, sizeof(int), shape_header_size, fp);
@@ -298,7 +275,8 @@ int load_model(const char *file_path, gpt2_t *model) {
 
     free(shape_buffer);
     fcloseCheck(fp);
-    return steps;
+    ckpt_steps = steps;
+    return model;
 }
 
 
@@ -396,16 +374,7 @@ int main(int argc, char **argv) {
     char save_checkpoint_path[1024];
     sprintf(save_checkpoint_path, "%s/%s.bin", training_config.log_dir, training_config.output);
 
-    // define GPT2 model
-    GPT2Config_t gpt2_config;
-    gpt2_config.block_size = 1024;
-    gpt2_config.vocab_size = 50257;
-    gpt2_config.n_embd = 768;
-    gpt2_config.n_heads = 12;
-    gpt2_config.n_layers = 12;
-
-    gpt2_t *gpt = GPT2(&gpt2_config);
-    int ckpt_steps = load_model(load_checkpoint, gpt);
+    gpt2_t *gpt = load_model(load_checkpoint);
 
     // create the dataloaders for training and validation
     dataloader_t *train_loader = DataLoader(
