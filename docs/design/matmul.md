@@ -76,8 +76,8 @@ att = (q @ k.transpose(-2, -1)) * 1 / math.sqrt(C // nheads) # Shape [B, h, T, T
 Using cblas, the same thing can be computed as follows:
 
 ```C
-for (int i = 0; i < B; i++) {
-    for (int j = 0; j < nheads; j++) {
+for (int b = 0; b < B; b++) {
+    for (int h = 0; h < nheads; h++) {
         cblas_sgemm(
             CblasRowMajor, CblasNoTrans, CblasTrans,
             T, T, hs,
