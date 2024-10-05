@@ -22,6 +22,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Init submodules
+        run: |
+          git submodule update --init --recursive
+
       - name: Install Dependencies
         run: |
           if [ "${{ runner.os }}" == "Linux" ]; then
