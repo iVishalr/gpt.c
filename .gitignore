@@ -10,7 +10,7 @@ build/
 logs/
 *.log
 *.bin
-data/
+*.txt
 *.pt
 model/
 __pycache__/
