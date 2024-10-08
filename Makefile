@@ -18,49 +18,50 @@ GCC_IS_CLANG=$(shell $(CC) --version | grep -i clang >/dev/null && echo yes || e
 CLANG_IS_GCC=$(shell $(CC) --version | grep -i GCC >/dev/null && echo yes || echo no)
 ifeq ($(CC), gcc)
 ifeq ($(GCC_IS_CLANG), yes)
-	$(info Using clang instead of gcc. gcc is aliased to clang on your system.)
-	CC = clang
+$(info Using clang instead of gcc. gcc is aliased to clang on your system.)
+_CC = clang
 endif
 endif
 
 ifeq ($(CC), clang)
 ifeq ($(CLANG_IS_GCC), yes)
-	$(info Using gcc instead of clang. clang is aliased to gcc on your system.)
-	CC = clang
+$(info Using gcc instead of clang. clang is aliased to gcc on your system.)
+_CC = gcc
 endif
 endif
 
-ifeq ($(CC),gcc)
-	CFLAGS_RELEASE += -fopenmp -DOMP
-	CFLAGS_DEBUG += -fopenmp -DOMP
-	LDFLAGS += -lgomp
+ifeq ($(_CC), gcc)
+CFLAGS_RELEASE += -fopenmp -DOMP
+CFLAGS_DEBUG += -fopenmp -DOMP
+LDLIBS += -lgomp
 endif
 
-ifeq ($(CC),clang)
-	LDFLAGS += -lomp
+ifeq ($(_CC),clang)
+LDLIBS += -lomp
 endif
 
-ifeq ($(PLATFORM),Darwin)
-    SHARED_SUFFIX=dylib
-	BREW_PATH=$(shell brew --prefix)
-	INCLUDES += -I $(BREW_PATH)/opt/libomp/include -I $(BREW_PATH)/opt/argp-standalone/include
-	LDFLAGS += -L $(BREW_PATH)/opt/libomp/lib -L $(BREW_PATH)/opt/argp-standalone/lib
+ifeq ($(PLATFORM), Darwin)
+SHARED_SUFFIX = dylib
+BREW_PATH = $(shell brew --prefix)
+INCLUDES += -I $(BREW_PATH)/opt/libomp/include -I $(BREW_PATH)/opt/argp-standalone/include
+LDFLAGS += -L $(BREW_PATH)/opt/libomp/lib -L $(BREW_PATH)/opt/argp-standalone/lib
+LDLIBS += -largp
 endif
 
-ifeq ($(PLATFORM),Linux)
-    SHARED_SUFFIX=so
-	ifeq ($(CC),clang)
-		CFLAGS_RELEASE += -Xclang -fopenmp -DOMP
-		CFLAGS_DEBUG += -Xclang -fopenmp -DOMP
-	endif
+ifeq ($(PLATFORM), Linux)
+SHARED_SUFFIX = so
+ifeq ($(_CC), clang)
+CFLAGS_RELEASE += -Xclang -fopenmp -DOMP
+CFLAGS_DEBUG += -Xclang -fopenmp -DOMP
+endif
 endif
 
 ifeq ($(BUILD), release)
-	CFLAGS = $(CFLAGS_RELEASE)
+CFLAGS = $(CFLAGS_RELEASE)
 else ifeq ($(BUILD), debug)
-	CFLAGS = $(CFLAGS_DEBUG)
+CFLAGS = $(CFLAGS_DEBUG)
 else
-	$(error Invalid BUILD '$(BUILD)', expected 'release' or 'debug')
+$(error Invalid BUILD '$(BUILD)', expected 'release' or 'debug')
 endif
 
 SHARED_LIB = lib$(LIBRARY_NAME).$(SHARED_SUFFIX)
