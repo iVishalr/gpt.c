@@ -371,9 +371,9 @@ int main(int argc, char **argv) {
     double inference_time_s = (inference_end.tv_sec - inference_start.tv_sec) + (inference_end.tv_nsec - inference_start.tv_nsec) / 1e9;
 
     if (inference_args.interactive == 0) {
-        int *tokens = (int *)mallocCheck(sizeof(int) * total_tokens);
+        uint32_t *tokens = (uint32_t *)mallocCheck(sizeof(uint32_t) * total_tokens);
         for (int i = 0; i < total_tokens; i++)
-            tokens[i] = (int)X->t[i];
+            tokens[i] = (uint32_t)X->t[i];
         
         uint32_t length = tokenizer->decode_length(tokenizer, tokens, total_tokens);
         char *dest = (char *)malloc(sizeof(char) * length + 1);

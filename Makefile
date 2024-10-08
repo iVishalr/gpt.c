@@ -1,5 +1,5 @@
-CC ?= gcc
-BUILD ?= release
+CC = gcc
+BUILD = release
 CFLAGS_RELEASE = -O3 -Ofast -march=native -Wno-unused-result -ggdb3 -fPIC
 CFLAGS_DEBUG = -Wno-unused-result -O0 -ggdb3 -fPIC
 
@@ -18,19 +18,24 @@ ifeq "$(CC)" "gcc"
 	CFLAGS_DEBUG += -fopenmp -DOMP
 	LDFLAGS += -lgomp
 endif
+
 ifeq "$(CC)" "clang"
 	LDFLAGS += -lomp
 endif
 
 ifeq "$(PLATFORM)" "Darwin"
-	BREW_PATH=$(shell brew --prefix)
     SHARED_SUFFIX=dylib
+	BREW_PATH=$(shell brew --prefix)
 	INCLUDES += -I $(BREW_PATH)/opt/libomp/include -I $(BREW_PATH)/opt/argp-standalone/include
 	LDFLAGS += -L $(BREW_PATH)/opt/libomp/lib -L $(BREW_PATH)/opt/argp-standalone/lib
 endif
 
 ifeq "$(PLATFORM)" "Linux"
     SHARED_SUFFIX=so
+	ifeq "$(CC)" "clang"
+		CFLAGS_RELEASE += -fopenmp -DOMP
+		CFLAGS_DEBUG += -fopenmp -DOMP
+	endif
 endif
 
 ifeq ($(BUILD), release)

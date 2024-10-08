@@ -36,7 +36,7 @@ float gaussRandom() {
 // https://stackoverflow.com/questions/11641629/generating-a-uniform-distribution-of-integers-in-c
 float rand_uniform(float low, float high)
 {
-    float r = rand() / (1.0f + RAND_MAX);
+    float r = rand() / (1.0f + (float)RAND_MAX);
     float range = high - low + 1;
     float scaled = (r * range) + low;
     return scaled;
@@ -261,10 +261,10 @@ void pow_(tensor_t *x, const float p) {
         x->t[i] = powf(x->t[i], p);
 }
 
-void *tensor_copy(tensor_t *dest, const tensor_t *src) {
+void tensor_copy(tensor_t *dest, const tensor_t *src) {
     if (src == NULL || dest == NULL) {
         printf("Either src or dest ptr is NULL.\n");
-        return NULL;
+        return;
     }
 
     cblas_scopy(src->length, src->t, 1, dest->t, 1);
@@ -274,19 +274,17 @@ void *tensor_copy(tensor_t *dest, const tensor_t *src) {
 
     dest->ndims = src->ndims;
     dest->length = src->length;
-    return dest;
 }
 
-void *uniform(tensor_t *tensor, const float low, const float high) {
+void uniform(tensor_t *tensor, const float low, const float high) {
     if (tensor == NULL) {
         printf("Expected required argument *t to be of type tensor_t, but got NULL.");
-        return NULL;
+        return;
     }
 
     for (int i = 0; i < tensor->length; i++) {
         tensor->t[i] = rand_uniform(low, high);
     }
-    return tensor;
 }
 
 tensor_t *tensor_load(FILE *fp, const int *shape, int n) {
@@ -323,9 +321,9 @@ void free_tensor(tensor_t *tensor) {
     free(tensor);
 }
 
-void *shape(const tensor_t *tensor, char *shape) {
+void shape(const tensor_t *tensor, char *shape) {
     if (tensor == NULL || shape == NULL) {
-        return NULL;
+        return;
     }
 
     int counter = 0;
@@ -336,9 +334,9 @@ void *shape(const tensor_t *tensor, char *shape) {
     shape[counter - 2] = '\0';
 }
 
-void *_shape(const tensor_t *tensor, char *_shape) {
-    return shape(tensor, _shape);
-}
+// void *_shape(const tensor_t *tensor, char *_shape) {
+//     return shape(tensor, _shape);
+// }
 
 void view(tensor_t *tensor, const int *shape, const int n) {
     if (tensor == NULL) {

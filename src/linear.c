@@ -118,10 +118,7 @@ void kaiming_uniform(tensor_t *t, float a, const char *mode, const char *non_lin
     float gain = sqrtf(2.0f / (1.0f + powf(negative_slope, 2.0f)));
     float std = gain / sqrtf(fan);
     float bound = sqrtf(3.0f) * std;
-    if (uniform(t, -bound, bound) == NULL) {
-        printf("An error occured when initializing tensor.\n");
-        return;
-    }
+    uniform(t, -bound, bound);
 }
 
 

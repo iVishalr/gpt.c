@@ -14,7 +14,7 @@ jobs:
   build-cpu:
     strategy:
       matrix:
-        os: [ubuntu-latest]
+        os: [ubuntu-latest, macos-latest]
 
     runs-on: ${{ matrix.os }}
 
@@ -39,8 +39,20 @@ jobs:
 
       - name: Compile Third Party Libraries
         run: |
-          make third_party -j
+          make third_party
 
-      - name: Compile gpt.c
+      - name: Compile gpt.c with GCC
         run: | 
-          make
+          make clean && make
+
+      - name: Compile gpt.c with clang
+        run: |
+          make clean && make CC=clang
+
+      - name: Compile gpt.c with GCC and Debug
+        run: |
+          make clean && make CC=gcc BUILD=debug
+
+      - name: Compile gpt.c with clang and Debug
+        run: |
+          make clean && make CC=clang BUILD=debug
