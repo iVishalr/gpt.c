@@ -1,7 +1,37 @@
 CC ?= gcc
 BUILD ?= release
-CFLAGS_RELEASE = -O3 -Ofast -march=native -Wno-unused-result -ggdb3 -fPIC -fopenmp -DOMP
-CFLAGS_DEBUG = -Wno-unused-result -O0 -ggdb3 -fPIC -fopenmp -DOMP
+CFLAGS_RELEASE = -O3 -Ofast -march=native -Wno-unused-result -ggdb3 -fPIC
+CFLAGS_DEBUG = -Wno-unused-result -O0 -ggdb3 -fPIC
+
+INCLUDES = -I include/ -I third_party/OpenBLAS/include/
+LDLIBS = -lm -lopenblas
+LDFLAGS = -L third_party/OpenBLAS/lib/
+
+SRC_DIR = src
+INCLUDE_DIR = include
+BUILD_DIR = build
+LIBRARY_NAME = gpt
+PLATFORM = $(shell uname -s)
+
+ifeq "$(CC)" "gcc"
+	CFLAGS_RELEASE += -fopenmp -DOMP
+	CFLAGS_DEBUG += -fopenmp -DOMP
+	LDFLAGS += -lgomp
+endif
+ifeq "$(CC)" "clang"
+	LDFLAGS += -lomp
+endif
+
+ifeq "$(PLATFORM)" "Darwin"
+	BREW_PATH=$(shell brew --prefix)
+    SHARED_SUFFIX=dylib
+	INCLUDES += -I $(BREW_PATH)/opt/libomp/include -I $(BREW_PATH)/opt/argp-standalone/include
+	LDFLAGS += -L $(BREW_PATH)/opt/libomp/lib -L $(BREW_PATH)/opt/argp-standalone/lib
+endif
+
+ifeq "$(PLATFORM)" "Linux"
+    SHARED_SUFFIX=so
+endif
 
 ifeq ($(BUILD), release)
 	CFLAGS = $(CFLAGS_RELEASE)
@@ -9,24 +39,6 @@ else ifeq ($(BUILD), debug)
 	CFLAGS = $(CFLAGS_DEBUG)
 else
 	$(error Invalid BUILD '$(BUILD)', expected 'release' or 'debug')
-endif
-
-INCLUDES = -I include/ -I third_party/OpenBLAS/include/
-LDLIBS = -lm -lopenblas -lgomp
-LDFLAGS = -L third_party/OpenBLAS/lib/
-
-SRC_DIR = src
-INCLUDE_DIR = include
-BUILD_DIR = build
-LIBRARY_NAME=gpt
-SHARED_SUFFIX=dll
-PLATFORM=$(shell uname -s)
-
-ifeq "$(PLATFORM)" "Darwin"
-    SHARED_SUFFIX=dylib
-endif
-ifeq "$(PLATFORM)" "Linux"
-    SHARED_SUFFIX=so
 endif
 
 SHARED_LIB = lib$(LIBRARY_NAME).$(SHARED_SUFFIX)
