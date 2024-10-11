@@ -280,7 +280,7 @@ def write_model(model: GPT, filename: str, step: int = 0):
         file.write(header.numpy().tobytes())
         file.write(shape_headers.numpy().tobytes())
         write_tensors(params, model.config.n_layer, file)
-    print(f"Model saved at {filename}")
+    print(f"Model saved at {os.path.join(dirname, filename)}")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 CC = gcc
 BUILD = release
-CFLAGS_RELEASE = -O3 -Ofast -march=native -Wno-unused-result -ggdb3 -fPIC
+CFLAGS_RELEASE = -O3 -Ofast -march=native -Wno-unused-result -Wno-ignored-pragmas -Wno-unknown-attributes -ggdb3 -fPIC
 CFLAGS_DEBUG = -Wno-unused-result -O0 -ggdb3 -fPIC
 
 INCLUDES = -I include/ -I third_party/OpenBLAS/include/
@@ -16,16 +16,16 @@ PLATFORM = $(shell uname -s)
 # check if gcc is clang as in the case of macos
 GCC_IS_CLANG=$(shell $(CC) --version | grep -i clang >/dev/null && echo yes || echo no)
 CLANG_IS_GCC=$(shell $(CC) --version | grep -i GCC >/dev/null && echo yes || echo no)
+_CC = $(CC)
+
 ifeq ($(CC), gcc)
 ifeq ($(GCC_IS_CLANG), yes)
-$(info Using clang instead of gcc. gcc is aliased to clang on your system.)
 _CC = clang
 endif
 endif
 
 ifeq ($(CC), clang)
 ifeq ($(CLANG_IS_GCC), yes)
-$(info Using gcc instead of clang. clang is aliased to gcc on your system.)
 _CC = gcc
 endif
 endif
@@ -36,7 +36,7 @@ CFLAGS_DEBUG += -fopenmp -DOMP
 LDLIBS += -lgomp
 endif
 
-ifeq ($(_CC),clang)
+ifeq ($(_CC), clang)
 LDLIBS += -lomp
 endif
 
@@ -51,8 +51,8 @@ endif
 ifeq ($(PLATFORM), Linux)
 SHARED_SUFFIX = so
 ifeq ($(_CC), clang)
-CFLAGS_RELEASE += -Xclang -fopenmp -DOMP
-CFLAGS_DEBUG += -Xclang -fopenmp -DOMP
+CFLAGS_RELEASE += -Xclang -fopenmp -DOMP -Rpass=loop-vectorize
+CFLAGS_DEBUG += -Xclang -fopenmp -DOMP -flax-vector-conversions
 endif
 endif
 
@@ -84,6 +84,17 @@ EXES = $(patsubst ./%.c, ./%, $(ROOT_SRCS))
 
 # Default rule to build the shared library and root binaries
 all: setup third_party shared_lib root_binaries
+ifeq "$(PLATFORM)" "Darwin"
+	@echo "\nExecute the following command in terminal to setup DYLD_LIBRARY_PATH environment variable\n"
+	@echo 'export DYLD_LIBRARY_PATH=$(BREW_PATH)/opt/libomp/lib:$(BREW_PATH)/opt/argp-standalone/lib:third_party/OpenBLAS/lib:$$DYLD_LIBRARY_PATH'
+	@echo "\nThe above command is needed for executables to load the dynamic libraries at runtime."
+endif
+
+ifeq "$(PLATFORM)" "Linux"
+	@echo "\nExecute the following command in terminal to setup LD_LIBRARY_PATH environment variable\n"
+	@echo 'export LD_LIBRARY_PATH=third_party/OpenBLAS/lib:$$LD_LIBRARY_PATH'
+	@echo "\nThe above command is needed for executables to load the dynamic libraries at runtime."
+endif
 
 # Compile rule for object files
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
