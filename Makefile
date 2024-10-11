@@ -51,8 +51,8 @@ endif
 ifeq ($(PLATFORM), Linux)
 SHARED_SUFFIX = so
 ifeq ($(_CC), clang)
-CFLAGS_RELEASE += -Xclang -fopenmp -DOMP -Rpass=loop-vectorize
-CFLAGS_DEBUG += -Xclang -fopenmp -DOMP -flax-vector-conversions
+CFLAGS_RELEASE += -Xclang -fopenmp -DOMP
+CFLAGS_DEBUG += -Xclang -fopenmp -DOMP
 endif
 endif
 
