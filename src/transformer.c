@@ -17,6 +17,7 @@ tensor_t **parameters_transformer(const gpt2_t *gpt);
 tensor_t **gradients_transformer(const gpt2_t *gpt);
 void load_state_dict_transformer(gpt2_t *gpt, tensor_t **state);
 void fast_load_state_dict_transformer(gpt2_t *gpt, tensor_t **state);
+void to_transformer(gpt2_t *gpt, const device_t device);
 
 
 // GPT2 Class
@@ -54,6 +55,7 @@ gpt2_t *GPT2(GPT2Config_t *config) {
     gpt->gradients = gradients_transformer;
     gpt->load_state_dict = load_state_dict_transformer;
     gpt->fast_load_state_dict = fast_load_state_dict_transformer;
+    gpt->to = to_transformer;
 
     gpt->_num_param_tensors = gpt->wpe->_num_param_tensors;
     for (int i = 0; i < gpt->n_layers; i++)
@@ -68,14 +70,15 @@ gpt2_t *GPT2(GPT2Config_t *config) {
 tensor_t *forward_transformer(gpt2_t *gpt, tensor_t *x) {
     if (gpt == NULL) {
         printf("Expected required arugment *gpt to be of type gpt2_t ptr, but got NULL.\n");
-        return NULL;
+        exit(EXIT_FAILURE);
     }
 
     if (x == NULL) {
         printf("Expected required argument *x to be of type tensor_t ptr, but got NULL.\n");
-        return NULL;
+        exit(EXIT_FAILURE);
     }
 
+    device_t device = x->device;
     int B, T, C;
     B = x->shape[0];
     T = x->shape[1];
@@ -95,7 +98,7 @@ tensor_t *forward_transformer(gpt2_t *gpt, tensor_t *x) {
     tensor_t *tok_emb = wte->forward(wte, x);
 
     int pos_shape[2] = {1, T};
-    tensor_t *pos = create_tensor(pos_shape, 2);
+    tensor_t *pos = create_tensor(pos_shape, 2, device);
     
     for (int t = 0; t < T; t++)
         pos->t[t] = t;
@@ -122,14 +125,15 @@ tensor_t *forward_transformer(gpt2_t *gpt, tensor_t *x) {
 tensor_t *backward_transformer(gpt2_t *gpt, tensor_t *global_grad) {
     if (gpt == NULL) {
         printf("Expected required arugment *gpt to be of type gpt2_t ptr, but got NULL.\n");
-        return NULL;
+        exit(EXIT_FAILURE);
     }
 
     if (global_grad == NULL) {
         printf("Expected required argument *global_grad to be of type tensor_t ptr, but got NULL.\n");
-        return NULL;
+        exit(EXIT_FAILURE);
     }
 
+    device_t device = global_grad->device;
     block_t **layers;
     embedding_t *wpe, *wte;
     linear_t *lm_head;
@@ -159,7 +163,7 @@ tensor_t *backward_transformer(gpt2_t *gpt, tensor_t *global_grad) {
         out = layers[i]->backward(layers[i], out);
 
     int gg_pos_emb_shape[3] = {1, T, n_embd};
-    tensor_t *gg_pos_emb = zeros(gg_pos_emb_shape, 3);
+    tensor_t *gg_pos_emb = zeros(gg_pos_emb_shape, 3, device);
 
     for (int b = 0; b < B; b++) {
         for (int t = 0; t < T; t++) {
@@ -308,7 +312,7 @@ void free_cache_transformer(gpt2_t *gpt) {
 
 tensor_t **parameters_transformer(const gpt2_t *gpt) {
     if (gpt == NULL)
-        return NULL;
+        exit(EXIT_FAILURE);
 
     block_t **layers;
     embedding_t *wpe, *wte;
@@ -356,7 +360,7 @@ tensor_t **parameters_transformer(const gpt2_t *gpt) {
 
 tensor_t **gradients_transformer(const gpt2_t *gpt) {
     if (gpt == NULL)
-        return NULL;
+        exit(EXIT_FAILURE);
 
     block_t **layers;
     embedding_t *wpe, *wte;
@@ -403,16 +407,14 @@ tensor_t **gradients_transformer(const gpt2_t *gpt) {
 
 
 void load_state_dict_transformer(gpt2_t *gpt, tensor_t **state) {
-    if (gpt == NULL)
-    {
+    if (gpt == NULL) {
         printf("Expected required arugment *gpt to be of type gpt2_t ptr, but got NULL.\n");
-        return;
+        exit(EXIT_FAILURE);
     }
 
-    if (state == NULL)
-    {
+    if (state == NULL) {
         printf("Expected required argument **state to be of type tensor_t ** ptr, but got NULL.\n");
-        return;
+        exit(EXIT_FAILURE);
     }
 
     block_t **layers;
@@ -445,16 +447,14 @@ void load_state_dict_transformer(gpt2_t *gpt, tensor_t **state) {
 
 
 void fast_load_state_dict_transformer(gpt2_t *gpt, tensor_t **state) {
-    if (gpt == NULL)
-    {
+    if (gpt == NULL) {
         printf("Expected required arugment *gpt to be of type gpt2_t ptr, but got NULL.\n");
-        return;
+        exit(EXIT_FAILURE);
     }
 
-    if (state == NULL)
-    {
+    if (state == NULL) {
         printf("Expected required argument **state to be of type tensor_t ** ptr, but got NULL.\n");
-        return;
+        exit(EXIT_FAILURE);
     }
 
     tensor_t **parameters = gpt->parameters(gpt);
@@ -473,4 +473,32 @@ void fast_load_state_dict_transformer(gpt2_t *gpt, tensor_t **state) {
         memcpy(model_param->t, state_param->t, model_param->length * sizeof(float));
     }
     free(parameters);
+}
+
+
+void to_transformer(gpt2_t *gpt, const device_t device) {
+    if (gpt == NULL) {
+        printf("Expected required arugment *gpt to be of type gpt2_t ptr, but got NULL.\n");
+        return;
+    }
+
+    block_t **layers;
+    embedding_t *wpe, *wte;
+    linear_t *lm_head;
+    layer_norm_t *ln;
+
+    wpe = gpt->wpe;
+    wte = gpt->wte;
+    lm_head = gpt->lm_head;
+    layers = gpt->layers;
+    ln = gpt->ln_f;
+
+    wpe->to(wpe, device);
+    wte->to(wte, device);
+
+    for (int i = 0; i < gpt->n_layers; i++)
+        layers[i]->to(layers[i], device);
+
+    ln->to(ln, device);
+    lm_head->to(lm_head, device);
 }

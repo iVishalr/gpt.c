@@ -7,6 +7,7 @@
 #pragma once
 
 #include <stdio.h>
+#include "tensor.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -46,7 +47,21 @@ void *aligned_malloc_check(size_t alignment, size_t size, const char *file, int 
 
 #define alignedMallocCheck(alignment, size) aligned_malloc_check(alignment, size, __FILE__, __LINE__);
 
+// ---------------------------------------------------------------------------------------------------
+// print helpers
+
 void print_table(char **key, char **value, size_t n);
+
+// ---------------------------------------------------
+// tensor checks
+
+void tensor_check(const tensor_t *tensor, const char *file, int line);
+
+#define tensorCheck(tensor) tensor_check(tensor, __FILE__, __LINE__)
+
+void tensor_device_check(const tensor_t *A, const tensor_t *B, const char *file, int line);
+
+#define tensorDeviceCheck(A, B) tensor_device_check(A, B, __FILE__, __LINE__)
 
 #ifdef __cplusplus
 }

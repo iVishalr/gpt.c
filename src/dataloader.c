@@ -68,8 +68,8 @@ void dataloader_next(dataloader_t *loader, tensor_t **batch) {
     loader->_curr_fp_ptr += batch_size * block_size * sizeof(int);
 
     int input_shape[2] = {batch_size, block_size};
-    tensor_t *inputs = create_tensor(input_shape, 2);
-    tensor_t *targets = create_tensor(input_shape, 2);
+    tensor_t *inputs = create_tensor(input_shape, 2, CPU);
+    tensor_t *targets = create_tensor(input_shape, 2, CPU);
 
     for (int i = 0; i < batch_size * block_size; i++) {
         inputs->t[i] = (int)loader->batch[i];

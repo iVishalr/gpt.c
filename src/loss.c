@@ -33,17 +33,17 @@ tensor_t *forward_cross_entropy_loss(cross_entropy_loss_t *loss, tensor_t *logit
 
     if (loss == NULL) {
         printf("Expected required arugment *loss to be of type cross_entropy_loss ptr, but got NULL.\n");
-        return NULL;
+        exit(EXIT_FAILURE);
     }
 
     if (logits == NULL) {
         printf("Expected required argument *logits to be of type tensor_t ptr, but got NULL.\n");
-        return NULL;
+        exit(EXIT_FAILURE);
     }
 
     if (targets == NULL) {
         printf("Expected required argument *targets to be of type tensor_t ptr, but got NULL.\n");
-        return NULL;
+        exit(EXIT_FAILURE);
     }
 
     /*
@@ -67,13 +67,14 @@ tensor_t *forward_cross_entropy_loss(cross_entropy_loss_t *loss, tensor_t *logit
         loss[i] <--- -log(V_i[idx])
     */
 
+    device_t device = logits->device;
     int B, T, C;
     B = logits->shape[0];
     T = logits->shape[1];
     C = logits->shape[2];
     tensor_t *probs = loss->softmax->forward(loss->softmax, logits);
 
-    tensor_t *out = zeros(targets->shape, targets->ndims);
+    tensor_t *out = zeros(targets->shape, targets->ndims, device);
     for (int b = 0; b < B; b++) {
         for (int t = 0; t < T; t++) {
             float *probs_bt = probs->t + b * T * C + t * C;
@@ -92,12 +93,12 @@ tensor_t *backward_cross_entropy_loss(cross_entropy_loss_t *loss, tensor_t *glob
 
     if (loss == NULL) {
         printf("Expected required arugment *loss to be of type cross_entropy_loss_t ptr, but got NULL.\n");
-        return NULL;
+        exit(EXIT_FAILURE);
     }
 
     if (global_grad == NULL) {
         printf("Expected required argument *global_grad to be of type tensor_t ptr, but got NULL.\n");
-        return NULL;
+        exit(EXIT_FAILURE);
     }
 
     /*
@@ -118,6 +119,7 @@ tensor_t *backward_cross_entropy_loss(cross_entropy_loss_t *loss, tensor_t *glob
 
     */
 
+    device_t device = global_grad->device;
     int B, T, C;
     tensor_t *probs = loss->cache[0];
     tensor_t *targets = loss->cache[1];
@@ -126,7 +128,7 @@ tensor_t *backward_cross_entropy_loss(cross_entropy_loss_t *loss, tensor_t *glob
     T = probs->shape[1];
     C = probs->shape[2];
 
-    tensor_t *out = zeros(probs->shape, probs->ndims);
+    tensor_t *out = zeros(probs->shape, probs->ndims, device);
 
     for (int b = 0; b < B; b++) {
         for (int t = 0; t < T; t++) {

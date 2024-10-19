@@ -15,6 +15,7 @@ void free_cache_embedding(embedding_t *embedding);
 tensor_t **parameters_embedding(const embedding_t *embedding);
 tensor_t **gradients_embedding(const embedding_t *embedding);
 void load_state_dict_embedding(embedding_t *embedding, tensor_t **state);
+void to_embedding(embedding_t *embedding, const device_t device);
 
 
 // Embedding Class
@@ -25,8 +26,8 @@ embedding_t *Embedding(int num_embeddings, int embedding_dim) {
     embedding->embedding_dim = embedding_dim;
 
     int wshape[2] = {num_embeddings, embedding_dim};
-    embedding->W = randn(wshape, 2);
-    embedding->dW = zeros(wshape, 2);
+    embedding->W = randn(wshape, 2, CPU);
+    embedding->dW = zeros(wshape, 2, CPU);
     embedding->cache = NULL;
     embedding->forward = forward_embedding;
     embedding->backward = backward_embedding;
@@ -37,6 +38,7 @@ embedding_t *Embedding(int num_embeddings, int embedding_dim) {
     embedding->parameters = parameters_embedding;
     embedding->gradients = gradients_embedding;
     embedding->load_state_dict = load_state_dict_embedding;
+    embedding->to = to_embedding;
     embedding->_num_param_tensors = 1;
     return embedding;
 }
@@ -62,13 +64,14 @@ tensor_t *forward_embedding(embedding_t *embedding, tensor_t *x) {
         out[i] = W[i];
     */
 
+    device_t device = x->device;
     int B, T, C;
     B = x->shape[0];
     T = x->shape[1];
     C = embedding->embedding_dim;
     
     int out_shape[3] = {B, T, C};
-    tensor_t *out = zeros(out_shape, 3);
+    tensor_t *out = zeros(out_shape, 3, device);
 
     for (int b = 0; b < B; b++) {
         for (int t = 0; t < T; t++) {
@@ -96,13 +99,14 @@ tensor_t *backward_embedding(embedding_t * embedding, tensor_t *global_grad) {
         return NULL;
     }
     
+    device_t device = global_grad->device;
     int B, T, C;
     B = global_grad->shape[0];
     T = global_grad->shape[1];
     C = global_grad->shape[2];
 
     if (!embedding->dW)
-        embedding->dW = zeros(embedding->W->shape, embedding->W->ndims);
+        embedding->dW = zeros(embedding->W->shape, embedding->W->ndims, device);
 
     for (int b = 0; b < B; b++) {
         for (int t = 0; t < T; t++) {
@@ -190,26 +194,35 @@ tensor_t **gradients_embedding(const embedding_t *embedding) {
 
 void load_state_dict_embedding(embedding_t *embedding, tensor_t **state)
 {
-    if (embedding == NULL)
-    {
+    if (embedding == NULL) {
         printf("Expected required arugment *embedding to be of type embedding_t ptr, but got NULL.\n");
-        return;
+        exit(EXIT_FAILURE);
     }
 
-    if (state == NULL)
-    {
+    if (state == NULL)  {
         printf("Expected required argument **state to be of type tensor_t ** ptr, but got NULL.\n");
-        return;
+        exit(EXIT_FAILURE);
     }
 
     // check parameter and state length
     tensor_t *W = state[0];
 
-    if (embedding->W->length != W->length)
-    {
+    if (embedding->W->length != W->length) {
         printf("Cannot load embedding.weight as embedding.W.length != state.W.length. Got %d != %d\n", embedding->W->length, W->length);
         return;
     }
 
     memcpy(embedding->W->t, W->t, embedding->W->length * sizeof(float));
+}
+
+
+void to_embedding(embedding_t *embedding, const device_t device) {
+    if (embedding == NULL) {
+        printf("Expected required arugment *embedding to be of type embedding_t ptr, but got NULL.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    embedding->W->to(embedding->W, device);
+    embedding->dW->to(embedding->dW, device);
+    embedding->cache->to(embedding->cache, device);
 }

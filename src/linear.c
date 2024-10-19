@@ -19,6 +19,7 @@ void free_cache_linear(linear_t *linear);
 tensor_t **parameters_linear(const linear_t *linear);
 tensor_t **gradients_linear(const linear_t *linear);
 void load_state_dict_linear(linear_t *linear, tensor_t **state);
+void to_linear(linear_t *linear, const device_t device);
 
 
 // Linear Class
@@ -28,8 +29,8 @@ linear_t *Linear(const int in_features, const int out_features, const int use_bi
     int w_shape[2] = {out_features, in_features};
     int b_shape[1] = {out_features};
 
-    tensor_t *W = zeros(w_shape, 2);
-    tensor_t *b = use_bias > 0 ? zeros(b_shape, 1) : NULL;
+    tensor_t *W = zeros(w_shape, 2, CPU);
+    tensor_t *b = use_bias > 0 ? zeros(b_shape, 1, CPU) : NULL;
 
     // init weights
     kaiming_uniform(W, sqrtf(5.0f), "fan_in", "leaky_relu");
@@ -48,8 +49,8 @@ linear_t *Linear(const int in_features, const int out_features, const int use_bi
     linear->in_features = in_features;
     linear->out_features = out_features;
     linear->use_bias = use_bias;
-    linear->dW = zeros(w_shape, 2);
-    linear->db = use_bias > 0 ? zeros(b_shape, 1) : NULL;
+    linear->dW = zeros(w_shape, 2, CPU);
+    linear->db = use_bias > 0 ? zeros(b_shape, 1, CPU) : NULL;
     linear->cache = NULL;
     linear->forward = forward_linear;
     linear->backward = backward_linear;
@@ -60,6 +61,7 @@ linear_t *Linear(const int in_features, const int out_features, const int use_bi
     linear->parameters = parameters_linear;
     linear->gradients = gradients_linear;
     linear->load_state_dict = load_state_dict_linear;
+    linear->to = to_linear;
     linear->_num_param_tensors = use_bias > 0 ? 2 : 1;
     return linear;
 }
@@ -126,12 +128,12 @@ tensor_t *forward_linear(linear_t *linear, tensor_t *x) {
     
     if (linear == NULL) {
         printf("Expected required arugment *linear to be of type linear_t ptr, but got NULL.\n");
-        return NULL;
+        exit(EXIT_FAILURE);
     }
 
     if (x == NULL) {
         printf("Expected required argument *x to be of type tensor_t ptr, but got NULL.\n");
-        return NULL;
+        exit(EXIT_FAILURE);
     }
 
     // Shape Analysis
@@ -141,16 +143,17 @@ tensor_t *forward_linear(linear_t *linear, tensor_t *x) {
     // b: (out_features)
     // y = x @ W.T + b
     // y: (B * T, in_features) @ (in_features, out_features) -> (B * T, out_features) + (out_features)
-        
+    
+    device_t device = x->device;
     int B, T, in_features;
     B = x->shape[0];
     T = x->shape[1];
     in_features = x->shape[2];
 
-    tensor_t *out, *ret;
+    tensor_t *out;
 
     int out_shape[3] = {B, T, linear->out_features};
-    out = create_tensor(out_shape, 3);
+    out = create_tensor(out_shape, 3, device);
 
     cblas_sgemm(
         CblasRowMajor, CblasNoTrans, CblasTrans, 
@@ -224,14 +227,16 @@ tensor_t *backward_linear(linear_t *linear, tensor_t *global_grad) {
         db += sum(global_grad)  # (B * T, out_features)
     */
 
+    device_t device = global_grad->device;
+
     if (!linear->dW) 
-        linear->dW = zeros(linear->W->shape, linear->W->ndims);
+        linear->dW = zeros(linear->W->shape, linear->W->ndims, device);
 
     if (!linear->db)
-        linear->db = linear->use_bias > 0 ? zeros(linear->b->shape, linear->b->ndims) : NULL;
+        linear->db = linear->use_bias > 0 ? zeros(linear->b->shape, linear->b->ndims, device) : NULL;
 
-    tensor_t *dout, *ret;
-    dout = zeros(linear->cache->shape, linear->cache->ndims);
+    tensor_t *dout;
+    dout = zeros(linear->cache->shape, linear->cache->ndims, device);
 
     int B, T, out_features;
     B = global_grad->shape[0];
@@ -352,16 +357,14 @@ tensor_t **gradients_linear(const linear_t *linear) {
 
 
 void load_state_dict_linear(linear_t *linear, tensor_t **state) {
-    if (linear == NULL)
-    {
+    if (linear == NULL) {
         printf("Expected required arugment *linear to be of type linear_t ptr, but got NULL.\n");
-        return;
+        exit(EXIT_FAILURE);
     }
 
-    if (state == NULL)
-    {
+    if (state == NULL) {
         printf("Expected required argument **state to be of type tensor_t ** ptr, but got NULL.\n");
-        return;
+        exit(EXIT_FAILURE);
     }
 
     // check parameter and state length
@@ -381,4 +384,18 @@ void load_state_dict_linear(linear_t *linear, tensor_t **state) {
     memcpy(linear->W->t, W->t, linear->W->length * sizeof(float));
     if (linear->use_bias > 0)
         memcpy(linear->b->t, b->t, linear->b->length * sizeof(float));
+}
+
+
+void to_linear(linear_t *linear, const device_t device) {
+    if (linear == NULL) {
+        printf("Expected required arugment *linear to be of type linear_t ptr, but got NULL.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    linear->W->to(linear->W, device);
+    linear->b->to(linear->b, device);
+    linear->dW->to(linear->dW, device);
+    linear->db->to(linear->db, device);
+    linear->cache->to(linear->cache, device);
 }

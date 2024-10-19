@@ -227,7 +227,7 @@ gpt2_t* load_model(const char *file_path) {
         for (int i = 0; i < ndims; i++)
             shape[i] = shape_buffer[shape_index + 1 + i];
         
-        parameters[param_index++] = tensor_load(fp, shape, ndims);
+        parameters[param_index++] = tensor_load(fp, shape, ndims, CPU);
         shape_index += ndims + 1;
     }
 
@@ -289,13 +289,14 @@ int main(int argc, char **argv) {
     // create Tokenizer
     tokenizer_t *tokenizer = Tokenizer(inference_args.tokenizer_checkpoint);
     uint64_t rng_state = inference_args.rand_seed;
+    device_t device = CPU;
 
     int total_tokens = inference_args.num_init_tokens + inference_args.max_tokens;
     int block_size_multiple = total_tokens / gpt->block_size;
     block_size_multiple = total_tokens % gpt->block_size == 0 ? block_size_multiple : block_size_multiple + 1;
     
     int input_shape[2] = {1, gpt->block_size * block_size_multiple};
-    tensor_t *X = fill(input_shape, 2, 50256.0f);
+    tensor_t *X = fill(input_shape, 2, 50256.0f, device);
 
     // We need to hack the tensor here because model can only process block_size
     // tokens at a time. If max_tokens + num_init_tokens is greater than block_size,
@@ -320,7 +321,7 @@ int main(int argc, char **argv) {
 
     for (int i = inference_args.num_init_tokens; i < total_tokens; i++) {
         int window_input_shape[2] = {1, gpt->block_size};
-        tensor_t *window_input = create_tensor(window_input_shape, 2);
+        tensor_t *window_input = create_tensor(window_input_shape, 2, device);
 
         start_index += i < gpt->block_size ? 0 : 1;
         memcpy(window_input->t, X->t + start_index, gpt->block_size * sizeof(float));

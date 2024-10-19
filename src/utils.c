@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "tensor.h"
 #include "utils.h"
 
 FILE *fopen_check(const char *path, const char *mode, const char *file, int line)
@@ -129,4 +130,50 @@ void print_table(char **key, char **value, size_t n) {
     for (int i = 0; i < n; i++)
         printf("| %-*s | %-*s |\n", max_key_width, key[i], max_value_width, value[i]);
     printf("+-%-*s-+-%-*s-+\n", max_key_width, key_row, max_value_width, val_row);
+}
+
+void tensor_check(const tensor_t *tensor, const char *file, int line) {
+    if (tensor == NULL) {
+        printf("%s:%d Expected a pointer of type tensor_t, but got NULL\n", file, line);
+        exit(EXIT_FAILURE);
+    }
+
+    int length = 1;
+    for (int i = 0; i < tensor->ndims; i++)
+        length *= tensor->shape[i];
+    
+    char tensor_shape[1024];
+    shape(tensor, tensor_shape);
+
+    if (length != tensor->length) {
+        printf("%s:%d Expected a tensor of shape %s to be of length %d, but got a tensor of length %d\n", file, line, tensor_shape, length, tensor->length);
+        exit(EXIT_FAILURE);
+    }
+
+    if (tensor->t == NULL) {
+        printf("%s:%d Expected tensor->t to be a valid float pointer, but got NULL\n", file, line);
+        exit(EXIT_FAILURE);
+    }
+}
+
+void tensor_device_check(const tensor_t *A, const tensor_t *B, const char *file, int line) {
+    if (A == NULL) {
+        printf("%s:%d Expected A to be a pointer of type tensor_t, but got NULL\n", file, line);
+        exit(EXIT_FAILURE);
+    }
+
+    if (B == NULL) {
+        printf("%s:%d Expected B to be a pointer of type tensor_t, but got NULL\n", file, line);
+        exit(EXIT_FAILURE);
+    }
+
+
+    char A_device[1024], B_device[1024];
+    get_tensor_device(A, A_device);
+    get_tensor_device(B, B_device);
+
+    if (A->device != B->device) {
+        printf("%s:%d Expected all tensors to be on same device, but found tensors present on %s and %s\n", file, line, A_device, B_device);
+        exit(EXIT_FAILURE);
+    }
 }

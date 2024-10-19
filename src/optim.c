@@ -21,13 +21,13 @@ adamW_t *AdamW(tensor_t **parameters, tensor_t **gradients, const int n_paramete
     if (parameters == NULL)
     {
         printf("Expected **parameters to be not NULL.\n");
-        return NULL;
+        exit(EXIT_FAILURE);
     }
 
     if (gradients == NULL)
     {
         printf("Expected **gradients to be not NULL.\n");
-        return NULL;
+        exit(EXIT_FAILURE);
     }
 
     // verify parameters and gradients
@@ -36,25 +36,25 @@ adamW_t *AdamW(tensor_t **parameters, tensor_t **gradients, const int n_paramete
         if (parameters[i] == NULL)
         {
             printf("parameters contains a NULL ptr at position %d\n.", i);
-            return NULL;
+            exit(EXIT_FAILURE);
         }
 
         if (gradients[i] == NULL)
         {
             printf("gradients contains a NULL ptr at position %d\n.", i);
-            return NULL;
+            exit(EXIT_FAILURE);
         }
 
         if (parameters[i]->ndims != gradients[i]->ndims)
         {
             printf("Expected parameters and gradients at position %d to be of same dimensions. Got %d != %d\n", i, parameters[i]->ndims, gradients[i]->ndims);
-            return NULL;
+            exit(EXIT_FAILURE);
         }
 
         if (parameters[i]->length != gradients[i]->length)
         {
             printf("Expected parameters and gradients at position %d to have same lengths. Got %d != %d\n", i, parameters[i]->length, gradients[i]->length);
-            return NULL;
+            exit(EXIT_FAILURE);
         }
     }
 
@@ -95,8 +95,9 @@ void step_adamW(adamW_t *optimizer) {
         for (int i = 0; i < optimizer->n_parameters; i++) {
             tensor_t *grad;
             grad = optimizer->gradients[i];
-            optimizer->m[i] = zeros(grad->shape, grad->ndims);
-            optimizer->v[i] = zeros(grad->shape, grad->ndims);
+            device_t device = grad->device;
+            optimizer->m[i] = zeros(grad->shape, grad->ndims, device);
+            optimizer->v[i] = zeros(grad->shape, grad->ndims, device);
         }
     }
 
@@ -137,12 +138,13 @@ void step_adamW(adamW_t *optimizer) {
 
 void zero_grad_adamW(adamW_t *optimizer) {
     if (optimizer == NULL)
-        return;
+        exit(EXIT_FAILURE);
 
     // set the gradients to 0
     for (int i = 0; i < optimizer->n_parameters; i++) {
         tensor_t *grad = optimizer->gradients[i];
-        memset(grad->t, 0, sizeof(float) * grad->length);
+        for (int j = 0; j < grad->length; j++)
+            grad->t[j] = 0.0f;
     }
 }
 

@@ -13,6 +13,7 @@ tensor_t *backward_gelu(gelu_t *gelu, tensor_t *global_grad);
 void description_gelu(const gelu_t *gelu);
 void free_layer_gelu(gelu_t *gelu);
 void free_cache_gelu(gelu_t *gelu);
+void to_gelu(gelu_t *gelu, const device_t device);
 
 
 // GELU Class
@@ -26,6 +27,7 @@ gelu_t *GELU() {
     gelu->description = description_gelu;
     gelu->free_layer = free_layer_gelu;
     gelu->free_cache = free_cache_gelu;
+    gelu->to = to_gelu;
     return gelu;
 }
 
@@ -34,15 +36,15 @@ tensor_t *forward_gelu(gelu_t *gelu, tensor_t *x) {
     
     if (gelu == NULL) {
         printf("Expected required arugment *gelu to be of type gelu_t ptr, but got NULL.\n");
-        return NULL;
+        exit(EXIT_FAILURE);
     }
 
     if (x == NULL) {
         printf("Expected required argument *x to be of type tensor_t ptr, but got NULL.\n");
-        return NULL;
+        exit(EXIT_FAILURE);
     }
 
-    tensor_t *out = create_tensor(x->shape, x->ndims);
+    tensor_t *out = create_tensor(x->shape, x->ndims, x->device);
 
     for (int i = 0; i < x->length; i++) {
         float x_i = x->t[i];
@@ -65,15 +67,15 @@ tensor_t *backward_gelu(gelu_t *gelu, tensor_t *global_grad)
 {
     if (gelu == NULL) {
         printf("Expected required arugment *gelu to be of type gelu_t ptr, but got NULL.\n");
-        return NULL;
+        exit(EXIT_FAILURE);
     }
 
     if (global_grad == NULL) {
         printf("Expected required argument *global_grad to be of type tensor_t ptr, but got NULL.\n");
-        return NULL;
+        exit(EXIT_FAILURE);
     }
 
-    tensor_t *dout = zeros(gelu->cache->shape, gelu->cache->ndims);
+    tensor_t *dout = zeros(gelu->cache->shape, gelu->cache->ndims, gelu->cache->device);
 
     for (int i = 0; i < gelu->cache->length; i++) {
         float x_i = gelu->cache->t[i];
@@ -118,12 +120,22 @@ void free_cache_gelu(gelu_t *gelu) {
 }
 
 
+void to_gelu(gelu_t *gelu, const device_t device) {
+    if (gelu == NULL) {
+        printf("Expected required arugment *gelu to be of type gelu_t ptr, but got NULL.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    gelu->cache->to(gelu->cache, device);
+} 
+
+
 tensor_t *forward_softmax(softmax_t *softmax, tensor_t *x);
 tensor_t *backward_softmax(softmax_t *softmax, tensor_t *global_grad);
 void description_softmax(const softmax_t *softmax);
 void free_layer_softmax(softmax_t *softmax);
 void free_cache_softmax(softmax_t *softmax);
-
+void to_softmax(softmax_t *softmax, const device_t device);
 
 // Softmax Class
 softmax_t *Softmax()
@@ -137,6 +149,7 @@ softmax_t *Softmax()
     softmax->description = description_softmax;
     softmax->free_layer = free_layer_softmax;
     softmax->free_cache = free_cache_softmax;
+    softmax->to = to_softmax;
     return softmax;
 }
 
@@ -145,12 +158,12 @@ tensor_t *forward_softmax(softmax_t *softmax, tensor_t *x) {
     
     if (softmax == NULL) {
         printf("Expected required arugment *softmax to be of type softmax_t ptr, but got NULL.\n");
-        return NULL;
+        exit(EXIT_FAILURE);
     }
 
     if (x == NULL) {
         printf("Expected required argument *x to be of type tensor_t ptr, but got NULL.\n");
-        return NULL;
+        exit(EXIT_FAILURE);
     }
 
     int B, T, C;
@@ -158,7 +171,7 @@ tensor_t *forward_softmax(softmax_t *softmax, tensor_t *x) {
     T = x->shape[1];
     C = x->shape[2];
 
-    tensor_t *out = create_tensor(x->shape, x->ndims);
+    tensor_t *out = create_tensor(x->shape, x->ndims, x->device);
 
     #pragma omp parallel for collapse(2)
     for (int b = 0; b < B; b++) {
@@ -189,12 +202,12 @@ tensor_t *backward_softmax(softmax_t *softmax, tensor_t *global_grad) {
 
     if (softmax == NULL) {
         printf("Expected required arugment *softmax to be of type gelu_t ptr, but got NULL.\n");
-        return NULL;
+        exit(EXIT_FAILURE);
     }
 
     if (global_grad == NULL) {
         printf("Expected required argument *global_grad to be of type tensor_t ptr, but got NULL.\n");
-        return NULL;
+        exit(EXIT_FAILURE);
     }
 
     printf("NotImplementedError: softmax.backward() is not implemented. Please use CrossEntropyLoss instead.\n");
@@ -226,4 +239,13 @@ void free_cache_softmax(softmax_t *softmax) {
 
     free_tensor(softmax->cache);
     softmax->cache = NULL;
+}
+
+void to_softmax(softmax_t *softmax, const device_t device) {
+    if (softmax == NULL) {
+        printf("Expected required arugment *softmax to be of type gelu_t ptr, but got NULL.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    softmax->cache->to(softmax->cache, device);
 }

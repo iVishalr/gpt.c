@@ -57,6 +57,7 @@ typedef struct linear {
     tensor_t **(*parameters)(const struct linear *);       // 8 bytes
     tensor_t **(*gradients)(const struct linear *);        // 8 bytes
     void (*load_state_dict)(struct linear *, tensor_t **); // 8 bytes
+    void (*to)(struct linear *, const device_t);           // 8 bytes
 
     // Integers grouped together (4 bytes each)
     int in_features;        // 4 bytes
@@ -65,7 +66,7 @@ typedef struct linear {
     int _num_param_tensors; // 4 bytes
 
     // Padding to maintain alignment of the entire struct
-    char __padding[8]; // 8 bytes to align the struct size to a multiple of 8 bytes
+    // char __padding[8]; // 8 bytes to align the struct size to a multiple of 8 bytes
 } __attribute__((aligned(64))) linear_t;
 
 linear_t *Linear(const int in_features, const int out_features, const int use_bias);

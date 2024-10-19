@@ -264,7 +264,7 @@ gpt2_t* load_model(const char *file_path) {
         for (int i = 0; i < ndims; i++)
             shape[i] = shape_buffer[shape_index + 1 + i];
         
-        parameters[param_index++] = tensor_load(fp, shape, ndims);
+        parameters[param_index++] = tensor_load(fp, shape, ndims, CPU);
         shape_index += ndims + 1;
     }
 
@@ -342,6 +342,7 @@ void save_model(const char *file_path, const gpt2_t *model, size_t steps) {
 
 
 int main(int argc, char **argv) {
+
     struct arguments training_config;
     init_arguments(&training_config);
 
@@ -375,6 +376,7 @@ int main(int argc, char **argv) {
     sprintf(save_checkpoint_path, "%s/%s.bin", training_config.log_dir, training_config.output);
 
     gpt2_t *gpt = load_model(load_checkpoint);
+    device_t device = CPU;
 
     // create the dataloaders for training and validation
     dataloader_t *train_loader = DataLoader(
@@ -471,8 +473,8 @@ int main(int argc, char **argv) {
             // we need to copy the tensors as the model always free's its inputs in backward pass
             // hence copying prevents us from losing the current batch's inputs and targets
             int inp_shape[2] = {batch_size, block_size};
-            tensor_t *x = create_tensor(inp_shape, 2);
-            tensor_t *targets = create_tensor(inp_shape, 2);
+            tensor_t *x = create_tensor(inp_shape, 2, device);
+            tensor_t *targets = create_tensor(inp_shape, 2, device);
 
             tensor_copy(x, _x);
             tensor_copy(targets, _targets);

@@ -13,6 +13,7 @@ void description_attention(const attention_t *attn);
 int num_parameters_attention(const attention_t *attn);
 void free_layer_attention(attention_t *attn);
 void free_cache_attention(attention_t *attn);
+void to_attention(attention_t *attn, const device_t device);
 
 
 // Attention Class
@@ -28,7 +29,7 @@ attention_t *Attention(int n_embd, int n_heads, int block_size) {
 
     // self.register_buffer("bias", torch.tril(torch.ones(config.block_size, config.block_size)).view(1, 1, config.block_size, config.block_size))
     int buffer_shape[2] = {block_size, block_size};
-    attn->buffer = zeros(buffer_shape, 2);
+    attn->buffer = zeros(buffer_shape, 2, CPU);
     for (int i = 0; i < block_size; i++)
     {
         for (int j = 0; j <= i; j++)
@@ -50,6 +51,7 @@ attention_t *Attention(int n_embd, int n_heads, int block_size) {
     attn->num_parameters = num_parameters_attention;
     attn->free_layer = free_layer_attention;
     attn->free_cache = free_cache_attention;
+    attn->to = to_attention;
     return attn;
 }
 
@@ -58,12 +60,12 @@ tensor_t *forward_attention(attention_t *attn, tensor_t *x) {
 
     if (attn == NULL) {
         printf("Expected required arugment *attn to be of type attention_t ptr, but got NULL.\n");
-        return NULL;
+        exit(EXIT_FAILURE);
     }
 
     if (x == NULL) {
         printf("Expected required argument *x to be of type tensor_t ptr, but got NULL.\n");
-        return NULL;
+        exit(EXIT_FAILURE);
     }
 
     /*
@@ -102,6 +104,7 @@ tensor_t *forward_attention(attention_t *attn, tensor_t *x) {
         as this becomes input to "out = att @ v", and will be accessed during backprop.
     */
 
+    device_t device = x->device;
     int B, T, C, C3, n_heads, hs, buffer_row_size;
     B = x->shape[0];
     T = x->shape[1];
@@ -114,9 +117,9 @@ tensor_t *forward_attention(attention_t *attn, tensor_t *x) {
 
     tensor_t *q, *k, *v; 
     int qkv_transpose_shape[4] = {B, n_heads, T, hs};
-    q = create_tensor(qkv_transpose_shape, 4);
-    k = create_tensor(qkv_transpose_shape, 4);
-    v = create_tensor(qkv_transpose_shape, 4);
+    q = create_tensor(qkv_transpose_shape, 4, device);
+    k = create_tensor(qkv_transpose_shape, 4, device);
+    v = create_tensor(qkv_transpose_shape, 4, device);
 
     for (int b = 0; b < B; b++) {
         for (int t = 0; t < T; t++) {
@@ -132,7 +135,7 @@ tensor_t *forward_attention(attention_t *attn, tensor_t *x) {
     }
 
     int att_shape[4] = {B, n_heads, T, T};
-    tensor_t *att = create_tensor(att_shape, 4);
+    tensor_t *att = create_tensor(att_shape, 4, device);
 
     // att = (q @ k.transpose(-2, -1)) * (1.0/sqrt(hs))
     for (int b = 0; b < B; b++) {
@@ -148,13 +151,13 @@ tensor_t *forward_attention(attention_t *attn, tensor_t *x) {
     }
 
     // cache current att scores
-    tensor_t *preatt = create_tensor(att->shape, att->ndims);
+    tensor_t *preatt = create_tensor(att->shape, att->ndims, device);
     tensor_copy(preatt, att);
 
     int out_shape[3] = {B, T, C};
     tensor_t *out, *_out; 
-    out = create_tensor(out_shape, 3);
-    _out = create_tensor(out_shape, 3);
+    out = create_tensor(out_shape, 3, device);
+    _out = create_tensor(out_shape, 3, device);
 
     for (int i = 0; i < B * n_heads; i++) {
         for (int j = 0; j < T; j++) {
@@ -218,14 +221,15 @@ tensor_t *backward_attention(attention_t *attn, tensor_t *global_grad) {
 
     if (attn == NULL) {
         printf("Expected required arugment *attn to be of type attention_t ptr, but got NULL.\n");
-        return NULL;
+        exit(EXIT_FAILURE);
     }
 
     if (global_grad == NULL) {
         printf("Expected required argument *global_grad to be of type tensor_t ptr, but got NULL.\n");
-        return NULL;
+        exit(EXIT_FAILURE);
     }
 
+    device_t device = global_grad->device;
     int B, T, C, n_heads, hs;
     B = global_grad->shape[0];
     T = global_grad->shape[1];
@@ -243,14 +247,14 @@ tensor_t *backward_attention(attention_t *attn, tensor_t *global_grad) {
     preatt = attn->cache[3];
     att = attn->cache[4];
 
-    dq = zeros(q->shape, q->ndims);
-    dk = zeros(k->shape, k->ndims);
-    dv = zeros(v->shape, v->ndims);
-    dpreatt = zeros(datt_shape, 4);
-    datt = zeros(datt_shape, 4);
+    dq = zeros(q->shape, q->ndims, device);
+    dk = zeros(k->shape, k->ndims, device);
+    dv = zeros(v->shape, v->ndims, device);
+    dpreatt = zeros(datt_shape, 4, device);
+    datt = zeros(datt_shape, 4, device);
 
     int global_grad_T_shape[4] = {B, n_heads, T, hs};
-    tensor_t *global_grad_T = create_tensor(global_grad_T_shape, 4);
+    tensor_t *global_grad_T = create_tensor(global_grad_T_shape, 4, device);
 
     for (int b = 0; b < B; b++) {
         for (int t = 0; t < T; t++) {
@@ -350,7 +354,7 @@ tensor_t *backward_attention(attention_t *attn, tensor_t *global_grad) {
 
     // accumulate all gradients to dout and free the tensors
     int dout_shape[3] = {B, T, C * 3};
-    tensor_t *dout = create_tensor(dout_shape, 3);
+    tensor_t *dout = create_tensor(dout_shape, 3, device);
 
     for (int b = 0; b < B; b++) {
         for (int t = 0; t < T; t++) {
@@ -426,4 +430,19 @@ void free_cache_attention(attention_t *attn) {
     attn->cache[2] = NULL;
     attn->cache[3] = NULL;
     attn->cache[4] = NULL;
+}
+
+
+void to_attention(attention_t *attn, const device_t device) {
+    if (attn == NULL) {
+        printf("Expected required arugment *attn to be of type attention_t ptr, but got NULL.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    attn->buffer->to(attn->buffer, device);
+    attn->cache[0]->to(attn->cache[0], device);
+    attn->cache[1]->to(attn->cache[1], device);
+    attn->cache[2]->to(attn->cache[2], device);
+    attn->cache[3]->to(attn->cache[3], device);
+    attn->cache[4]->to(attn->cache[4], device);
 }
