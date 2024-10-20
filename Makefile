@@ -3,11 +3,14 @@ BUILD = release
 CFLAGS_RELEASE = -O3 -Ofast -march=native -Wno-unused-result -Wno-ignored-pragmas -Wno-unknown-attributes -ggdb3 -fPIC
 CFLAGS_DEBUG = -Wno-unused-result -O0 -ggdb3 -fPIC
 
-INCLUDES = -I include/ -I third_party/OpenBLAS/include/
+INCLUDES = -I include/ -I kernels/include/ -I third_party/OpenBLAS/include/
+KERNELS_INCLUDES = -I kernels/src/
+
 LDLIBS = -lm -lopenblas
 LDFLAGS = -L third_party/OpenBLAS/lib/
 
 SRC_DIR = src
+KERNELS_DIR = kernels
 INCLUDE_DIR = include
 BUILD_DIR = build
 LIBRARY_NAME = gpt
@@ -70,9 +73,13 @@ VALGRIND := $(shell command -v valgrind)
 
 # Find all source files in the src directory
 SRCS = $(wildcard $(SRC_DIR)/*.c)
+CORE_SRCS = $(wildcard $(KERNELS_DIR)/src/core/*.c)
+CPU_SRCS = $(wildcard $(KERNELS_DIR)/src/cpu/*.c)
 
 # Generate object file names from source file names
 OBJS = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(SRCS))
+CORE_OBJS = $(patsubst $(KERNELS_DIR)/src/core/%.c, $(KERNELS_DIR)/build/core/%.o, $(CORE_SRCS))
+CPU_OBJS = $(patsubst $(KERNELS_DIR)/src/cpu/%.c, $(KERNELS_DIR)/build/cpu/%.o, $(CPU_SRCS))
 
 # Find all C files in the project root directory
 ROOT_SRCS = $(wildcard ./*.c)
@@ -98,10 +105,22 @@ endif
 
 # Compile rule for object files
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
-	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+	$(CC) $(CFLAGS) $(INCLUDES) $(KERNELS_INCLUDES) -c $< -o $@
+
+# Compile rule for object files in kernels/src/core/
+$(KERNELS_DIR)/build/core/%.o: $(KERNELS_DIR)/src/core/%.c
+	$(CC) $(CFLAGS) $(INCLUDES) $(KERNELS_INCLUDES) -c $< -o $@
+
+# Compile rule for object files in kernels/src/cpu/
+$(KERNELS_DIR)/build/cpu/%.o: $(KERNELS_DIR)/src/cpu/%.c
+	$(CC) $(CFLAGS) $(INCLUDES) $(KERNELS_INCLUDES) -c $< -o $@
 
 # Rule to create the shared library
-$(SHARED_LIB): $(OBJS)
+$(SHARED_LIB): $(OBJS) $(CORE_OBJS) $(CPU_OBJS)
+	$(CC) -o $(SHARED_LIB) $(LDFLAGS) $(LDLIBS) $^ -shared
+
+# Rule to create the shared library
+$(SHARED_LIB): $(OBJS) $(CORE_OBJS) $(CPU_OBJS)
 	$(CC) -o $(SHARED_LIB) $(LDFLAGS) $(LDLIBS) $^ -shared
 
 # Compile rule for root source files into executables
@@ -142,7 +161,16 @@ endif
 # Rule to create the build directory if it doesn't exist
 setup: third_party
 	@if ! test -d $(BUILD_DIR);\
-		then echo "\033[93mSetting up build directory...\033[0m"; mkdir -p build;\
+		then echo "\033[93mSetting up $(BUILD_DIR) directory...\033[0m"; mkdir -p build;\
+	fi
+	@if ! test -d $(KERNELS_DIR)/build;\
+		then echo "\033[93mSetting up $(KERNELS_DIR)/build directory...\033[0m"; mkdir -p kernels/build;\
+	fi
+	@if ! test -d $(KERNELS_DIR)/buid/core;\
+		then echo "\033[93mSetting up $(KERNELS_DIR)/build/core directory...\033[0m"; mkdir -p kernels/build/core;\
+	fi
+	@if ! test -d $(KERNELS_DIR)/build/cpu;\
+		then echo "\033[93mSetting up $(KERNELS_DIR)/build/cpu directory...\033[0m"; mkdir -p kernels/build/cpu;\
 	fi
 
 # Clean rule to remove all generated files

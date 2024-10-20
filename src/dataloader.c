@@ -50,7 +50,7 @@ void dataloader_next(dataloader_t *loader, tensor_t **batch) {
     block_size = loader->block_size;
 
     if (loader->batch == NULL)
-        loader->batch = (int *)alignedMallocCheck(64, sizeof(int) * (batch_size * block_size + 1));
+        loader->batch = (int *)mallocCheck(sizeof(int) * (batch_size * block_size + 1));
     
     if (loader->_curr_fp_ptr + (batch_size * block_size + 1) * sizeof(int) > loader->_file_size) {
         loader->_curr_fp_ptr = 0;

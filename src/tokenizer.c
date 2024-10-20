@@ -77,6 +77,7 @@ char *decode_tokenizer(tokenizer_t *tokenizer, uint32_t token) {
     else {
         CHECK_ERROR(1, "Expected token to be less than vocab_size(%u). Got %u\n", tokenizer->vocab_size, token);
     }
+    return NULL;
 }
 
 

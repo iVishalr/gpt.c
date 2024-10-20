@@ -31,7 +31,7 @@ void fread_check(void *ptr, size_t size, size_t nmemb, FILE *stream, const char 
 
         check_error(feof(stream), file, line, "Unexpected end of file. Expected to read %zu elements, but read %zu elements.", nmemb, result);
         check_error(ferror(stream), file, line, "Error reading file. Expected to read %zu elements, but read %zu elements.", nmemb, result);
-        check_error(!(feof(stream) && ferror), file, line, "File was partially read. Expected to read %zu elements, but read %zu elements.", nmemb, result);
+        check_error(!(feof(stream) && ferror(stream)), file, line, "File was partially read. Expected to read %zu elements, but read %zu elements.", nmemb, result);
     }
 }
 

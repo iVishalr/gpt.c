@@ -4,6 +4,7 @@
 #include <math.h>
 #include <cblas.h>
 #include <omp.h>
+#include "dispatch.h"
 #include "utils.h"
 #include "linear.h"
 
@@ -147,23 +148,8 @@ tensor_t *forward_linear(linear_t *linear, tensor_t *x) {
     int out_shape[3] = {B, T, linear->out_features};
     out = create_tensor(out_shape, 3, device);
 
-    cblas_sgemm(
-        CblasRowMajor, CblasNoTrans, CblasTrans, 
-        B * T, linear->out_features, linear->in_features, 
-        1.0f, x->t, linear->in_features, 
-        linear->W->t, linear->in_features, 
-        0.0f, out->t, linear->out_features
-    );
-
-    // add bias to out tensor (B * T, out_features) + (out_features)
-    if (linear->b) {
-        int row_size = linear->out_features;
-        for (int row = 0; row < B * T; row++) {
-            for (int j = 0; j < row_size; j++) {
-                out->t[row * row_size + j] += linear->b->t[j];
-            }
-        }
-    }
+    // trigger the kernel that implements forward pass
+    linear_forward_dispatch(linear->W, linear->b, x, out);
 
     // cache the input to the layer
     linear->cache = x;
@@ -228,33 +214,7 @@ tensor_t *backward_linear(linear_t *linear, tensor_t *global_grad) {
     T = global_grad->shape[1];
     out_features = global_grad->shape[2];
 
-    // backprop into dx
-    cblas_sgemm(
-        CblasRowMajor, CblasNoTrans, CblasNoTrans,
-        B * T, linear->in_features, linear->out_features,
-        1.0f, global_grad->t, linear->out_features, 
-        linear->W->t, linear->in_features, 
-        1.0f, dout->t, linear->in_features
-    );
-
-    // backprop into dW
-    cblas_sgemm(
-        CblasRowMajor, CblasTrans, CblasNoTrans,
-        linear->out_features, linear->in_features, B * T,
-        1.0f, global_grad->t, linear->out_features, 
-        linear->cache->t, linear->in_features, 
-        1.0f, linear->dW->t, linear->in_features
-    );
-
-    // backprop into db
-    if (linear->use_bias > 0) {
-        int row_size = linear->db->shape[linear->db->ndims - 1];
-        for (int i = 0; i < B * T; i++) {
-            for (int j = 0; j < row_size; j++) {
-                linear->db->t[j] += global_grad->t[i * row_size + j];
-            }
-        }
-    }
+    linear_backward_dispatch(global_grad, linear->cache, linear->W, linear->dW, linear->db, dout);
 
     free_tensor(linear->cache);
     free_tensor(global_grad);
