@@ -43,16 +43,17 @@ embedding_t *Embedding(int num_embeddings, int embedding_dim) {
     return embedding;
 }
 
+
 tensor_t *forward_embedding(embedding_t *embedding, tensor_t *x) {
     
     if (embedding == NULL) {
         printf("Expected required arugment *embedding to be of type embedding_t ptr, but got NULL.\n");
-        return NULL;
+        exit(EXIT_FAILURE);
     }
 
     if (x == NULL) {
         printf("Expected required argument *x to be of type tensor_t ptr, but got NULL.\n");
-        return NULL;
+        exit(EXIT_FAILURE);
     }
 
     /*
@@ -87,16 +88,17 @@ tensor_t *forward_embedding(embedding_t *embedding, tensor_t *x) {
     return out;
 }
 
+
 tensor_t *backward_embedding(embedding_t * embedding, tensor_t *global_grad) {
     
     if (embedding == NULL) {
         printf("Expected required arugment *embedding to be of type embedding_t ptr, but got NULL.\n");
-        return NULL;
+        exit(EXIT_FAILURE);
     }
 
     if (global_grad == NULL) {
         printf("Expected required argument *global_grad to be of type tensor_t ptr, but got NULL.\n");
-        return NULL;
+        exit(EXIT_FAILURE);
     }
     
     device_t device = global_grad->device;
@@ -174,7 +176,7 @@ void free_cache_embedding(embedding_t *embedding) {
 
 tensor_t **parameters_embedding(const embedding_t *embedding) {
     if (embedding == NULL)
-        return NULL;
+        exit(EXIT_FAILURE);
 
     tensor_t **parameters = (tensor_t **)mallocCheck(sizeof(tensor_t *) * embedding->_num_param_tensors);
     parameters[0] = embedding->W;
@@ -184,7 +186,7 @@ tensor_t **parameters_embedding(const embedding_t *embedding) {
 
 tensor_t **gradients_embedding(const embedding_t *embedding) {
     if (embedding == NULL)
-        return NULL;
+        exit(EXIT_FAILURE);
 
     tensor_t **gradients = (tensor_t **)mallocCheck(sizeof(tensor_t *) * embedding->_num_param_tensors);
     gradients[0] = embedding->dW;
@@ -192,8 +194,7 @@ tensor_t **gradients_embedding(const embedding_t *embedding) {
 }
 
 
-void load_state_dict_embedding(embedding_t *embedding, tensor_t **state)
-{
+void load_state_dict_embedding(embedding_t *embedding, tensor_t **state) {
     if (embedding == NULL) {
         printf("Expected required arugment *embedding to be of type embedding_t ptr, but got NULL.\n");
         exit(EXIT_FAILURE);

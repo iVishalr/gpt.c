@@ -15,7 +15,8 @@ tensor_t **gradients_self_attention(const self_attention_t *self_attn);
 void load_state_dict_self_attention(self_attention_t *self_attn, tensor_t **state);
 void to_self_attention(self_attention_t *self_attn, const device_t device);
 
-    // SelfAttention Class
+
+// SelfAttention Class
 self_attention_t *SelfAttention(const int n_embd, const int n_heads, const int block_size, const int use_bias){
 
     self_attention_t *self_attn = (self_attention_t *)mallocCheck(sizeof(self_attention_t));
@@ -41,6 +42,7 @@ self_attention_t *SelfAttention(const int n_embd, const int n_heads, const int b
     self_attn->_num_param_tensors = self_attn->qkv->_num_param_tensors + self_attn->c_proj->_num_param_tensors;
     return self_attn;
 }
+
 
 tensor_t *forward_self_attention(self_attention_t *self_attn, tensor_t *x) {
 
@@ -209,8 +211,7 @@ tensor_t **gradients_self_attention(const self_attention_t *self_attn) {
 }
 
 
-void load_state_dict_self_attention(self_attention_t *self_attn, tensor_t **state)
-{
+void load_state_dict_self_attention(self_attention_t *self_attn, tensor_t **state) {
     if (self_attn == NULL) {
         printf("Expected required arugment *self_attn to be of type self_attention_t ptr, but got NULL.\n");
         exit(EXIT_FAILURE);

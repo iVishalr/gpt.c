@@ -13,7 +13,7 @@ void dataloader_free_layer(dataloader_t *loader);
 // DataLoader Class
 dataloader_t *DataLoader(const char *filename, const int batch_size, const int block_size) {
     if (filename == NULL)
-        return NULL;
+        exit(EXIT_FAILURE);
 
     dataloader_t *loader = (dataloader_t *)mallocCheck(sizeof(dataloader_t));
     loader->batch_size = batch_size;
@@ -21,11 +21,10 @@ dataloader_t *DataLoader(const char *filename, const int batch_size, const int b
     loader->batch = NULL;
 
     loader->fp = fopenCheck(filename, "rb");
-    if (loader->fp == NULL)
-    {
+    if (loader->fp == NULL) {
         printf("Error opening tokens file: %s.\n", filename);
         free(loader);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
     loader->_curr_fp_ptr = 0;
 
@@ -33,11 +32,10 @@ dataloader_t *DataLoader(const char *filename, const int batch_size, const int b
     loader->_file_size = ftell(loader->fp);
     fseek(loader->fp, 0, SEEK_SET);
 
-    if (loader->_file_size < (batch_size * block_size + 1) * sizeof(int))
-    {
+    if (loader->_file_size < (batch_size * block_size + 1) * sizeof(int)) {
         printf("Error: file size is too small for the batch size and block size given.\n");
         free(loader);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     loader->next = dataloader_next;
@@ -50,7 +48,7 @@ dataloader_t *DataLoader(const char *filename, const int batch_size, const int b
 
 void dataloader_next(dataloader_t *loader, tensor_t **batch) {
     if (loader == NULL || batch == NULL)
-        return;
+        exit(EXIT_FAILURE);
 
     int batch_size, block_size;
     batch_size = loader->batch_size;
@@ -83,7 +81,7 @@ void dataloader_next(dataloader_t *loader, tensor_t **batch) {
 
 int dataloader_len(dataloader_t *loader) {
     if (loader == NULL)
-        return 0;
+        exit(EXIT_FAILURE);
 
     return (int)loader->_file_size / ((loader->batch_size * loader->block_size + 1) * sizeof(int));
 }

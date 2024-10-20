@@ -137,6 +137,7 @@ void free_layer_softmax(softmax_t *softmax);
 void free_cache_softmax(softmax_t *softmax);
 void to_softmax(softmax_t *softmax, const device_t device);
 
+
 // Softmax Class
 softmax_t *Softmax()
 {
@@ -233,6 +234,7 @@ void free_layer_softmax(softmax_t *softmax) {
     free(softmax);
 }
 
+
 void free_cache_softmax(softmax_t *softmax) {
     if (softmax == NULL) 
         return;
@@ -240,6 +242,7 @@ void free_cache_softmax(softmax_t *softmax) {
     free_tensor(softmax->cache);
     softmax->cache = NULL;
 }
+
 
 void to_softmax(softmax_t *softmax, const device_t device) {
     if (softmax == NULL) {

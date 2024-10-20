@@ -312,12 +312,12 @@ tensor_t **gradients_block(const block_t *blk) {
 void load_state_dict_block(block_t *blk, tensor_t **state) {
     if (blk == NULL) {
         printf("Expected required arugment *blk to be of type block_t ptr, but got NULL.\n");
-        return;
+        exit(EXIT_FAILURE);
     }
 
     if (state == NULL) {
         printf("Expected required argument **state to be of type tensor_t ** ptr, but got NULL.\n");
-        return;
+        exit(EXIT_FAILURE);
     }
 
     self_attention_t *attn;
@@ -338,10 +338,11 @@ void load_state_dict_block(block_t *blk, tensor_t **state) {
     mlp->load_state_dict(mlp, state);
 }
 
+
 void to_block(block_t *blk, const device_t device) {
     if (blk == NULL) {
         printf("Expected required arugment *blk to be of type block_t ptr, but got NULL.\n");
-        return;
+        exit(EXIT_FAILURE);
     }
 
     self_attention_t *attn;

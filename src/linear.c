@@ -67,8 +67,7 @@ linear_t *Linear(const int in_features, const int out_features, const int use_bi
 }
 
 
-void _calculate_fan_in_and_fan_out(tensor_t *t, int *result)
-{
+void _calculate_fan_in_and_fan_out(tensor_t *t, int *result) {
 
     if (t == NULL) {
         printf("Expected required arugment *t to be of type tensor_t ptr, but got NULL.\n");
@@ -332,7 +331,7 @@ void free_cache_linear(linear_t *linear) {
 
 tensor_t **parameters_linear(const linear_t * linear) {
     if (linear == NULL)
-        return NULL;
+        exit(EXIT_FAILURE);
 
     tensor_t **parameters = (tensor_t **)mallocCheck(sizeof(tensor_t *) * linear->_num_param_tensors);
     parameters[0] = linear->W;
@@ -345,7 +344,7 @@ tensor_t **parameters_linear(const linear_t * linear) {
 
 tensor_t **gradients_linear(const linear_t *linear) {
     if (linear == NULL)
-        return NULL;
+        exit(EXIT_FAILURE);
 
     tensor_t **gradients = (tensor_t **)mallocCheck(sizeof(tensor_t *) * linear->_num_param_tensors);
     gradients[0] = linear->dW;
