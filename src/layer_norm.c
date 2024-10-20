@@ -23,10 +23,7 @@ void to_layer_norm(layer_norm_t *norm, const device_t device);
 // LayerNorm Class
 layer_norm_t *LayerNorm(int in_features, const float eps, const int use_bias) {
 
-    if (in_features == 0) {
-        printf("Expected in_features to be a value > 0, but got 0.\n");
-        exit(EXIT_FAILURE);
-    }
+    CHECK_ERROR(in_features <= 0, "Expected in_features to be a positive integer, but got %d", in_features);
 
     layer_norm_t *norm = (layer_norm_t *)mallocCheck(sizeof(layer_norm_t));
 
@@ -61,15 +58,8 @@ layer_norm_t *LayerNorm(int in_features, const float eps, const int use_bias) {
 
 tensor_t *forward_layer_norm(layer_norm_t *norm, tensor_t *x) {
     
-    if (norm == NULL) {
-        printf("Expected required arugment *norm to be of type layer_norm_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (x == NULL) {
-        printf("Expected required argument *x to be of type tensor_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
+    CHECK_ERROR(norm == NULL, "Expected *norm to be a layer_norm_t pointer, but got NULL.");
+    CHECK_ERROR(x == NULL, "Expected *x to be a tensor_t pointer, but got NULL.");
 
     device_t device = x->device;
     int B, T, in_features;
@@ -120,15 +110,8 @@ tensor_t *forward_layer_norm(layer_norm_t *norm, tensor_t *x) {
 
 tensor_t *backward_layer_norm(layer_norm_t *norm, tensor_t *global_grad) {
 
-    if (norm == NULL) {
-        printf("Expected required arugment *norm to be of type layer_norm_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (global_grad == NULL) {
-        printf("Expected required argument *global_grad to be of type tensor_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
+    CHECK_ERROR(norm == NULL, "Expected *norm to be a layer_norm_t pointer, but got NULL.");
+    CHECK_ERROR(global_grad == NULL, "Expected *global_grad to be a tensor_t pointer, but got NULL.");
 
     /*
         Backprop Analysis
@@ -290,8 +273,7 @@ void free_cache_layer_norm(layer_norm_t *norm) {
 }
 
 tensor_t **parameters_layer_norm(const layer_norm_t *norm) {
-    if (norm == NULL)
-        exit(EXIT_FAILURE);
+    CHECK_ERROR(norm == NULL, "Expected *norm to be a layer_norm_t pointer, but got NULL.");
 
     tensor_t **parameters = (tensor_t **)mallocCheck(sizeof(tensor_t *) * norm->_num_param_tensors);
     parameters[0] = norm->W;
@@ -302,8 +284,7 @@ tensor_t **parameters_layer_norm(const layer_norm_t *norm) {
 
 
 tensor_t **gradients_layer_norm(const layer_norm_t *norm) {
-    if (norm == NULL)
-        exit(EXIT_FAILURE);
+    CHECK_ERROR(norm == NULL, "Expected *norm to be a layer_norm_t pointer, but got NULL.");
 
     tensor_t **gradients = (tensor_t **)mallocCheck(sizeof(tensor_t *) * norm->_num_param_tensors);
     gradients[0] = norm->dW;
@@ -315,29 +296,21 @@ tensor_t **gradients_layer_norm(const layer_norm_t *norm) {
 
 
 void load_state_dict_layer_norm(layer_norm_t *norm, tensor_t **state) {
-    if (norm == NULL) {
-        printf("Expected required arugment *norm to be of type layer_norm_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (state == NULL) {
-        printf("Expected required argument **state to be of type tensor_t ** ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
+    CHECK_ERROR(norm == NULL, "Expected *norm to be a layer_norm_t pointer, but got NULL.");
+    CHECK_ERROR(state == NULL, "Expected **state to be a tensor_t pointer, but got NULL.");
 
     // check parameter and state length
     tensor_t *W = state[0];
     tensor_t *b = norm->use_bias > 0 ? state[0] : NULL;
 
-    if (norm->W->length != W->length) {
-        printf("Cannot load layer_norm.weight as norm.W.length != state.W.length. Got %d != %d\n", norm->W->length, W->length);
-        return;
-    }
-
-    if (norm->use_bias > 0 && norm->b->length != b->length) {
-        printf("Cannot load layer_norm.bias as norm.b.length != state.b.length. Got %d != %d\n", norm->b->length, b->length);
-        return;
-    }
+    CHECK_ERROR(
+        norm->W->length != W->length, 
+        "Cannot load layer_norm weights. Expected a tensor of size %d, but got %d.", norm->W->length, W->length
+    );
+    CHECK_ERROR(
+        norm->use_bias > 0 && norm->b->length != b->length, 
+        "Cannot load layer_norm bias. Expected a tensor of size %d, but got %d.", norm->b->length, b->length
+    );
 
     memcpy(norm->W->t, W->t, norm->W->length * sizeof(float));
     if (norm->use_bias > 0)
@@ -346,10 +319,7 @@ void load_state_dict_layer_norm(layer_norm_t *norm, tensor_t **state) {
 
 
 void to_layer_norm(layer_norm_t *norm, const device_t device) {
-    if (norm == NULL) {
-        printf("Expected required arugment *norm to be of type layer_norm_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
+    CHECK_ERROR(norm == NULL, "Expected *norm to be a layer_norm_t pointer, but got NULL.");
 
     norm->W->to(norm->W, device);
     norm->b->to(norm->b, device);

@@ -46,15 +46,8 @@ embedding_t *Embedding(int num_embeddings, int embedding_dim) {
 
 tensor_t *forward_embedding(embedding_t *embedding, tensor_t *x) {
     
-    if (embedding == NULL) {
-        printf("Expected required arugment *embedding to be of type embedding_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (x == NULL) {
-        printf("Expected required argument *x to be of type tensor_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
+    CHECK_ERROR(embedding == NULL, "Expected *embedding to be a embedding_t pointer, but got NULL.");
+    CHECK_ERROR(x == NULL, "Expected *x to be a tensor_t pointer, but got NULL.");
 
     /*
         out is (B,T,C). At each position (b,t), a C-dimensional vector summarizing token & position
@@ -90,17 +83,10 @@ tensor_t *forward_embedding(embedding_t *embedding, tensor_t *x) {
 
 
 tensor_t *backward_embedding(embedding_t * embedding, tensor_t *global_grad) {
-    
-    if (embedding == NULL) {
-        printf("Expected required arugment *embedding to be of type embedding_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
 
-    if (global_grad == NULL) {
-        printf("Expected required argument *global_grad to be of type tensor_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
-    
+    CHECK_ERROR(embedding == NULL, "Expected *embedding to be a embedding_t pointer, but got NULL.");
+    CHECK_ERROR(global_grad == NULL, "Expected *global_grad to be a tensor_t pointer, but got NULL.");
+
     device_t device = global_grad->device;
     int B, T, C;
     B = global_grad->shape[0];
@@ -175,9 +161,7 @@ void free_cache_embedding(embedding_t *embedding) {
 
 
 tensor_t **parameters_embedding(const embedding_t *embedding) {
-    if (embedding == NULL)
-        exit(EXIT_FAILURE);
-
+    CHECK_ERROR(embedding == NULL, "Expected *embedding to be a embedding_t pointer, but got NULL.");
     tensor_t **parameters = (tensor_t **)mallocCheck(sizeof(tensor_t *) * embedding->_num_param_tensors);
     parameters[0] = embedding->W;
     return parameters;
@@ -185,9 +169,7 @@ tensor_t **parameters_embedding(const embedding_t *embedding) {
 
 
 tensor_t **gradients_embedding(const embedding_t *embedding) {
-    if (embedding == NULL)
-        exit(EXIT_FAILURE);
-
+    CHECK_ERROR(embedding == NULL, "Expected *embedding to be a embedding_t pointer, but got NULL.");
     tensor_t **gradients = (tensor_t **)mallocCheck(sizeof(tensor_t *) * embedding->_num_param_tensors);
     gradients[0] = embedding->dW;
     return gradients;
@@ -195,34 +177,18 @@ tensor_t **gradients_embedding(const embedding_t *embedding) {
 
 
 void load_state_dict_embedding(embedding_t *embedding, tensor_t **state) {
-    if (embedding == NULL) {
-        printf("Expected required arugment *embedding to be of type embedding_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (state == NULL)  {
-        printf("Expected required argument **state to be of type tensor_t ** ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
+    CHECK_ERROR(embedding == NULL, "Expected *embedding to be a embedding_t pointer, but got NULL.");
+    CHECK_ERROR(state == NULL, "Expected **state to be a tensor_t pointer, but got NULL.");
 
     // check parameter and state length
     tensor_t *W = state[0];
-
-    if (embedding->W->length != W->length) {
-        printf("Cannot load embedding.weight as embedding.W.length != state.W.length. Got %d != %d\n", embedding->W->length, W->length);
-        return;
-    }
-
+    CHECK_ERROR(embedding->W->length != W->length, "Cannot load embedding weights. Expected a tensor of size %d, but %d", embedding->W->length, W->length);
     memcpy(embedding->W->t, W->t, embedding->W->length * sizeof(float));
 }
 
 
 void to_embedding(embedding_t *embedding, const device_t device) {
-    if (embedding == NULL) {
-        printf("Expected required arugment *embedding to be of type embedding_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
-
+    CHECK_ERROR(embedding == NULL, "Expected *embedding to be a embedding_t pointer, but got NULL.");
     embedding->W->to(embedding->W, device);
     embedding->dW->to(embedding->dW, device);
     embedding->cache->to(embedding->cache, device);

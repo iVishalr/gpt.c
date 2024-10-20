@@ -31,20 +31,9 @@ cross_entropy_loss_t *CrossEntropyLoss() {
 
 tensor_t *forward_cross_entropy_loss(cross_entropy_loss_t *loss, tensor_t *logits, tensor_t *targets) {
 
-    if (loss == NULL) {
-        printf("Expected required arugment *loss to be of type cross_entropy_loss ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (logits == NULL) {
-        printf("Expected required argument *logits to be of type tensor_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (targets == NULL) {
-        printf("Expected required argument *targets to be of type tensor_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
+    CHECK_ERROR(loss == NULL, "Expected *loss to be a cross_entropy_loss_t pointer, but got NULL.");
+    CHECK_ERROR(logits == NULL, "Expected *logits to be a tensor_t pointer, but got NULL.");
+    CHECK_ERROR(targets == NULL, "Expected *targets to be a tensor_t pointer, but got NULL.");
 
     /*
         Explanation
@@ -91,15 +80,8 @@ tensor_t *forward_cross_entropy_loss(cross_entropy_loss_t *loss, tensor_t *logit
 
 tensor_t *backward_cross_entropy_loss(cross_entropy_loss_t *loss, tensor_t *global_grad) {
 
-    if (loss == NULL) {
-        printf("Expected required arugment *loss to be of type cross_entropy_loss_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (global_grad == NULL) {
-        printf("Expected required argument *global_grad to be of type tensor_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
+    CHECK_ERROR(loss == NULL, "Expected *loss to be a cross_entropy_loss_t pointer, but got NULL.");
+    CHECK_ERROR(global_grad == NULL, "Expected *global_grad to be a tensor_t pointer, but got NULL.");
 
     /*
         Explanation

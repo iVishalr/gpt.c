@@ -19,11 +19,7 @@ void to_attention(attention_t *attn, const device_t device);
 // Attention Class
 attention_t *Attention(int n_embd, int n_heads, int block_size) {
 
-    if (n_embd % n_heads != 0)
-    {
-        printf("Expected n_embd to be divisble by n_heads, but got %d % d == %d\n", n_embd, n_heads, n_embd % n_heads);
-        exit(EXIT_FAILURE);
-    }
+    CHECK_ERROR(n_embd % n_heads != 0, "Expected n_embd to be divisible by n_heads, but got %d \% %d == %d\n", n_embd, n_heads, n_embd % n_heads);
 
     attention_t *attn = (attention_t *)mallocCheck(sizeof(attention_t));
 
@@ -57,15 +53,8 @@ attention_t *Attention(int n_embd, int n_heads, int block_size) {
 
 tensor_t *forward_attention(attention_t *attn, tensor_t *x) {
 
-    if (attn == NULL) {
-        printf("Expected required arugment *attn to be of type attention_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (x == NULL) {
-        printf("Expected required argument *x to be of type tensor_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
+    CHECK_ERROR(attn == NULL, "Expected *attn to be a attention_t pointer, but got NULL.");
+    CHECK_ERROR(x == NULL, "Expected *x to be a tensor_t pointer, but got NULL.");
 
     /*
         Explanation
@@ -218,15 +207,8 @@ tensor_t *forward_attention(attention_t *attn, tensor_t *x) {
 
 tensor_t *backward_attention(attention_t *attn, tensor_t *global_grad) {
 
-    if (attn == NULL) {
-        printf("Expected required arugment *attn to be of type attention_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (global_grad == NULL) {
-        printf("Expected required argument *global_grad to be of type tensor_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
+    CHECK_ERROR(attn == NULL, "Expected *attn to be a attention_t pointer, but got NULL.");
+    CHECK_ERROR(global_grad == NULL, "Expected *global_grad to be a tensor_t pointer, but got NULL.");
 
     device_t device = global_grad->device;
     int B, T, C, n_heads, hs;
@@ -433,10 +415,7 @@ void free_cache_attention(attention_t *attn) {
 
 
 void to_attention(attention_t *attn, const device_t device) {
-    if (attn == NULL) {
-        printf("Expected required arugment *attn to be of type attention_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
+    CHECK_ERROR(attn == NULL, "Expected *attn to be a attention_t pointer, but got NULL.");
 
     attn->buffer->to(attn->buffer, device);
     attn->cache[0]->to(attn->cache[0], device);

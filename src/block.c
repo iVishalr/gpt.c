@@ -54,15 +54,8 @@ block_t *Block(const int n_embd, const int n_heads, const int block_size, const 
 
 tensor_t *forward_block(block_t *blk, tensor_t *x) {
 
-    if (blk == NULL) {
-        printf("Expected required arugment *blk to be of type block_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (x == NULL) {
-        printf("Expected required argument *x to be of type tensor_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
+    CHECK_ERROR(blk == NULL, "Expected *blk to be a block_t pointer, but got NULL.");
+    CHECK_ERROR(x == NULL, "Expected *x to be a tensor_t pointer, but got NULL.");
 
     device_t device = x->device;
     self_attention_t *attn;
@@ -98,16 +91,9 @@ tensor_t *forward_block(block_t *blk, tensor_t *x) {
 
 
 tensor_t *backward_block(block_t *blk, tensor_t *global_grad) {
-    
-    if (blk == NULL) {
-        printf("Expected required arugment *blk to be of type block_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
 
-    if (global_grad == NULL) {
-        printf("Expected required argument *global_grad to be of type tensor_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
+    CHECK_ERROR(blk == NULL, "Expected *blk to be a block_t pointer, but got NULL.");
+    CHECK_ERROR(global_grad == NULL, "Expected *global_grad to be a tensor_t pointer, but got NULL.");
 
     device_t device = global_grad->device;
     self_attention_t *attn;
@@ -310,15 +296,9 @@ tensor_t **gradients_block(const block_t *blk) {
 
 
 void load_state_dict_block(block_t *blk, tensor_t **state) {
-    if (blk == NULL) {
-        printf("Expected required arugment *blk to be of type block_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
 
-    if (state == NULL) {
-        printf("Expected required argument **state to be of type tensor_t ** ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
+    CHECK_ERROR(blk == NULL, "Expected *blk to be a block_t pointer, but got NULL.");
+    CHECK_ERROR(state == NULL, "Expected **state to be a tensor_t pointer, but got NULL.");
 
     self_attention_t *attn;
     layer_norm_t *ln1, *ln2;
@@ -340,10 +320,7 @@ void load_state_dict_block(block_t *blk, tensor_t **state) {
 
 
 void to_block(block_t *blk, const device_t device) {
-    if (blk == NULL) {
-        printf("Expected required arugment *blk to be of type block_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
+    CHECK_ERROR(blk == NULL, "Expected *blk to be a block_t pointer, but got NULL.");
 
     self_attention_t *attn;
     layer_norm_t *ln1, *ln2;

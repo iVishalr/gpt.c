@@ -46,15 +46,8 @@ self_attention_t *SelfAttention(const int n_embd, const int n_heads, const int b
 
 tensor_t *forward_self_attention(self_attention_t *self_attn, tensor_t *x) {
 
-    if (self_attn == NULL) {
-        printf("Expected required arugment *self_attn to be of type self_attention_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (x == NULL) {
-        printf("Expected required argument *x to be of type tensor_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
+    CHECK_ERROR(self_attn == NULL, "Expected *self_attn to be a self_attention_t pointer, but got NULL.");
+    CHECK_ERROR(x == NULL, "Expected *x to be a tensor_t pointer, but got NULL.");
 
     tensor_t *out = x;
     attention_t *_attn;
@@ -72,15 +65,8 @@ tensor_t *forward_self_attention(self_attention_t *self_attn, tensor_t *x) {
 
 tensor_t *backward_self_attention(self_attention_t *self_attn, tensor_t *global_grad) {
 
-    if (self_attn == NULL) {
-        printf("Expected required arugment *self_attn to be of type self_attention_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (global_grad == NULL) {
-        printf("Expected required argument *global_grad to be of type tensor_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
+    CHECK_ERROR(self_attn == NULL, "Expected *self_attn to be a self_attention_t pointer, but got NULL.");
+    CHECK_ERROR(global_grad == NULL, "Expected *global_grad to be a tensor_t pointer, but got NULL.");
 
     tensor_t *out = global_grad;
     attention_t *_attn;
@@ -166,8 +152,7 @@ void free_cache_self_attention(self_attention_t *self_attn) {
 
 
 tensor_t **parameters_self_attention(const self_attention_t *self_attn) {
-    if (self_attn == NULL)
-        exit(EXIT_FAILURE);
+    CHECK_ERROR(self_attn == NULL, "Expected *self_attn to be a self_attention_t pointer, but got NULL.");
 
     tensor_t **parameters = (tensor_t **)mallocCheck(sizeof(tensor_t *) * self_attn->_num_param_tensors);
 
@@ -189,8 +174,7 @@ tensor_t **parameters_self_attention(const self_attention_t *self_attn) {
 
 
 tensor_t **gradients_self_attention(const self_attention_t *self_attn) {
-    if (self_attn == NULL)
-        exit(EXIT_FAILURE);
+    CHECK_ERROR(self_attn == NULL, "Expected *self_attn to be a self_attention_t pointer, but got NULL.");
 
     tensor_t **gradients = (tensor_t **)mallocCheck(sizeof(tensor_t *) * self_attn->_num_param_tensors);
 
@@ -212,15 +196,8 @@ tensor_t **gradients_self_attention(const self_attention_t *self_attn) {
 
 
 void load_state_dict_self_attention(self_attention_t *self_attn, tensor_t **state) {
-    if (self_attn == NULL) {
-        printf("Expected required arugment *self_attn to be of type self_attention_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (state == NULL) {
-        printf("Expected required argument **state to be of type tensor_t ** ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
+    CHECK_ERROR(self_attn == NULL, "Expected *self_attn to be a self_attention_t pointer, but got NULL.");
+    CHECK_ERROR(state == NULL, "Expected **state to be a tensor_t pointer, but got NULL.");
 
     self_attn->qkv->load_state_dict(self_attn->qkv, state);
     state += self_attn->qkv->_num_param_tensors;
@@ -229,10 +206,7 @@ void load_state_dict_self_attention(self_attention_t *self_attn, tensor_t **stat
 
 
 void to_self_attention(self_attention_t *self_attn, const device_t device) {
-    if (self_attn == NULL) {
-        printf("Expected required arugment *self_attn to be of type self_attention_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
+    CHECK_ERROR(self_attn == NULL, "Expected *self_attn to be a self_attention_t pointer, but got NULL.");
 
     attention_t *_attn;
     linear_t *qkv, *c_proj;

@@ -16,46 +16,24 @@ void free_layer_adamW(adamW_t *optimizer);
 
 
 // AdamW Class
-adamW_t *AdamW(tensor_t **parameters, tensor_t **gradients, const int n_parameters, const float lr, const float beta1, const float beta2, const float eps, const float weight_decay)
-{
-    if (parameters == NULL)
-    {
-        printf("Expected **parameters to be not NULL.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (gradients == NULL)
-    {
-        printf("Expected **gradients to be not NULL.\n");
-        exit(EXIT_FAILURE);
-    }
+adamW_t *AdamW(tensor_t **parameters, tensor_t **gradients, const int n_parameters, const float lr, const float beta1, const float beta2, const float eps, const float weight_decay) {
+    CHECK_ERROR(parameters == NULL, "Expected **parameters to be a tensor_t pointer, but got NULL.");
+    CHECK_ERROR(gradients == NULL, "Expected **gradients to be a tensor_t pointer, but got NULL.");
 
     // verify parameters and gradients
-    for (int i = 0; i < n_parameters; i++)
-    {
-        if (parameters[i] == NULL)
-        {
-            printf("parameters contains a NULL ptr at position %d\n.", i);
-            exit(EXIT_FAILURE);
-        }
-
-        if (gradients[i] == NULL)
-        {
-            printf("gradients contains a NULL ptr at position %d\n.", i);
-            exit(EXIT_FAILURE);
-        }
-
-        if (parameters[i]->ndims != gradients[i]->ndims)
-        {
-            printf("Expected parameters and gradients at position %d to be of same dimensions. Got %d != %d\n", i, parameters[i]->ndims, gradients[i]->ndims);
-            exit(EXIT_FAILURE);
-        }
-
-        if (parameters[i]->length != gradients[i]->length)
-        {
-            printf("Expected parameters and gradients at position %d to have same lengths. Got %d != %d\n", i, parameters[i]->length, gradients[i]->length);
-            exit(EXIT_FAILURE);
-        }
+    for (int i = 0; i < n_parameters; i++) {
+        CHECK_ERROR(parameters[i] == NULL, "Expected parameters[%d] to be a tensor_t pointer, but got NULL.", i);
+        CHECK_ERROR(gradients[i] == NULL, "Expected gradients[%d] to be a tensor_t pointer, but got NULL.", i);
+        CHECK_ERROR(
+            parameters[i]->ndims != gradients[i]->ndims, 
+            "Expected parameters[%d] and gradients[%d] to be of same dimensions, but got %d != %d.", 
+            i, i, parameters[i]->ndims, gradients[i]->ndims
+        );
+        CHECK_ERROR(
+            parameters[i]->length != gradients[i]->length, 
+            "Expected parameters[%d] and gradients[%d] to be of same length, but got %d != %d.",
+            i, i, parameters[i]->length, gradients[i]->length
+        );
     }
 
     adamW_t *optimizer = (adamW_t *)mallocCheck(sizeof(adamW_t));
@@ -81,8 +59,7 @@ adamW_t *AdamW(tensor_t **parameters, tensor_t **gradients, const int n_paramete
 
 // Implemented as illustrated in https: // pytorch.org/docs/stable/generated/torch.optim.AdamW.html
 void step_adamW(adamW_t *optimizer) {
-    if (optimizer == NULL)
-        return;
+    CHECK_ERROR(optimizer == NULL, "Expected *optimizer to be a adamW_t pointer, but got NULL.");
 
     const float lr = optimizer->lr;
     const float weight_decay = optimizer->weight_decay;
@@ -137,8 +114,7 @@ void step_adamW(adamW_t *optimizer) {
 
 
 void zero_grad_adamW(adamW_t *optimizer) {
-    if (optimizer == NULL)
-        exit(EXIT_FAILURE);
+    CHECK_ERROR(optimizer == NULL, "Expected *optimizer to be a adamW_t pointer, but got NULL.");
 
     // set the gradients to 0
     for (int i = 0; i < optimizer->n_parameters; i++) {

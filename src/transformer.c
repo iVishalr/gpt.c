@@ -68,15 +68,9 @@ gpt2_t *GPT2(GPT2Config_t *config) {
 
 
 tensor_t *forward_transformer(gpt2_t *gpt, tensor_t *x) {
-    if (gpt == NULL) {
-        printf("Expected required arugment *gpt to be of type gpt2_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
 
-    if (x == NULL) {
-        printf("Expected required argument *x to be of type tensor_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
+    CHECK_ERROR(gpt == NULL, "Expected *gpt to be a gpt2_t pointer, but got NULL.");
+    CHECK_ERROR(x == NULL, "Expected *x to be a tensor_t pointer, but got NULL.");
 
     device_t device = x->device;
     int B, T, C;
@@ -123,15 +117,9 @@ tensor_t *forward_transformer(gpt2_t *gpt, tensor_t *x) {
 
 
 tensor_t *backward_transformer(gpt2_t *gpt, tensor_t *global_grad) {
-    if (gpt == NULL) {
-        printf("Expected required arugment *gpt to be of type gpt2_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
 
-    if (global_grad == NULL) {
-        printf("Expected required argument *global_grad to be of type tensor_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
+    CHECK_ERROR(gpt == NULL, "Expected *gpt to be a gpt2_t pointer, but got NULL.");
+    CHECK_ERROR(global_grad == NULL, "Expected *global_grad to be a tensor_t pointer, but got NULL.");
 
     device_t device = global_grad->device;
     block_t **layers;
@@ -311,8 +299,7 @@ void free_cache_transformer(gpt2_t *gpt) {
 
 
 tensor_t **parameters_transformer(const gpt2_t *gpt) {
-    if (gpt == NULL)
-        exit(EXIT_FAILURE);
+    CHECK_ERROR(gpt == NULL, "Expected *gpt to be a gpt2_t pointer, but got NULL.");
 
     block_t **layers;
     embedding_t *wpe, *wte;
@@ -359,8 +346,7 @@ tensor_t **parameters_transformer(const gpt2_t *gpt) {
 
 
 tensor_t **gradients_transformer(const gpt2_t *gpt) {
-    if (gpt == NULL)
-        exit(EXIT_FAILURE);
+    CHECK_ERROR(gpt == NULL, "Expected *gpt to be a gpt2_t pointer, but got NULL.");
 
     block_t **layers;
     embedding_t *wpe, *wte;
@@ -407,15 +393,8 @@ tensor_t **gradients_transformer(const gpt2_t *gpt) {
 
 
 void load_state_dict_transformer(gpt2_t *gpt, tensor_t **state) {
-    if (gpt == NULL) {
-        printf("Expected required arugment *gpt to be of type gpt2_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (state == NULL) {
-        printf("Expected required argument **state to be of type tensor_t ** ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
+    CHECK_ERROR(gpt == NULL, "Expected *gpt to be a gpt2_t pointer, but got NULL.");
+    CHECK_ERROR(state == NULL, "Expected **state to be a tensor_t pointer, but got NULL.");
 
     block_t **layers;
     embedding_t *wpe, *wte;
@@ -447,15 +426,8 @@ void load_state_dict_transformer(gpt2_t *gpt, tensor_t **state) {
 
 
 void fast_load_state_dict_transformer(gpt2_t *gpt, tensor_t **state) {
-    if (gpt == NULL) {
-        printf("Expected required arugment *gpt to be of type gpt2_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (state == NULL) {
-        printf("Expected required argument **state to be of type tensor_t ** ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
+    CHECK_ERROR(gpt == NULL, "Expected *gpt to be a gpt2_t pointer, but got NULL.");
+    CHECK_ERROR(state == NULL, "Expected **state to be a tensor_t pointer, but got NULL.");
 
     tensor_t **parameters = gpt->parameters(gpt);
     for (int i = 0; i < gpt->_num_param_tensors; i++) {
@@ -477,10 +449,7 @@ void fast_load_state_dict_transformer(gpt2_t *gpt, tensor_t **state) {
 
 
 void to_transformer(gpt2_t *gpt, const device_t device) {
-    if (gpt == NULL) {
-        printf("Expected required arugment *gpt to be of type gpt2_t ptr, but got NULL.\n");
-        return;
-    }
+    CHECK_ERROR(gpt == NULL, "Expected *gpt to be a gpt2_t pointer, but got NULL.");
 
     block_t **layers;
     embedding_t *wpe, *wte;

@@ -87,47 +87,26 @@ void print_table(char **key, char **value, size_t n) {
 }
 
 void tensor_check(const tensor_t *tensor, const char *file, int line) {
-    if (tensor == NULL) {
-        printf("%s:%d Expected a pointer of type tensor_t, but got NULL\n", file, line);
-        exit(EXIT_FAILURE);
-    }
+    CHECK_ERROR(tensor == NULL, "Expected *tensor to be a tensor_t pointer, but got NULL.");
 
     int length = 1;
     for (int i = 0; i < tensor->ndims; i++)
         length *= tensor->shape[i];
     
-    char tensor_shape[1024];
-    shape(tensor, tensor_shape);
-
-    if (length != tensor->length) {
-        printf("%s:%d Expected a tensor of shape %s to be of length %d, but got a tensor of length %d\n", file, line, tensor_shape, length, tensor->length);
-        exit(EXIT_FAILURE);
-    }
-
-    if (tensor->t == NULL) {
-        printf("%s:%d Expected tensor->t to be a valid float pointer, but got NULL\n", file, line);
-        exit(EXIT_FAILURE);
-    }
+    CHECK_ERROR(length != tensor->length, "Expected a tensor to be of length %d, but got %d", length, tensor->length);
+    CHECK_ERROR(tensor->t == NULL, "Expected tensor->t to be a float pointer, but got NULL.");
 }
 
 void tensor_device_check(const tensor_t *A, const tensor_t *B, const char *file, int line) {
-    if (A == NULL) {
-        printf("%s:%d Expected A to be a pointer of type tensor_t, but got NULL\n", file, line);
-        exit(EXIT_FAILURE);
-    }
-
-    if (B == NULL) {
-        printf("%s:%d Expected B to be a pointer of type tensor_t, but got NULL\n", file, line);
-        exit(EXIT_FAILURE);
-    }
-
+    CHECK_ERROR(A == NULL, "Expected *A to be a tensor_t pointer, but got NULL.");
+    CHECK_ERROR(B == NULL, "Expected *B to be a tensor_t pointer, but got NULL.");
 
     char A_device[1024], B_device[1024];
     get_tensor_device(A, A_device);
     get_tensor_device(B, B_device);
 
-    if (A->device != B->device) {
-        printf("%s:%d Expected all tensors to be on same device, but found tensors present on %s and %s\n", file, line, A_device, B_device);
-        exit(EXIT_FAILURE);
-    }
+    CHECK_ERROR(
+        A->device != B->device, "Expected all tensors to be on same device, but found tensors present on %s and %s\n", 
+        A_device, B_device
+    );
 }

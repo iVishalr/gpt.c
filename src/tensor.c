@@ -34,8 +34,7 @@ float gaussRandom() {
 
 // Implementation taken from
 // https://stackoverflow.com/questions/11641629/generating-a-uniform-distribution-of-integers-in-c
-float rand_uniform(float low, float high)
-{
+float rand_uniform(float low, float high) {
     float r = rand() / (1.0f + (float)RAND_MAX);
     float range = high - low + 1;
     float scaled = (r * range) + low;
@@ -43,21 +42,18 @@ float rand_uniform(float low, float high)
 }
 
 // Box-Muller transform to generate a random number from a normal distribution
-float rand_norm(double mean, double stddev)
-{
+float rand_norm(double mean, double stddev) {
     static int have_spare = 0;
     static double spare;
 
-    if (have_spare)
-    {
+    if (have_spare) {
         have_spare = 0;
         return mean + stddev * spare;
     }
 
     have_spare = 1;
     double u, v, s;
-    do
-    {
+    do {
         u = rand_uniform(0, 1) * 2.0 - 1.0;
         v = rand_uniform(0, 1) * 2.0 - 1.0;
         s = u * u + v * v;
@@ -71,11 +67,7 @@ float rand_norm(double mean, double stddev)
 void __move_tensor_to_device(tensor_t *tensor, const device_t device) {}
 
 tensor_t *create_tensor(const int *shape, const int n, const device_t device) {
-    if (shape == NULL) {
-        printf("Expected required argument shape to be of type int ptr, but got NULL.\n");
-        return NULL;
-    }
-
+    CHECK_ERROR(shape == NULL, "Expected *shape to be a integer pointer, but got NULL.");
 
     tensor_t *tensor = (tensor_t *)mallocCheck(sizeof(tensor_t));
 
@@ -96,11 +88,6 @@ tensor_t *create_tensor(const int *shape, const int n, const device_t device) {
 
 tensor_t *randn(const int *shape, const int n, const device_t device) {
     tensor_t *tensor = create_tensor(shape, n, device);
-    if (tensor == NULL) {
-        printf("Error when creating tensor object.\n");
-        exit(EXIT_FAILURE);
-    }
-
     for (int i = 0; i < tensor->length; i++)
         tensor->t[i] = rand_norm(0.0f, 1.0f);
 
@@ -109,11 +96,6 @@ tensor_t *randn(const int *shape, const int n, const device_t device) {
 
 tensor_t *zeros(const int *shape, const int n, const device_t device) {
     tensor_t *tensor = create_tensor(shape, n, device);
-    if (tensor == NULL) {
-        printf("Error when creating tensor object.\n");
-        exit(EXIT_FAILURE);
-    }
-
     for (int i = 0; i < tensor->length; i++)
         tensor->t[i] = 0.0f;
 
@@ -122,11 +104,6 @@ tensor_t *zeros(const int *shape, const int n, const device_t device) {
 
 tensor_t *ones(const int *shape, const int n, const device_t device) {
     tensor_t *tensor = create_tensor(shape, n, device);
-    if (tensor == NULL) {
-        printf("Error when creating tensor object.\n");
-        exit(EXIT_FAILURE);
-    }
-
     for (int i = 0; i < tensor->length; i++)
         tensor->t[i] = 1.0f;
 
@@ -135,11 +112,6 @@ tensor_t *ones(const int *shape, const int n, const device_t device) {
 
 tensor_t *fill(const int *shape, const int n, const float value, const device_t device) {
     tensor_t *tensor = create_tensor(shape, n, device);
-    if (tensor == NULL) {
-        printf("Error when creating tensor object.\n");
-        return NULL;
-    }
-
     for (int i = 0; i < tensor->length; i++)
         tensor->t[i] = value;
 
@@ -147,29 +119,22 @@ tensor_t *fill(const int *shape, const int n, const float value, const device_t 
 }
 
 void mul_(tensor_t *x, const float s) {
-    if (x == NULL) {
-        printf("Required argument *x is NULL.\n");
-        exit(EXIT_FAILURE);
-    }
-    
+    CHECK_ERROR(x == NULL, "Expected *x to be a tensor_t pointer, but got NULL.");
+
     cblas_sscal(x->length, s, x->t, 1);
 }
 
 void pow_(tensor_t *x, const float p) {
-    if (x == NULL) {
-        printf("Required argument *x is NULL.\n");
-        exit(EXIT_FAILURE);
-    }
+    CHECK_ERROR(x == NULL, "Expected *x to be a tensor_t pointer, but got NULL.");
 
     for (int i = 0; i < x->length; i++)
         x->t[i] = powf(x->t[i], p);
 }
 
 void tensor_copy(tensor_t *dest, const tensor_t *src) {
-    if (src == NULL || dest == NULL) {
-        printf("Either src or dest ptr is NULL.\n");
-        exit(EXIT_FAILURE);
-    }
+
+    CHECK_ERROR(src == NULL, "Expected *src to be a tensor_t pointer, but got NULL.");
+    CHECK_ERROR(dest == NULL, "Expected *dest to be a tensor_t pointer, but got NULL.");
 
     cblas_scopy(src->length, src->t, 1, dest->t, 1);
     
@@ -181,10 +146,7 @@ void tensor_copy(tensor_t *dest, const tensor_t *src) {
 }
 
 void uniform(tensor_t *tensor, const float low, const float high) {
-    if (tensor == NULL) {
-        printf("Expected required argument *t to be of type tensor_t, but got NULL.");
-        exit(EXIT_FAILURE);
-    }
+    CHECK_ERROR(tensor == NULL, "Expected *tensor to be a tensor_t pointer, but got NULL.");
 
     for (int i = 0; i < tensor->length; i++) {
         tensor->t[i] = rand_uniform(low, high);
@@ -192,27 +154,13 @@ void uniform(tensor_t *tensor, const float low, const float high) {
 }
 
 tensor_t *tensor_load(FILE *fp, const int *shape, int n, const device_t device) {
-    if (fp == NULL) {
-        printf("Invalid FILE ptr *fp.\n");
-        exit(EXIT_FAILURE);
-    }
-
     tensor_t *tensor = create_tensor(shape, n, device);
     freadCheck(tensor->t, sizeof(float), tensor->length, fp);
     return tensor;
 }
 
 void tensor_save(FILE *fp, const tensor_t *tensor) {
-    if (fp == NULL) {
-        printf("Invalid FILE ptr *fp.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (tensor == NULL) {
-        printf("Expected *tensor to be of type tensor_t. Got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
-
+    CHECK_ERROR(tensor == NULL, "Expected *tensor to be a tensor_t pointer, but got NULL.");
     fwrite(tensor->t, sizeof(float), tensor->length, fp);
 }
 
@@ -239,19 +187,13 @@ void shape(const tensor_t *tensor, char *shape) {
 }
 
 void view(tensor_t *tensor, const int *shape, const int n) {
-    if (tensor == NULL) {
-        printf("Expected required argument *tensor to be of type tensor_t, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
+    CHECK_ERROR(tensor == NULL, "Expected *tensor to be a tensor_t pointer, but got NULL.");
 
     int total_elements = 1;
     for (int i = 0; i < n; i++)
         total_elements *= shape[i];
 
-    if (total_elements != tensor->length) {
-        printf("Given shape is invalid for a tensor of size %d.\n", tensor->length);
-        exit(EXIT_FAILURE);
-    }
+    CHECK_ERROR(total_elements != tensor->length, "Given shape is invalid for a tensor of size %d.", tensor->length);
 
     for (int i = 0; i < n; i++)
         tensor->shape[i] = shape[i];
@@ -260,22 +202,18 @@ void view(tensor_t *tensor, const int *shape, const int n) {
 }
 
 void get_tensor_device(const tensor_t *tensor, char *device) {
-    if (device == NULL) {
-        printf("Expected *device to be a valid char pointer, but got NULL\n");
-        exit(EXIT_FAILURE);
-    }
-    switch (tensor->device)
-    {
-    case CPU:
-        sprintf(device, "%s", "cpu");
-        break;
-    case CUDA:
-        sprintf(device, "%s", "cuda");
-        break;
-    default:
-        printf("Tensor has an invalid device type\n");
-        exit(EXIT_FAILURE);
-        break;
+    CHECK_ERROR(device == NULL, "Expected *device to be a valid char pointer, but got NULL.");
+    switch (tensor->device) {
+        case CPU:
+            sprintf(device, "%s", "cpu");
+            break;
+        case CUDA:
+            sprintf(device, "%s", "cuda");
+            break;
+        default:
+            printf("Tensor has an invalid device type\n");
+            exit(EXIT_FAILURE);
+            break;
     }
 }
 

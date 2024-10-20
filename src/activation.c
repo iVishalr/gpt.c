@@ -33,16 +33,8 @@ gelu_t *GELU() {
 
 
 tensor_t *forward_gelu(gelu_t *gelu, tensor_t *x) {
-    
-    if (gelu == NULL) {
-        printf("Expected required arugment *gelu to be of type gelu_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (x == NULL) {
-        printf("Expected required argument *x to be of type tensor_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
+    CHECK_ERROR(gelu == NULL, "Expected *gelu to be a gelu_t pointer, but got NULL.");
+    CHECK_ERROR(x == NULL, "Expected *x to be a tensor_t pointer, but got NULL.");
 
     tensor_t *out = create_tensor(x->shape, x->ndims, x->device);
 
@@ -63,17 +55,9 @@ tensor_t *forward_gelu(gelu_t *gelu, tensor_t *x) {
 #if defined(__GNUC__) && !defined(__clang__)
 __attribute__((optimize("no-finite-math-only")))
 #endif
-tensor_t *backward_gelu(gelu_t *gelu, tensor_t *global_grad)
-{
-    if (gelu == NULL) {
-        printf("Expected required arugment *gelu to be of type gelu_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (global_grad == NULL) {
-        printf("Expected required argument *global_grad to be of type tensor_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
+tensor_t *backward_gelu(gelu_t *gelu, tensor_t *global_grad) {
+    CHECK_ERROR(gelu == NULL, "Expected *gelu to be a gelu_t pointer, but got NULL.");
+    CHECK_ERROR(global_grad == NULL, "Expected *global_grad to be a tensor_t pointer, but got NULL.");
 
     tensor_t *dout = zeros(gelu->cache->shape, gelu->cache->ndims, gelu->cache->device);
 
@@ -121,11 +105,7 @@ void free_cache_gelu(gelu_t *gelu) {
 
 
 void to_gelu(gelu_t *gelu, const device_t device) {
-    if (gelu == NULL) {
-        printf("Expected required arugment *gelu to be of type gelu_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
-
+    CHECK_ERROR(gelu == NULL, "Expected *gelu to be a gelu_t pointer, but got NULL.");
     gelu->cache->to(gelu->cache, device);
 } 
 
@@ -139,8 +119,7 @@ void to_softmax(softmax_t *softmax, const device_t device);
 
 
 // Softmax Class
-softmax_t *Softmax()
-{
+softmax_t *Softmax() {
 
     softmax_t *softmax = (softmax_t *)mallocCheck(sizeof(softmax_t));
 
@@ -156,16 +135,8 @@ softmax_t *Softmax()
 
 
 tensor_t *forward_softmax(softmax_t *softmax, tensor_t *x) {
-    
-    if (softmax == NULL) {
-        printf("Expected required arugment *softmax to be of type softmax_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (x == NULL) {
-        printf("Expected required argument *x to be of type tensor_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
+    CHECK_ERROR(softmax == NULL, "Expected *softmax to be a softmax_t pointer, but got NULL.");
+    CHECK_ERROR(x == NULL, "Expected *x to be a tensor_t pointer, but got NULL.");
 
     int B, T, C;
     B = x->shape[0];
@@ -201,15 +172,8 @@ tensor_t *forward_softmax(softmax_t *softmax, tensor_t *x) {
 
 tensor_t *backward_softmax(softmax_t *softmax, tensor_t *global_grad) {
 
-    if (softmax == NULL) {
-        printf("Expected required arugment *softmax to be of type gelu_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (global_grad == NULL) {
-        printf("Expected required argument *global_grad to be of type tensor_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
+    CHECK_ERROR(softmax == NULL, "Expected *softmax to be a softmax_t pointer, but got NULL.");
+    CHECK_ERROR(global_grad == NULL, "Expected *global_grad to be a tensor_t pointer, but got NULL.");
 
     printf("NotImplementedError: softmax.backward() is not implemented. Please use CrossEntropyLoss instead.\n");
 
@@ -245,10 +209,6 @@ void free_cache_softmax(softmax_t *softmax) {
 
 
 void to_softmax(softmax_t *softmax, const device_t device) {
-    if (softmax == NULL) {
-        printf("Expected required arugment *softmax to be of type gelu_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
-
+    CHECK_ERROR(softmax == NULL, "Expected *softmax to be a softmax_t pointer, but got NULL.");
     softmax->cache->to(softmax->cache, device);
 }

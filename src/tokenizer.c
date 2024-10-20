@@ -11,17 +11,15 @@ char *decode_tokenizer(tokenizer_t *tokenizer, uint32_t token);
 void decode_tokens_tokenizer(tokenizer_t *tokenizer, uint32_t *tokens, size_t n, char *dest, size_t dest_n);
 uint32_t decode_length_tokenizer(tokenizer_t *tokenizer, uint32_t *tokens, size_t n);
 
+
 tokenizer_t *Tokenizer(const char *filename) {
     FILE *file = fopenCheck(filename, "rb");
 
     // read in the header
     uint32_t header[256];
     freadCheck(header, sizeof(uint32_t), 256, file);
-    if (header[0] != 20240415) {
-        printf("Bad magic number in %s file. Expected %d got %d\n", filename, 20240415, header[0]);
-        fcloseCheck(file);
-        exit(1);
-    }
+
+    CHECK_ERROR(header[0] != 20240415, "Bad magic number in %s file. Expected %d got %d\n", filename, 20240415, header[0]);
 
     tokenizer_t *tokenizer = (tokenizer_t *)mallocCheck(sizeof(tokenizer_t));
     tokenizer->vocab_size = header[1];
@@ -31,11 +29,7 @@ tokenizer_t *Tokenizer(const char *filename) {
     unsigned char length;
     for (uint32_t i = 0; i < tokenizer->vocab_size; i++) {
         freadCheck(&length, sizeof(unsigned char), 1, file);
-        if (length == 0) {
-            printf("Expected every token to be atleast one character. Got 0\n");
-            fcloseCheck(file);
-            exit(1);
-        }
+        CHECK_ERROR(length == 0, "Expected every token to be atleast one character. Got 0\n");
         char *token_bytes = (char *)mallocCheck(sizeof(char) * length + 1);
         freadCheck(token_bytes, sizeof(char), length, file);
         token_bytes[length] = '\0';
@@ -81,8 +75,7 @@ char *decode_tokenizer(tokenizer_t *tokenizer, uint32_t token) {
     if (token < tokenizer->vocab_size)
         return tokenizer->token_map[token];
     else {
-        printf("Expected token to be less than vocab_size(%u). Got %u\n", tokenizer->vocab_size, token);
-        return NULL;
+        CHECK_ERROR(1, "Expected token to be less than vocab_size(%u). Got %u\n", tokenizer->vocab_size, token);
     }
 }
 

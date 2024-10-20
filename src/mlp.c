@@ -45,15 +45,8 @@ mlp_t *MLP(const int in_features, const int expansion_factor, const int use_bias
 
 tensor_t *forward_mlp(mlp_t *mlp, tensor_t *x) {
 
-    if (mlp == NULL) {
-        printf("Expected required arugment *mlp to be of type mlp_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (x == NULL) {
-        printf("Expected required argument *x to be of type tensor_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
+    CHECK_ERROR(mlp == NULL, "Expected *mlp to be a mlp_t pointer, but got NULL.");
+    CHECK_ERROR(x == NULL, "Expected *x to be a tensor_t pointer, but got NULL.");
 
     tensor_t *out = x;
     out = mlp->c_fc->forward(mlp->c_fc, out);
@@ -65,15 +58,8 @@ tensor_t *forward_mlp(mlp_t *mlp, tensor_t *x) {
 
 tensor_t *backward_mlp(mlp_t *mlp, tensor_t *global_grad) {
 
-    if (mlp == NULL) {
-        printf("Expected required arugment *mlp to be of type mlp_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (global_grad == NULL) {
-        printf("Expected required argument *global_grad to be of type tensor_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
+    CHECK_ERROR(mlp == NULL, "Expected *mlp to be a mlp_t pointer, but got NULL.");
+    CHECK_ERROR(global_grad == NULL, "Expected *global_grad to be a tensor_t pointer, but got NULL.");
 
     tensor_t *out = global_grad;
     out = mlp->c_proj->backward(mlp->c_proj, out);
@@ -140,8 +126,7 @@ void free_cache_mlp(mlp_t *mlp) {
 
 
 tensor_t **parameters_mlp(const mlp_t *mlp) {
-    if (mlp == NULL)
-        exit(EXIT_FAILURE);
+    CHECK_ERROR(mlp == NULL, "Expected *mlp to be a mlp_t pointer, but got NULL.");
 
     tensor_t **parameters = (tensor_t **)mallocCheck(sizeof(tensor_t *) * mlp->_num_param_tensors);
     
@@ -163,8 +148,7 @@ tensor_t **parameters_mlp(const mlp_t *mlp) {
 
 
 tensor_t **gradients_mlp(const mlp_t *mlp) {
-    if (mlp == NULL)
-        exit(EXIT_FAILURE);
+    CHECK_ERROR(mlp == NULL, "Expected *mlp to be a mlp_t pointer, but got NULL.");
 
     tensor_t **gradients = (tensor_t **)mallocCheck(sizeof(tensor_t *) * mlp->_num_param_tensors);
 
@@ -186,15 +170,8 @@ tensor_t **gradients_mlp(const mlp_t *mlp) {
 
 
 void load_state_dict_mlp(mlp_t *mlp, tensor_t **state) {
-    if (mlp == NULL) {
-        printf("Expected required arugment *mlp to be of type mlp_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (state == NULL) {
-        printf("Expected required argument **state to be of type tensor_t ** ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
+    CHECK_ERROR(mlp == NULL, "Expected *mlp to be a mlp_t pointer, but got NULL.");
+    CHECK_ERROR(state == NULL, "Expected **state to be a tensor_t pointer, but got NULL.");
 
     mlp->c_fc->load_state_dict(mlp->c_fc, state);
     state += mlp->c_fc->_num_param_tensors;
@@ -203,10 +180,7 @@ void load_state_dict_mlp(mlp_t *mlp, tensor_t **state) {
 
 
 void to_mlp(mlp_t *mlp, const device_t device) {
-    if (mlp == NULL) {
-        printf("Expected required arugment *mlp to be of type mlp_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
+    CHECK_ERROR(mlp == NULL, "Expected *mlp to be a mlp_t pointer, but got NULL.");
 
     linear_t *c_fc, *c_proj;
     gelu_t *gelu;

@@ -124,16 +124,9 @@ void kaiming_uniform(tensor_t *t, float a, const char *mode, const char *non_lin
 
 
 tensor_t *forward_linear(linear_t *linear, tensor_t *x) {
-    
-    if (linear == NULL) {
-        printf("Expected required arugment *linear to be of type linear_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
 
-    if (x == NULL) {
-        printf("Expected required argument *x to be of type tensor_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
+    CHECK_ERROR(linear == NULL, "Expected *linear to be a linear_t pointer, but got NULL.");
+    CHECK_ERROR(x == NULL, "Expected *x to be a tensor_t pointer, but got NULL.");
 
     // Shape Analysis
     // --------------
@@ -179,16 +172,9 @@ tensor_t *forward_linear(linear_t *linear, tensor_t *x) {
 
 
 tensor_t *backward_linear(linear_t *linear, tensor_t *global_grad) {
-    
-    if (linear == NULL) {
-        printf("Expected required arugment *linear to be of type linear_t ptr, but got NULL.\n");
-        return NULL;
-    }
 
-    if (global_grad == NULL) {
-        printf("Expected required argument *global_grad to be of type tensor_t ptr, but got NULL.\n");
-        return NULL;
-    }
+    CHECK_ERROR(linear == NULL, "Expected *linear to be a linear_t pointer, but got NULL.");
+    CHECK_ERROR(global_grad == NULL, "Expected *global_grad to be a tensor_t pointer, but got NULL.");
 
     /*
         Backprop Analysis
@@ -356,29 +342,21 @@ tensor_t **gradients_linear(const linear_t *linear) {
 
 
 void load_state_dict_linear(linear_t *linear, tensor_t **state) {
-    if (linear == NULL) {
-        printf("Expected required arugment *linear to be of type linear_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
-
-    if (state == NULL) {
-        printf("Expected required argument **state to be of type tensor_t ** ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
+    CHECK_ERROR(linear == NULL, "Expected *linear to be a linear_t pointer, but got NULL.");
+    CHECK_ERROR(state == NULL, "Expected **state to be a tensor_t pointer, but got NULL.");
 
     // check parameter and state length
     tensor_t *W = state[0];
     tensor_t *b = linear->use_bias > 0 ? state[0] : NULL;
 
-    if (linear->W->length != W->length) {
-        printf("Cannot load linear.weight as linear.W.length != state.W.length. Got %d != %d\n", linear->W->length, W->length);
-        return;
-    }
-
-    if (linear->use_bias > 0 && linear->b->length != b->length) {
-        printf("Cannot load linear.bias as linear.b.length != state.b.length. Got %d != %d\n", linear->b->length, b->length);
-        return;
-    }
+    CHECK_ERROR(
+        linear->W->length != W->length, 
+        "Cannot load linear weight. Expected a tensor of size %d, but got %d.", linear->W->length, W->length
+    );
+    CHECK_ERROR(
+        linear->use_bias > 0 && linear->b->length != b->length, 
+        "Cannot load linear bias. Expected a tensor of size %d, but got %d.", linear->b->length, b->length
+    );
 
     memcpy(linear->W->t, W->t, linear->W->length * sizeof(float));
     if (linear->use_bias > 0)
@@ -387,10 +365,7 @@ void load_state_dict_linear(linear_t *linear, tensor_t **state) {
 
 
 void to_linear(linear_t *linear, const device_t device) {
-    if (linear == NULL) {
-        printf("Expected required arugment *linear to be of type linear_t ptr, but got NULL.\n");
-        exit(EXIT_FAILURE);
-    }
+    CHECK_ERROR(linear == NULL, "Expected *linear to be a linear_t pointer, but got NULL.");
 
     linear->W->to(linear->W, device);
     linear->b->to(linear->b, device);
