@@ -1,6 +1,6 @@
 CC = gcc
 BUILD = release
-CFLAGS_RELEASE = -O3 -Ofast -march=native -Wno-unused-result -Wno-ignored-pragmas -Wno-unknown-attributes -ggdb3 -fPIC
+CFLAGS_RELEASE = -O3 -Ofast -march=native -Wno-unused-result -Wno-ignored-pragmas -Wno-unknown-attributes -ggdb3 -fPIC -fopt-info-vec-missed
 CFLAGS_DEBUG = -Wno-unused-result -O0 -ggdb3 -fPIC
 
 INCLUDES = -I include/ -I kernels/include/ -I third_party/OpenBLAS/include/
@@ -175,4 +175,4 @@ setup: third_party
 
 # Clean rule to remove all generated files
 clean:
-	rm -rf $(BUILD_DIR) a.out $(SHARED_LIB) $(EXES)
+	rm -rf $(BUILD_DIR) $(KERNELS_DIR)/build a.out $(SHARED_LIB) $(EXES)

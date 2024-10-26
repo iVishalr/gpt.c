@@ -4,6 +4,7 @@
 #include <omp.h>
 #include "utils.h"
 #include "activation.h"
+#include "dispatch.h"
 
 #define GELU_SCALING_FACTOR sqrtf(2.0f / M_PI)
 
@@ -38,39 +39,19 @@ tensor_t *forward_gelu(gelu_t *gelu, tensor_t *x) {
 
     tensor_t *out = create_tensor(x->shape, x->ndims, x->device);
 
-    for (int i = 0; i < x->length; i++) {
-        float x_i = x->t[i];
-        float cube = 0.044715f * x_i * x_i * x_i;
-        out->t[i] = 0.5f * x_i * (1.0f + tanhf(GELU_SCALING_FACTOR * (x_i + cube)));
-    }
+    gelu_forward_dispatch(x, out);
 
     gelu->cache = x;
     return out;
 }
 
-
-// we want to use -Ofast optimization, but sadly GeLU breaks, so disable this flag just for it 
-// (https://github.com/karpathy/llm.c/pull/200)
-#pragma float_control(precise, on, push)
-#if defined(__GNUC__) && !defined(__clang__)
-__attribute__((optimize("no-finite-math-only")))
-#endif
 tensor_t *backward_gelu(gelu_t *gelu, tensor_t *global_grad) {
     CHECK_ERROR(gelu == NULL, "Expected *gelu to be a gelu_t pointer, but got NULL.");
     CHECK_ERROR(global_grad == NULL, "Expected *global_grad to be a tensor_t pointer, but got NULL.");
 
     tensor_t *dout = zeros(gelu->cache->shape, gelu->cache->ndims, gelu->cache->device);
 
-    for (int i = 0; i < gelu->cache->length; i++) {
-        float x_i = gelu->cache->t[i];
-        float cube = 0.044715f * x_i * x_i * x_i;
-        float tanh_arg = GELU_SCALING_FACTOR * (x_i + cube);
-        float tanh_out = tanhf(tanh_arg);
-        float coshf_out = coshf(tanh_arg);
-        float sech_out = 1.0f / (coshf_out * coshf_out);
-        float local_grad = 0.5f * (1.0f + tanh_out) + x_i * 0.5f * sech_out * GELU_SCALING_FACTOR * (1.0f + 3.0f * 0.044715f * x_i * x_i);
-        dout->t[i] += local_grad * global_grad->t[i];
-    }
+    gelu_backward_dispatch(global_grad, gelu->cache, dout);
 
     free_tensor(gelu->cache);
     free_tensor(global_grad);
@@ -78,7 +59,6 @@ tensor_t *backward_gelu(gelu_t *gelu, tensor_t *global_grad) {
     global_grad = NULL;
     return dout;
 }
-#pragma float_control(pop)
 
 
 void description_gelu(const gelu_t *gelu) {
