@@ -125,27 +125,29 @@ tensor_t *forward_softmax(softmax_t *softmax, tensor_t *x) {
 
     tensor_t *out = create_tensor(x->shape, x->ndims, x->device);
 
-    #pragma omp parallel for collapse(2)
-    for (int b = 0; b < B; b++) {
-        for (int t = 0; t < T; t++) {
-            float *x_bt = x->t + b * T * C + t * C;
-            float *out_bt = out->t + b * T * C + t * C;
+    // #pragma omp parallel for collapse(2)
+    // for (int b = 0; b < B; b++) {
+    //     for (int t = 0; t < T; t++) {
+    //         float *x_bt = x->t + b * T * C + t * C;
+    //         float *out_bt = out->t + b * T * C + t * C;
 
-            float maxval = -INFINITY;
-            for (int i = 0; i < C; i++)
-                if (x_bt[i] > maxval)
-                    maxval = x_bt[i];
+    //         float maxval = -INFINITY;
+    //         for (int i = 0; i < C; i++)
+    //             if (x_bt[i] > maxval)
+    //                 maxval = x_bt[i];
             
-            float sum = 0.0f;
-            for (int i = 0; i < C; i++) {
-                out_bt[i] = expf(x_bt[i] - maxval);
-                sum += out_bt[i];
-            }
-            for (int i = 0; i < C; i++) {
-                out_bt[i] /= sum;
-            }
-        }
-    }
+    //         float sum = 0.0f;
+    //         for (int i = 0; i < C; i++) {
+    //             out_bt[i] = expf(x_bt[i] - maxval);
+    //             sum += out_bt[i];
+    //         }
+    //         for (int i = 0; i < C; i++) {
+    //             out_bt[i] /= sum;
+    //         }
+    //     }
+    // }
+    softmax_forward_dispatch(x, out);
+
     return out;
 }
 
