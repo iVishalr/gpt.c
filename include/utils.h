@@ -46,11 +46,11 @@ void fseek_check(FILE *fp, long off, int whence, const char *file, int line);
 // ----------------------------------------------------------------------------
 // malloc error-handling wrapper util
 
-void *malloc_check(size_t size, const char *file, int line);
+void *malloc_check(const size_t size, const char *file, int line);
 
 #define mallocCheck(size) malloc_check(size, __FILE__, __LINE__)
 
-void *aligned_malloc_check(size_t alignment, size_t size, const char *file, int line);
+void *aligned_malloc_check(const size_t alignment, const size_t size, const char *file, int line);
 
 #define alignedMallocCheck(alignment, size) aligned_malloc_check(alignment, size, __FILE__, __LINE__)
 

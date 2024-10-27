@@ -45,14 +45,19 @@ void fseek_check(FILE *fp, long off, int whence, const char *file, int line) {
     check_error(status != 0, file, line, "Failed to seek in file. Offset: %ld, Whence: %d", off, whence);
 }
 
-void *malloc_check(size_t size, const char *file, int line) {
+void *malloc_check(const size_t size, const char *file, int line) {
     void *ptr = malloc(size);
     check_error(ptr == NULL, file, line, "Failed to allocate memory. Requested allocation size = %zu bytes.", size);
     return ptr;
 }
 
-void *aligned_malloc_check(size_t alignment, size_t size, const char *file, int line) {
-    void *ptr = aligned_alloc(alignment, size);
+size_t compute_aligned_tensor_size(const size_t size, const size_t alignment) {
+    return (size + alignment - 1) & (~(alignment - 1));
+}
+
+void *aligned_malloc_check(const size_t alignment, const size_t size, const char *file, int line) {
+    size_t nbytes = compute_aligned_tensor_size(size, alignment);
+    void *ptr = aligned_alloc(alignment, nbytes);
     check_error(ptr == NULL, file, line, "Failed to allocate aligned memory. Requested allocation size = %zu bytes.", size);
     return ptr;
 }

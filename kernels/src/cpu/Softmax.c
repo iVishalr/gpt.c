@@ -23,7 +23,6 @@ void softmax_forward_cpu_kernel(const tensor_t *input, tensor_t *output) {
                     maxval = x_bt[i];
             
             float sum = 0.0f;
-            #pragma omp simd
             for (int i = 0; i < C; i++) {
                 out_bt[i] = expf(x_bt[i] - maxval);
                 sum += out_bt[i];
