@@ -3,6 +3,7 @@
 #include <string.h>
 #include <math.h>
 #include <cblas.h>
+#include <float.h>
 #include "utils.h"
 #include "attention.h"
 
@@ -110,14 +111,25 @@ tensor_t *forward_attention(attention_t *attn, tensor_t *x) {
     v = create_tensor(qkv_transpose_shape, 4, device);
 
     for (int b = 0; b < B; b++) {
-        for (int t = 0; t < T; t++) {
-            float *x_q = x->t + b * T * C3 + t * C3;
-            float *x_k = x_q + C;
-            float *x_v = x_k + C;
-            for (int h = 0; h < n_heads; h++) {
-                memcpy(q->t + b * n_heads * T * hs + h * T * hs + t * hs, x_q + h * hs, hs * sizeof(float));
-                memcpy(k->t + b * n_heads * T * hs + h * T * hs + t * hs, x_k + h * hs, hs * sizeof(float));
-                memcpy(v->t + b * n_heads * T * hs + h * T * hs + t * hs, x_v + h * hs, hs * sizeof(float));
+        for (int h = 0; h < n_heads; h++) {
+            for (int t = 0; t < T; t++) {
+                const float *x_q = x->t + b * T * C3 + t * C3;
+                const float *x_k = x_q + C;
+                const float *x_v = x_k + C;
+
+                const float *x_qt = x_q + h * hs;
+                const float *x_kt = x_k + h * hs;
+                const float *x_vt = x_v + h * hs;
+
+                float *qt = q->t + b * n_heads * T * hs + h * T * hs + t * hs;
+                float *kt = k->t + b * n_heads * T * hs + h * T * hs + t * hs;
+                float *vt = v->t + b * n_heads * T * hs + h * T * hs + t * hs;
+
+                for (int j = 0; j < hs; j++) {
+                    qt[j] = x_qt[j];
+                    kt[j] = x_kt[j];
+                    vt[j] = x_vt[j];
+                }
             }
         }
     }
@@ -154,8 +166,7 @@ tensor_t *forward_attention(attention_t *attn, tensor_t *x) {
 
             for (int k = 0; k < T; k++) {
                 att_tt[k] = attn->buffer->t[j * buffer_row_size + k] == 1.0f ? att_tt[k] : -INFINITY;
-                if (att_tt[k] > max_val) 
-                    max_val = att_tt[k];
+                max_val = (att_tt[k] > max_val) ? att_tt[k] : max_val;
             }
 
             float expsum = 0.0f;
@@ -343,9 +354,19 @@ tensor_t *backward_attention(attention_t *attn, tensor_t *global_grad) {
             float *dout_k = dout_q + C;
             float *dout_v = dout_k + C;
             for (int h = 0; h < n_heads; h++) {
-                memcpy(dout_q + h * hs, dq->t + b * n_heads * T * hs + h * T * hs + t * hs, hs * sizeof(float));
-                memcpy(dout_k + h * hs, dk->t + b * n_heads * T * hs + h * T * hs + t * hs, hs * sizeof(float));
-                memcpy(dout_v + h * hs, dv->t + b * n_heads * T * hs + h * T * hs + t * hs, hs * sizeof(float));
+                const float *_dq = dq->t + b * n_heads * T * hs + h * T * hs + t * hs;
+                const float *_dk = dk->t + b * n_heads * T * hs + h * T * hs + t * hs;
+                const float *_dv = dv->t + b * n_heads * T * hs + h * T * hs + t * hs;
+
+                float *dout_qh = dout_q + h * hs;
+                float *dout_kh = dout_k + h * hs;
+                float *dout_vh = dout_v + h * hs;
+                #pragma omp simd
+                for (int j = 0; j < hs; j++) {
+                    dout_qh[j] = _dq[j];
+                    dout_kh[j] = _dk[j];
+                    dout_vh[j] = _dv[j];
+                }
             }
         }
     }
