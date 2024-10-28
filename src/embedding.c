@@ -3,6 +3,7 @@
 #include <string.h>
 #include <math.h>
 #include "utils.h"
+#include "dispatch.h"
 #include "embedding.h"
 
 
@@ -67,15 +68,7 @@ tensor_t *forward_embedding(embedding_t *embedding, tensor_t *x) {
     int out_shape[3] = {B, T, C};
     tensor_t *out = zeros(out_shape, 3, device);
 
-    for (int b = 0; b < B; b++) {
-        for (int t = 0; t < T; t++) {
-            float *out_bt = out->t + b * T * C + t * C;
-            int ix = (int)x->t[b * T + t];
-            float *w_ix = embedding->W->t + ix * C;
-            for (int i = 0; i < C; i++)
-                out_bt[i] = w_ix[i];
-        }
-    }
+    embedding_forward_dispatch(embedding->W, x, out);
     
     embedding->cache = x;
     return out;
@@ -96,16 +89,7 @@ tensor_t *backward_embedding(embedding_t * embedding, tensor_t *global_grad) {
     if (!embedding->dW)
         embedding->dW = zeros(embedding->W->shape, embedding->W->ndims, device);
 
-    for (int b = 0; b < B; b++) {
-        for (int t = 0; t < T; t++) {
-            float *global_grad_bt = global_grad->t + b * T * C + t * C;
-            int ix = (int)embedding->cache->t[b * T + t];
-            float *dW_ix = embedding->dW->t + ix * C;
-            for (int i = 0; i < C; i++) {
-                dW_ix[i] += global_grad_bt[i];
-            }
-        }
-    }
+    embedding_backward_dispatch(global_grad, embedding->cache, embedding->dW);
 
     free_tensor(global_grad);
     free_tensor(embedding->cache);
