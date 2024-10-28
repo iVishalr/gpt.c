@@ -3,6 +3,7 @@
 #include <string.h>
 #include <math.h>
 #include <cblas.h>
+#include "dispatch.h"
 #include "tensor.h"
 #include "utils.h"
 
@@ -169,7 +170,7 @@ void free_tensor(tensor_t *tensor) {
         return;
 
     if (tensor->t != NULL)
-        free(tensor->t);
+        free_dispatch(tensor->t, tensor->device);
     free(tensor);
 }
 

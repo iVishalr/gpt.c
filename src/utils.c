@@ -2,6 +2,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#include "dispatch.h"
 #include "tensor.h"
 #include "utils.h"
 
@@ -51,13 +52,8 @@ void *malloc_check(const size_t size, const char *file, int line) {
     return ptr;
 }
 
-size_t compute_aligned_tensor_size(const size_t size, const size_t alignment) {
-    return (size + alignment - 1) & (~(alignment - 1));
-}
-
 void *aligned_malloc_check(const size_t alignment, const size_t size, const char *file, int line) {
-    size_t nbytes = compute_aligned_tensor_size(size, alignment);
-    void *ptr = aligned_alloc(alignment, nbytes);
+    void *ptr = alloc_dispatch(size, alignment, CPU);
     check_error(ptr == NULL, file, line, "Failed to allocate aligned memory. Requested allocation size = %zu bytes.", size);
     return ptr;
 }
