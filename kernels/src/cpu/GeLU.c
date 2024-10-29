@@ -5,8 +5,9 @@
 #define GELU_SCALING_FACTOR sqrtf(2.0f / M_PI)
 
 void gelu_forward_cpu_kernel(const tensor_t *input, tensor_t *output) {
-    float *_inp = __builtin_assume_aligned(input->t, 64);
+    const float *_inp = __builtin_assume_aligned(input->t, 64);
     float *_out = __builtin_assume_aligned(output->t, 64);
+    
     #pragma omp simd
     for (int i = 0; i < input->length; i++) {
         float x_i = _inp[i];
@@ -22,9 +23,10 @@ void gelu_forward_cpu_kernel(const tensor_t *input, tensor_t *output) {
 __attribute__((optimize("no-finite-math-only")))
 #endif
 void gelu_backward_cpu_kernel(const tensor_t *global_grad, const tensor_t *cache, tensor_t *dout) {
-    float *_global_cache = __builtin_assume_aligned(global_grad->t, 64);
-    float *_cache = __builtin_assume_aligned(cache->t, 64);
+    const float *_global_cache = __builtin_assume_aligned(global_grad->t, 64);
+    const float *_cache = __builtin_assume_aligned(cache->t, 64);
     float *_dout = __builtin_assume_aligned(dout->t, 64);
+    
     #pragma omp simd
     for (int i = 0; i < cache->length; i++) {
         float x_i = _cache[i];
