@@ -1,6 +1,6 @@
 CC = gcc
 BUILD = release
-CFLAGS_RELEASE = -O3 -Ofast -march=native -Wno-unused-result -Wno-ignored-pragmas -Wno-unknown-attributes -ggdb3 -fPIC -fopt-info-vec-missed
+CFLAGS_RELEASE = -O3 -Ofast -march=native -Wno-unused-result -Wno-ignored-pragmas -Wno-unknown-attributes -ggdb3 -fPIC
 CFLAGS_DEBUG = -Wno-unused-result -O0 -ggdb3 -fPIC
 
 INCLUDES = -I include/ -I kernels/include/ -I third_party/OpenBLAS/include/
@@ -34,7 +34,7 @@ endif
 endif
 
 ifeq ($(_CC), gcc)
-CFLAGS_RELEASE += -fopenmp -DOMP
+CFLAGS_RELEASE += -fopenmp -DOMP -fopt-info-vec-missed
 CFLAGS_DEBUG += -fopenmp -DOMP
 LDLIBS += -lgomp
 endif

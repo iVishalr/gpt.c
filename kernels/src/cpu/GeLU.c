@@ -8,7 +8,6 @@ void gelu_forward_cpu_kernel(const tensor_t *input, tensor_t *output) {
     const float *_inp = __builtin_assume_aligned(input->t, 64);
     float *_out = __builtin_assume_aligned(output->t, 64);
     
-    #pragma omp simd
     for (int i = 0; i < input->length; i++) {
         float x_i = _inp[i];
         float cube = 0.044715f * x_i * x_i * x_i;
@@ -27,7 +26,6 @@ void gelu_backward_cpu_kernel(const tensor_t *global_grad, const tensor_t *cache
     const float *_cache = __builtin_assume_aligned(cache->t, 64);
     float *_dout = __builtin_assume_aligned(dout->t, 64);
     
-    #pragma omp simd
     for (int i = 0; i < cache->length; i++) {
         float x_i = _cache[i];
         float cube = 0.044715f * x_i * x_i * x_i;

@@ -18,7 +18,7 @@ void embedding_forward_cpu_kernel(
         for (int t = 0; t < T; t++) {
             float *out_bt = _out + b * T * C + t * C;
             int ix = (int)_inp[b * T + t];
-            float *w_ix = _W + ix * C;
+            const float *w_ix = _W + ix * C;
             for (int i = 0; i < C; i++)
                 out_bt[i] = w_ix[i];
         }

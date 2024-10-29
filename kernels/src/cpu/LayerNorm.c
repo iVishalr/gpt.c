@@ -68,7 +68,7 @@ void layer_norm_backward_cpu_kernel(
     T = global_grad->shape[1];
     in_features = global_grad->shape[2];
 
-    tensor_t *mean, *rstd, *x;
+    const tensor_t *mean, *rstd, *x;
     mean = cache[0];
     rstd = cache[1];
     x = cache[2];

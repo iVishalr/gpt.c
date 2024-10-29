@@ -143,10 +143,8 @@ tensor_t *forward_linear(linear_t *linear, tensor_t *x) {
     T = x->shape[1];
     in_features = x->shape[2];
 
-    tensor_t *out;
-
     int out_shape[3] = {B, T, linear->out_features};
-    out = create_tensor(out_shape, 3, device);
+    tensor_t *out = create_tensor(out_shape, 3, device);
 
     // trigger the kernel that implements forward pass
     linear_forward_dispatch(linear->W, linear->b, x, out);
@@ -206,8 +204,7 @@ tensor_t *backward_linear(linear_t *linear, tensor_t *global_grad) {
     if (!linear->db)
         linear->db = linear->use_bias > 0 ? zeros(linear->b->shape, linear->b->ndims, device) : NULL;
 
-    tensor_t *dout;
-    dout = zeros(linear->cache->shape, linear->cache->ndims, device);
+    tensor_t *dout = zeros(linear->cache->shape, linear->cache->ndims, device);
 
     int B, T, out_features;
     B = global_grad->shape[0];
