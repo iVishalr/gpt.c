@@ -3,6 +3,7 @@
 #include <string.h>
 #include <math.h>
 #include "utils.h"
+#include "dispatch.h"
 #include "layer_norm.h"
 
 #define DEFAULT_EPS 1e-5f
@@ -71,37 +72,7 @@ tensor_t *forward_layer_norm(layer_norm_t *norm, tensor_t *x) {
     norm->cache[0] = create_tensor(x->shape, x->ndims - 1, device); // (B, T)
     norm->cache[1] = create_tensor(x->shape, x->ndims - 1, device); // (B, T)
 
-    int row_size = in_features;
-
-    for (int i = 0; i < B * T; i++) {
-        float mean = 0.0f;
-        for (int j = 0; j < row_size; j++) {
-            mean += x->t[i * row_size + j];
-        }
-        mean = mean / row_size;
-
-        // calculate variance
-        float variance = 0.0f;
-        for (int j = 0; j < row_size; j++) {
-            float xshift = x->t[i * row_size + j] - mean;
-            variance += xshift * xshift;
-        }
-        variance = variance / row_size;
-
-        // calculate rstd (reciprocal standard deviation)
-        float rstd = 1.0f / sqrtf(variance + norm->eps);
-
-        for (int j = 0; j < row_size; j++) {
-            float n = rstd * (x->t[i * row_size + j] - mean);
-            float o = n * norm->W->t[j];
-            if (norm->b)
-                o += norm->b->t[j];
-            out->t[i * row_size + j] = o;
-        }
-
-        norm->cache[0]->t[i] = mean;
-        norm->cache[1]->t[i] = rstd;
-    }
+    layer_norm_forward_dispatch(norm->W, norm->b, x, norm->eps, norm->cache, out);
 
     norm->cache[2] = x;
     return out;
@@ -150,11 +121,11 @@ tensor_t *backward_layer_norm(layer_norm_t *norm, tensor_t *global_grad) {
     T = global_grad->shape[1];
     in_features = global_grad->shape[2];
 
-    tensor_t *mean, *rstd, *x, *out;
+    tensor_t *mean, *rstd, *x, *dout;
     mean = norm->cache[0];
     rstd = norm->cache[1];
     x = norm->cache[2];
-    out = zeros(x->shape, x->ndims, device);
+    dout = zeros(x->shape, x->ndims, device);
 
     if (!norm->dW)
         norm->dW = zeros(norm->W->shape, norm->W->ndims, device);
@@ -162,37 +133,7 @@ tensor_t *backward_layer_norm(layer_norm_t *norm, tensor_t *global_grad) {
     if (!norm->db)
         norm->db = norm->use_bias > 0 ? zeros(norm->b->shape, norm->b->ndims, device) : NULL;
 
-    int row_size = in_features;
-
-    for(int i = 0; i < B * T; i++) {
-        float dnorm_mean = 0.0f;
-        float dnorm_norm_mean = 0.0f;
-        for (int j = 0; j < row_size; j++) {
-            float norm_i = (x->t[i * row_size + j] - mean->t[i]) * rstd->t[i];
-            float dnorm_i = norm->W->t[j] * global_grad->t[i * row_size + j];
-            dnorm_mean += dnorm_i;
-            dnorm_norm_mean += dnorm_i * norm_i;
-        }
-        dnorm_mean = dnorm_mean / row_size;
-        dnorm_norm_mean = dnorm_norm_mean / row_size;
-
-        for (int j = 0; j < row_size; j++) {
-            float norm_i = (x->t[i * row_size + j] - mean->t[i]) * rstd->t[i];
-            float dnorm_i = norm->W->t[j] * global_grad->t[i * row_size + j];
-            
-            if (norm->db)
-                norm->db->t[j] += global_grad->t[i * row_size + j];
-            // gradient to weight
-            norm->dW->t[j] += norm_i * global_grad->t[i * row_size + j];
-            // gradient to input
-            float dval = 0.0f;
-            dval += dnorm_i;
-            dval -= dnorm_mean;
-            dval -= norm_i * dnorm_norm_mean;
-            dval *= rstd->t[i];
-            out->t[i * row_size + j] += dval;
-        }
-    }
+    layer_norm_backward_dispatch(global_grad, norm->cache, norm->W, norm->dW, norm->db, dout);
 
     free_tensor(global_grad);
     free_tensor(norm->cache[0]);
@@ -202,7 +143,7 @@ tensor_t *backward_layer_norm(layer_norm_t *norm, tensor_t *global_grad) {
     norm->cache[0] = NULL;
     norm->cache[1] = NULL;
     norm->cache[2] = NULL;
-    return out;
+    return dout;
 }
 
 
