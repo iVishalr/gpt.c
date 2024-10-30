@@ -6,3 +6,5 @@
 #include <core/Softmax.h>
 #include <core/Embedding.h>
 #include <core/LayerNorm.h>
+#include <core/AdamW.h>
+#include <core/Tensor.h>

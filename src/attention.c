@@ -161,7 +161,7 @@ tensor_t *forward_attention(attention_t *attn, tensor_t *x) {
 
     for (int i = 0; i < B * n_heads; i++) {
         for (int j = 0; j < T; j++) {
-            float max_val = -INFINITY;
+            float max_val = -FLT_MAX;
             float *att_tt = att->t + i * T * T + j * T;
 
             for (int k = 0; k < T; k++) {

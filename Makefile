@@ -34,7 +34,7 @@ endif
 endif
 
 ifeq ($(_CC), gcc)
-CFLAGS_RELEASE += -fopenmp -DOMP -fopt-info-vec-missed
+CFLAGS_RELEASE += -fopenmp -DOMP
 CFLAGS_DEBUG += -fopenmp -DOMP
 LDLIBS += -lgomp
 endif
@@ -73,11 +73,13 @@ VALGRIND := $(shell command -v valgrind)
 
 # Find all source files in the src directory
 SRCS = $(wildcard $(SRC_DIR)/*.c)
+COMMON_SRCS = $(wildcard $(KERNELS_DIR)/src/common/*.c)
 CORE_SRCS = $(wildcard $(KERNELS_DIR)/src/core/*.c)
 CPU_SRCS = $(wildcard $(KERNELS_DIR)/src/cpu/*.c)
 
 # Generate object file names from source file names
 OBJS = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(SRCS))
+COMMON_OBJS = $(patsubst $(KERNELS_DIR)/src/common/%.c, $(KERNELS_DIR)/build/common/%.o, $(COMMON_SRCS))
 CORE_OBJS = $(patsubst $(KERNELS_DIR)/src/core/%.c, $(KERNELS_DIR)/build/core/%.o, $(CORE_SRCS))
 CPU_OBJS = $(patsubst $(KERNELS_DIR)/src/cpu/%.c, $(KERNELS_DIR)/build/cpu/%.o, $(CPU_SRCS))
 
@@ -107,6 +109,10 @@ endif
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 	$(CC) $(CFLAGS) $(INCLUDES) $(KERNELS_INCLUDES) -c $< -o $@
 
+# Compile rule for object files in kernels/src/common/
+$(KERNELS_DIR)/build/common/%.o: $(KERNELS_DIR)/src/common/%.c
+	$(CC) $(CFLAGS) $(INCLUDES) $(KERNELS_INCLUDES) -c $< -o $@
+
 # Compile rule for object files in kernels/src/core/
 $(KERNELS_DIR)/build/core/%.o: $(KERNELS_DIR)/src/core/%.c
 	$(CC) $(CFLAGS) $(INCLUDES) $(KERNELS_INCLUDES) -c $< -o $@
@@ -116,7 +122,7 @@ $(KERNELS_DIR)/build/cpu/%.o: $(KERNELS_DIR)/src/cpu/%.c
 	$(CC) $(CFLAGS) $(INCLUDES) $(KERNELS_INCLUDES) -c $< -o $@
 
 # Rule to create the shared library
-$(SHARED_LIB): $(OBJS) $(CORE_OBJS) $(CPU_OBJS)
+$(SHARED_LIB): $(OBJS) $(COMMON_OBJS) $(CORE_OBJS) $(CPU_OBJS)
 	$(CC) -o $(SHARED_LIB) $(LDFLAGS) $(LDLIBS) $^ -shared
 
 # Rule to create the shared library
@@ -156,7 +162,7 @@ endif
 	@if ! test -f "model/valgrind-model.bin"; then \
 		python3 model.py --block-size=128 --layers=1 --heads=1 --embd=128 --name=valgrind-model; \
 	fi
-	valgrind -s --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose ./infer_gpt --load-checkpoint=model/valgrind-model.bin --tokenizer=tokenizer.bin --prompt="[50256, 17250]" --max-tokens=10
+	valgrind -s --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose ./infer_gpt --load-checkpoint=model/valgrind-model.bin --tokenizer=tokenizer.bin --prompt="[50256, 17250]" --max-tokens=1
 
 # Rule to create the build directory if it doesn't exist
 setup: third_party
@@ -165,6 +171,9 @@ setup: third_party
 	fi
 	@if ! test -d $(KERNELS_DIR)/build;\
 		then echo "\033[93mSetting up $(KERNELS_DIR)/build directory...\033[0m"; mkdir -p kernels/build;\
+	fi
+	@if ! test -d $(KERNELS_DIR)/buid/common;\
+		then echo "\033[93mSetting up $(KERNELS_DIR)/build/common directory...\033[0m"; mkdir -p kernels/build/common;\
 	fi
 	@if ! test -d $(KERNELS_DIR)/buid/core;\
 		then echo "\033[93mSetting up $(KERNELS_DIR)/build/core directory...\033[0m"; mkdir -p kernels/build/core;\

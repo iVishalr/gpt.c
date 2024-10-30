@@ -18,7 +18,7 @@ void free_cpu(void *ptr) {
     free(ptr);
 }
 
-tensor_t *as_tensor(const float *data, const int *shape, const int n) {
+tensor_t *as_tensor(float *data, const int *shape, const int n) {
     tensor_t *tensor = (tensor_t*)mallocCheck(sizeof(tensor_t));
     tensor->t = data;
     int length = 1;

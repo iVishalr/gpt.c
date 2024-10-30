@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include <cblas.h>
 #include "utils.h"
 #include "transformer.h"
 
@@ -100,7 +99,7 @@ tensor_t *forward_transformer(gpt2_t *gpt, tensor_t *x) {
     tensor_t *pos_emb = wpe->forward(wpe, pos);
 
     for (int b = 0; b < B; b++)
-        cblas_saxpy(T * C, 1.0f, pos_emb->t, 1, tok_emb->t + b * T * C, 1);
+        saxpy(T * C, 1.0f, pos_emb, 0, 1, tok_emb, b * T * C, 1);
 
     free_tensor(pos_emb);
     pos_emb = NULL;
@@ -169,7 +168,7 @@ tensor_t *backward_transformer(gpt2_t *gpt, tensor_t *global_grad) {
     // We need to do this because both the layers are sharing weights
     // wte.W = lm_head.W: (vocab_size, C)
     for (int v = 0; v < gpt->vocab_size; v++)
-        cblas_saxpy(n_embd, 1.0f, lm_head->dW->t + v * n_embd, 1, wte->dW->t + v * n_embd, 1);
+        saxpy(n_embd, 1.0f, lm_head->dW, v * n_embd, 1, wte->dW, v * n_embd, 1);
     
     return d_tok_emb;
 }

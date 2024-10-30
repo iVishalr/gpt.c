@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <cblas.h>
 #include "utils.h"
 #include "blocks.h"
 
@@ -75,7 +74,7 @@ tensor_t *forward_block(block_t *blk, tensor_t *x) {
     out = attn->forward(attn, out);
 
     // out = resid + out
-    cblas_saxpy(out->length, 1.0f, resid->t, 1, out->t, 1);
+    saxpy(out->length, 1.0f, resid, 0, 1, out, 0, 1);
 
     tensor_copy(resid, out);
 
@@ -83,7 +82,7 @@ tensor_t *forward_block(block_t *blk, tensor_t *x) {
     out = mlp->forward(mlp, out);
 
     // out = resid + out
-    cblas_saxpy(out->length, 1.0f, resid->t, 1, out->t, 1);
+    saxpy(out->length, 1.0f, resid, 0, 1, out, 0, 1);
     free_tensor(resid);
 
     return out;
@@ -114,7 +113,7 @@ tensor_t *backward_block(block_t *blk, tensor_t *global_grad) {
     out = ln2->backward(ln2, out);
 
     // out = global grad + out
-    cblas_saxpy(out->length, 1.0f, global_grad->t, 1, out->t, 1);
+    saxpy(out->length, 1.0f, global_grad, 0, 1, out, 0, 1);
     free_tensor(global_grad);
     
     tensor_copy(gg2, out);
@@ -123,7 +122,7 @@ tensor_t *backward_block(block_t *blk, tensor_t *global_grad) {
     out = ln1->backward(ln1, out);
 
     // out = gg2 + out
-    cblas_saxpy(out->length, 1.0f, gg2->t, 1, out->t, 1);
+    saxpy(out->length, 1.0f, gg2, 0, 1, out, 0, 1);
     free_tensor(gg2);
 
     return out;

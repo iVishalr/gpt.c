@@ -56,9 +56,9 @@ tensor_t *zeros(const int *shape, const int n, const device_t device);
 tensor_t *ones(const int *shape, const int n, const device_t device);
 tensor_t *fill(const int *shape, const int n, const float value, const device_t device);
 
-void mul_(tensor_t *x, const float s);
-void pow_(tensor_t *x, const float p);
 void tensor_copy(tensor_t *dest, const tensor_t *src);
+
+void saxpy(const int n, const float alpha, const tensor_t *x, const int offsetx, const int incx, tensor_t *y, const int offsety, const int incy);
 void uniform(tensor_t *tensor, const float low, const float high);
 void shape(const tensor_t *tensor, char *shape);
 void view(tensor_t *tensor, const int *shape, const int n);

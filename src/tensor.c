@@ -67,6 +67,7 @@ float rand_norm(double mean, double stddev) {
 
 void __move_tensor_to_device(tensor_t *tensor, const device_t device) {}
 
+
 tensor_t *create_tensor(const int *shape, const int n, const device_t device) {
     CHECK_ERROR(shape == NULL, "Expected *shape to be a integer pointer, but got NULL.");
 
@@ -83,9 +84,10 @@ tensor_t *create_tensor(const int *shape, const int n, const device_t device) {
     }
 
     tensor->length = total_elements;
-    tensor->t = (float *)alignedMallocCheck(64, total_elements * sizeof(float));
+    create_tensor_data_dispatch(tensor);
     return tensor;
 }
+
 
 tensor_t *randn(const int *shape, const int n, const device_t device) {
     tensor_t *tensor = create_tensor(shape, n, device);
@@ -95,49 +97,34 @@ tensor_t *randn(const int *shape, const int n, const device_t device) {
     return tensor;
 }
 
+
 tensor_t *zeros(const int *shape, const int n, const device_t device) {
     tensor_t *tensor = create_tensor(shape, n, device);
-    for (int i = 0; i < tensor->length; i++)
-        tensor->t[i] = 0.0f;
-
+    zeros_tensor_data_dispatch(tensor);
     return tensor;
 }
+
 
 tensor_t *ones(const int *shape, const int n, const device_t device) {
     tensor_t *tensor = create_tensor(shape, n, device);
-    for (int i = 0; i < tensor->length; i++)
-        tensor->t[i] = 1.0f;
-
+    ones_tensor_data_dispatch(tensor);
     return tensor;
 }
+
 
 tensor_t *fill(const int *shape, const int n, const float value, const device_t device) {
     tensor_t *tensor = create_tensor(shape, n, device);
-    for (int i = 0; i < tensor->length; i++)
-        tensor->t[i] = value;
-
+    fill_tensor_data_dispatch(tensor, value);
     return tensor;
 }
 
-void mul_(tensor_t *x, const float s) {
-    CHECK_ERROR(x == NULL, "Expected *x to be a tensor_t pointer, but got NULL.");
-
-    cblas_sscal(x->length, s, x->t, 1);
-}
-
-void pow_(tensor_t *x, const float p) {
-    CHECK_ERROR(x == NULL, "Expected *x to be a tensor_t pointer, but got NULL.");
-
-    for (int i = 0; i < x->length; i++)
-        x->t[i] = powf(x->t[i], p);
-}
 
 void tensor_copy(tensor_t *dest, const tensor_t *src) {
 
     CHECK_ERROR(src == NULL, "Expected *src to be a tensor_t pointer, but got NULL.");
     CHECK_ERROR(dest == NULL, "Expected *dest to be a tensor_t pointer, but got NULL.");
 
-    cblas_scopy(src->length, src->t, 1, dest->t, 1);
+    copy_tensor_data_dispatch(dest, src);
     
     for (int i = 0; i < src->ndims; i++)
         dest->shape[i] = src->shape[i];
@@ -145,6 +132,15 @@ void tensor_copy(tensor_t *dest, const tensor_t *src) {
     dest->ndims = src->ndims;
     dest->length = src->length;
 }
+
+
+void saxpy(const int n, const float alpha, const tensor_t *x, const int offsetx, const int incx, tensor_t *y, const int offsety, const int incy) {
+    CHECK_ERROR(x == NULL, "Expected *x to be a tensor_t pointer, but got NULL.");
+    CHECK_ERROR(y == NULL, "Expected *y to be a tensor_t pointer, but got NULL.");
+
+    saxpy_dispatch(n, alpha, x, offsetx, incx, y, offsety, incy);
+}
+
 
 void uniform(tensor_t *tensor, const float low, const float high) {
     CHECK_ERROR(tensor == NULL, "Expected *tensor to be a tensor_t pointer, but got NULL.");

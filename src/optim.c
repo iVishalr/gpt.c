@@ -4,6 +4,7 @@
 #include <math.h>
 #include <cblas.h>
 #include "utils.h"
+#include "dispatch.h"
 #include "optim.h"
 
 #define ADAMW_DEFAULT_EPS 1e-08f
@@ -46,9 +47,19 @@ adamW_t *AdamW(tensor_t **parameters, tensor_t **gradients, const int n_paramete
     optimizer->beta2 = beta2;
     optimizer->eps = eps != ADAMW_DEFAULT_EPS ? eps : ADAMW_DEFAULT_EPS;
     optimizer->weight_decay = weight_decay != ADAMW_DEAFULT_WEIGHT_DECAY ? weight_decay : ADAMW_DEAFULT_WEIGHT_DECAY;
-
     optimizer->m = NULL;
     optimizer->v = NULL;
+
+    // optimizer->m = (tensor_t **)mallocCheck(sizeof(tensor_t *) * optimizer->n_parameters);
+    // optimizer->v = (tensor_t **)mallocCheck(sizeof(tensor_t *) * optimizer->n_parameters);
+
+    // for (int i = 0; i < optimizer->n_parameters; i++) {
+    //     const tensor_t *grad = optimizer->gradients[i];
+    //     const device_t device = grad->device;
+    //     optimizer->m[i] = zeros(grad->shape, grad->ndims, device);
+    //     optimizer->v[i] = zeros(grad->shape, grad->ndims, device);
+    // }
+
     optimizer->step_t = 0;
     optimizer->step = step_adamW;
     optimizer->zero_grad = zero_grad_adamW;
@@ -65,51 +76,33 @@ void step_adamW(adamW_t *optimizer) {
     const float weight_decay = optimizer->weight_decay;
     optimizer->step_t += 1;
 
+    // for some reason, this if condition cannot be moved to the AdamW function above 
+    // Moving this causes a considerable slowdown after ~10 iterations
     if (optimizer->m == NULL) {
         optimizer->m = (tensor_t **)mallocCheck(sizeof(tensor_t *) * optimizer->n_parameters);
         optimizer->v = (tensor_t **)mallocCheck(sizeof(tensor_t *) * optimizer->n_parameters);
 
         for (int i = 0; i < optimizer->n_parameters; i++) {
-            tensor_t *grad;
-            grad = optimizer->gradients[i];
-            device_t device = grad->device;
+            const tensor_t *grad = optimizer->gradients[i];
+            const device_t device = grad->device;
             optimizer->m[i] = zeros(grad->shape, grad->ndims, device);
             optimizer->v[i] = zeros(grad->shape, grad->ndims, device);
         }
     }
 
-    for (int i = 0; i < optimizer->n_parameters; i++) {
-        tensor_t *param, *grad;
-        param = optimizer->parameters[i];
-        grad = optimizer->gradients[i];
-        tensor_t *m_t = optimizer->m[i];
-        tensor_t *v_t = optimizer->v[i];
-
-        mul_(param, (1.0f - lr * weight_decay));
-        
-        mul_(m_t, optimizer->beta1);
-        mul_(v_t, optimizer->beta2);
-        
-        float beta1_scale = (1.0f - optimizer->beta1);
-        float beta2_scale = (1.0f - optimizer->beta2);
-        
-        for (int j = 0; j < grad->length; j++) {
-            float grad_j = grad->t[j];
-            m_t->t[j] += beta1_scale * grad_j;
-            v_t->t[j] += beta2_scale * grad_j * grad_j;
-        }
-
-        beta1_scale = 1.0f / (1.0f - powf(optimizer->beta1, optimizer->step_t));
-        beta2_scale = 1.0f / (1.0f - powf(optimizer->beta2, optimizer->step_t));
-
-        float m_hat_j = 0.0f;
-        float v_hat_j = 0.0f;
-        for (int j = 0; j < grad->length; j++) {
-            m_hat_j = m_t->t[j] * beta1_scale;
-            v_hat_j = v_t->t[j] * beta2_scale;
-            param->t[j] -= lr * m_hat_j / (sqrtf(v_hat_j) + optimizer->eps);
-        }
-    }   
+    step_adamW_dispatch(
+        optimizer->parameters, 
+        optimizer->gradients, 
+        optimizer->m, 
+        optimizer->v, 
+        optimizer->n_parameters,
+        optimizer->lr,
+        optimizer->beta1,
+        optimizer->beta2,
+        optimizer->weight_decay,
+        optimizer->eps,
+        optimizer->step_t
+    );
 }
 
 
@@ -117,11 +110,7 @@ void zero_grad_adamW(adamW_t *optimizer) {
     CHECK_ERROR(optimizer == NULL, "Expected *optimizer to be a adamW_t pointer, but got NULL.");
 
     // set the gradients to 0
-    for (int i = 0; i < optimizer->n_parameters; i++) {
-        tensor_t *grad = optimizer->gradients[i];
-        for (int j = 0; j < grad->length; j++)
-            grad->t[j] = 0.0f;
-    }
+    zero_grad_adamW_dispatch(optimizer->gradients, optimizer->n_parameters);
 }
 
 
