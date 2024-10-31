@@ -61,3 +61,24 @@ void saxpy_dispatch(
     else
         CHECK_ERROR(1, "Given device is not supported.");
 }
+
+void sgemm_dispatch(
+    const int TransA, const int TransB, const int M, const int N, const int K,
+    const float alpha, const tensor_t *A, const int offsetA, const int lda,
+    const tensor_t *B, const int offsetB, const int ldb,
+    const float beta, tensor_t *C, const int offsetC, const int ldc
+) {
+    CHECK_ERROR(
+        A->device != B->device, 
+        "Expected both A and B tensors to be on the same device, but got A.device != B.device"
+    );
+    CHECK_ERROR(
+        A->device != C->device, 
+        "Expected both A and C tensors to be on the same device, but got A.device != C.device"
+    );
+    device_t device = C->device;
+    if (device == CPU)
+        sgemm_cpu(TransA, TransB, M, N, K, alpha, A, offsetA, lda, B, offsetB, ldb, beta, C, offsetC, ldc);
+    else
+        CHECK_ERROR(1, "Given device is not supported.");
+}

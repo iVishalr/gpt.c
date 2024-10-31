@@ -67,3 +67,28 @@ void saxpy_cpu(
     float *_y = __builtin_assume_aligned(y->t, 64);
     cblas_saxpy(n, alpha, _x + offsetx, incx, _y + offsety, incy);
 }
+
+void sgemm_cpu(
+    const int TransA, const int TransB, const int M, const int N, const int K,
+    const float alpha, const tensor_t *A, const int offsetA, const int lda,
+    const tensor_t *B, const int offsetB, const int ldb,
+    const float beta, tensor_t *C, const int offsetC, const int ldc
+) {
+    const float *_A = __builtin_assume_aligned(A->t, 64);
+    const float *_B = __builtin_assume_aligned(B->t, 64);
+    float *_C = __builtin_assume_aligned(C->t, 64);
+
+    enum CBLAS_TRANSPOSE transA = CblasNoTrans, transB = CblasNoTrans;
+
+    if (TransA == 1)
+        transA = CblasTrans;
+    if (TransB == 1)
+        transB = CblasTrans;
+
+    cblas_sgemm(
+        CblasRowMajor, transA, transB, M, N, K,
+        alpha, _A + offsetA, lda,
+        _B + offsetB, ldb,
+        beta, _C + offsetC, ldc
+    );
+}

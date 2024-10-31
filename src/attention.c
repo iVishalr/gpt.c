@@ -2,9 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include <cblas.h>
 #include <float.h>
 #include "utils.h"
+#include "dispatch.h"
 #include "attention.h"
 
 
@@ -140,12 +140,11 @@ tensor_t *forward_attention(attention_t *attn, tensor_t *x) {
     // att = (q @ k.transpose(-2, -1)) * (1.0/sqrt(hs))
     for (int b = 0; b < B; b++) {
         for (int h = 0; h < n_heads; h++) {
-            cblas_sgemm(
-                CblasRowMajor, CblasNoTrans, CblasTrans,
-                T, T, hs,
-                scale , q->t + b * n_heads * T * hs + h * T * hs, hs,
-                k->t + b * n_heads * T * hs + h * T * hs, hs,
-                0.0f, att->t + b * n_heads * T * T + h * T * T, T
+            sgemm_dispatch(
+                0, 1, T, T, hs,
+                scale, q, b * n_heads * T * hs + h * T * hs, hs,
+                k, b * n_heads * T * hs + h * T * hs, hs,
+                0.0f, att, b * n_heads * T * T + h * T * T, T
             );
         }
     }
@@ -186,12 +185,11 @@ tensor_t *forward_attention(attention_t *attn, tensor_t *x) {
         }
 
         // compute out = att @ v : att(B, n_heads, T, T) @ v(B, n_heads, T, hs)
-        cblas_sgemm(
-            CblasRowMajor, CblasNoTrans, CblasNoTrans,
-            T, hs, T, 
-            1.0f, att->t + i * T * T, T, 
-            v->t + i * T * hs, hs,
-            0.0f, _out->t + i * T * hs, hs
+        sgemm_dispatch(
+            0, 0, T, hs, T,
+            1.0f, att, i * T * T, T,
+            v, i * T * hs, hs,
+            0.0f, _out, i * T * hs, hs
         );
     }
 
@@ -276,21 +274,18 @@ tensor_t *backward_attention(attention_t *attn, tensor_t *global_grad) {
             // --------
             // datt = global_grad (B, n_heads, T, hs) @ v (B, n_heads, T, hs).T
             // dv = att (B, n_heads, T, T).T @ global_grad (B, n_heads, T, hs)
-
-            cblas_sgemm(
-                CblasRowMajor, CblasNoTrans, CblasTrans,
-                T, T, hs, 
-                1.0f, global_grad->t + b * n_heads * T * hs + h * T * hs, hs,
-                v->t + b * n_heads * T * hs + h * T * hs, hs,
-                1.0f, datt->t + b * n_heads * T * T + h * T * T, T
+            sgemm_dispatch(
+                0, 1, T, T, hs,
+                1.0f, global_grad, b * n_heads * T * hs + h * T * hs, hs,
+                v, b * n_heads * T * hs + h * T * hs, hs,
+                1.0f, datt, b * n_heads * T * T + h * T * T, T
             );
 
-            cblas_sgemm(
-                CblasRowMajor, CblasTrans, CblasNoTrans,
-                T, hs, T,
-                1.0f, att->t + b * n_heads * T * T + h * T * T, T,
-                global_grad->t + b * n_heads * T * hs + h * T * hs, hs,
-                1.0f, dv->t + b * n_heads * T * hs + h * T * hs, hs 
+            sgemm_dispatch(
+                1, 0, T, hs, T,
+                1.0f, att, b * n_heads * T * T + h * T * T, T,
+                global_grad, b * n_heads * T * hs + h * T * hs, hs,
+                1.0f, dv, b * n_heads * T * hs + h * T * hs, hs 
             );
 
             // backprop into softmax
@@ -322,20 +317,18 @@ tensor_t *backward_attention(attention_t *attn, tensor_t *global_grad) {
             // dq = dpreatt (B, n_heads, T, T) @ k (B, n_heads, T, hs)
             // dk = dpreatt (B, n_heads, T, T) @ q (B, n_heads, T, hs)
 
-            cblas_sgemm(
-                CblasRowMajor, CblasNoTrans, CblasNoTrans,
-                T, hs, T,
-                scale, dpreatt->t + b * n_heads * T * T + h * T * T, T,
-                k->t + b * n_heads * T * hs + h * T * hs, hs,
-                1.0f, dq->t + b * n_heads * T * hs + h * T * hs, hs
+            sgemm_dispatch(
+                0, 0, T, hs, T,
+                scale, dpreatt, b * n_heads * T * T + h * T * T, T,
+                k, b * n_heads * T * hs + h * T * hs, hs,
+                1.0f, dq, b * n_heads * T * hs + h * T * hs, hs
             );
 
-            cblas_sgemm(
-                CblasRowMajor, CblasTrans, CblasNoTrans,
-                T, hs, T,
-                scale, dpreatt->t + b * n_heads * T * T + h * T * T, T,
-                q->t + b * n_heads * T * hs + h * T * hs, hs,
-                1.0f, dk->t + b * n_heads * T * hs + h * T * hs, hs
+            sgemm_dispatch(
+                1, 0, T, hs, T,
+                scale, dpreatt, b * n_heads * T * T + h * T * T, T,
+                q, b * n_heads * T * hs + h * T * hs, hs,
+                1.0f, dk, b * n_heads * T * hs + h * T * hs, hs
             );
         }
     }
