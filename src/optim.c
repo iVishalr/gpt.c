@@ -47,18 +47,15 @@ adamW_t *AdamW(tensor_t **parameters, tensor_t **gradients, const int n_paramete
     optimizer->beta2 = beta2;
     optimizer->eps = eps != ADAMW_DEFAULT_EPS ? eps : ADAMW_DEFAULT_EPS;
     optimizer->weight_decay = weight_decay != ADAMW_DEAFULT_WEIGHT_DECAY ? weight_decay : ADAMW_DEAFULT_WEIGHT_DECAY;
-    optimizer->m = NULL;
-    optimizer->v = NULL;
+    optimizer->m = (tensor_t **)mallocCheck(sizeof(tensor_t *) * optimizer->n_parameters);
+    optimizer->v = (tensor_t **)mallocCheck(sizeof(tensor_t *) * optimizer->n_parameters);
 
-    // optimizer->m = (tensor_t **)mallocCheck(sizeof(tensor_t *) * optimizer->n_parameters);
-    // optimizer->v = (tensor_t **)mallocCheck(sizeof(tensor_t *) * optimizer->n_parameters);
-
-    // for (int i = 0; i < optimizer->n_parameters; i++) {
-    //     const tensor_t *grad = optimizer->gradients[i];
-    //     const device_t device = grad->device;
-    //     optimizer->m[i] = zeros(grad->shape, grad->ndims, device);
-    //     optimizer->v[i] = zeros(grad->shape, grad->ndims, device);
-    // }
+    for (int i = 0; i < optimizer->n_parameters; i++) {
+        const tensor_t *grad = optimizer->gradients[i];
+        const device_t device = grad->device;
+        optimizer->m[i] = zeros(grad->shape, grad->ndims, device);
+        optimizer->v[i] = zeros(grad->shape, grad->ndims, device);
+    }
 
     optimizer->step_t = 0;
     optimizer->step = step_adamW;
@@ -75,20 +72,6 @@ void step_adamW(adamW_t *optimizer) {
     const float lr = optimizer->lr;
     const float weight_decay = optimizer->weight_decay;
     optimizer->step_t += 1;
-
-    // for some reason, this if condition cannot be moved to the AdamW function above 
-    // Moving this causes a considerable slowdown after ~10 iterations
-    if (optimizer->m == NULL) {
-        optimizer->m = (tensor_t **)mallocCheck(sizeof(tensor_t *) * optimizer->n_parameters);
-        optimizer->v = (tensor_t **)mallocCheck(sizeof(tensor_t *) * optimizer->n_parameters);
-
-        for (int i = 0; i < optimizer->n_parameters; i++) {
-            const tensor_t *grad = optimizer->gradients[i];
-            const device_t device = grad->device;
-            optimizer->m[i] = zeros(grad->shape, grad->ndims, device);
-            optimizer->v[i] = zeros(grad->shape, grad->ndims, device);
-        }
-    }
 
     step_adamW_dispatch(
         optimizer->parameters, 

@@ -15,7 +15,7 @@ void *alloc_dispatch(const size_t nbytes, const size_t alignment, const device_t
     return allocation;
 }
 
-void free_dispatch(void *ptr, const device_t device) {
+void free_dispatch(float *ptr, const device_t device) {
     if (device == CPU) {
         free_cpu(ptr);
     } else if (device == CUDA) {

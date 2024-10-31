@@ -9,7 +9,7 @@ extern "C"
 
 void *aligned_alloc_cpu(const size_t nbytes, const size_t alignment);
 
-void free_cpu(void *ptr);
+void free_cpu(float *ptr);
 
 tensor_t *as_tensor(float *data, const int *shape, const int n);
 

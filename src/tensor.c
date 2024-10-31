@@ -141,6 +141,19 @@ void saxpy(const int n, const float alpha, const tensor_t *x, const int offsetx,
     saxpy_dispatch(n, alpha, x, offsetx, incx, y, offsety, incy);
 }
 
+void sgemm(
+    const int TransA, const int TransB, const int M, const int N, const int K,
+    const float alpha, const tensor_t *A, const int offsetA, const int lda,
+    const tensor_t *B, const int offsetB, const int ldb,
+    const float beta, tensor_t *C, const int offsetC, const int ldc
+) {
+    CHECK_ERROR(A == NULL, "Expected *A to be a tensor_t pointer, but got NULL.");
+    CHECK_ERROR(B == NULL, "Expected *B to be a tensor_t pointer, but got NULL.");
+    CHECK_ERROR(C == NULL, "Expected *C to be a tensor_t pointer, but got NULL.");
+
+    sgemm_dispatch(TransA, TransB, M, N, K, alpha, A, offsetA, lda, B, offsetB, ldb, beta, C, offsetC, ldc);
+}
+
 
 void uniform(tensor_t *tensor, const float low, const float high) {
     CHECK_ERROR(tensor == NULL, "Expected *tensor to be a tensor_t pointer, but got NULL.");

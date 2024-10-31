@@ -89,7 +89,7 @@ ROOT_SRCS = $(wildcard ./*.c)
 # Generate executable names from root source file names
 EXES = $(patsubst ./%.c, ./%, $(ROOT_SRCS))
 
-.PHONY: all clean third_party shared_lib root_binaries setup valgrind_inference tests
+.PHONY: all clean third_party shared_lib root_binaries setup valgrind_training valgrind_inference tests
 
 # Default rule to build the shared library and root binaries
 all: setup third_party shared_lib root_binaries
@@ -163,6 +163,23 @@ endif
 		python3 model.py --block-size=128 --layers=1 --heads=1 --embd=128 --name=valgrind-model; \
 	fi
 	valgrind -s --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose ./infer_gpt --load-checkpoint=model/valgrind-model.bin --tokenizer=tokenizer.bin --prompt="[50256, 17250]" --max-tokens=1
+
+valgrind_training: setup all
+ifeq "$(VALGRIND)" ""
+	@echo "Valgrind is not installed on your system!"
+ifeq "$(PLATFORM)" "Darwin"
+	@echo "If you are using brew, valgrind can be installed using 'brew install valgrind'"
+	@exit 1
+endif
+ifeq "$(PLATFORM)" "Linux"
+	@echo "Valgrind can be installed using 'sudo apt install valgrind'"
+	@exit 1
+endif
+endif
+	@if ! test -f "model/valgrind-model.bin"; then \
+		python3 model.py --block-size=128 --layers=1 --heads=1 --embd=128 --name=valgrind-model; \
+	fi
+	valgrind -s --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose ./train_gpt --train-data=/home/vishalr/Desktop/gpt.c/data/tinyshakespeare/tinyshakespeare_train.bin --val-data=/home/vishalr/Desktop/gpt.c/data/tinyshakespeare/tinyshakespeare_val.bin --max-epochs=1 --log-dir=model_checkpoints --output=gpt2 --batch-size=4 --block-size=128 --lr=3e-4 --load-checkpoint=model/valgrind-model.bin
 
 # Rule to create the build directory if it doesn't exist
 setup: third_party

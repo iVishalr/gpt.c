@@ -8,3 +8,5 @@
 #include <core/LayerNorm.h>
 #include <core/AdamW.h>
 #include <core/Tensor.h>
+#include <core/CrossEntropyLoss.h>
+#include <core/Attention.h>

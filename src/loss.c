@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include "utils.h"
+#include "dispatch.h"
 #include "loss.h"
 
 
@@ -57,20 +58,10 @@ tensor_t *forward_cross_entropy_loss(cross_entropy_loss_t *loss, tensor_t *logit
     */
 
     device_t device = logits->device;
-    int B, T, C;
-    B = logits->shape[0];
-    T = logits->shape[1];
-    C = logits->shape[2];
     tensor_t *probs = loss->softmax->forward(loss->softmax, logits);
-
     tensor_t *out = zeros(targets->shape, targets->ndims, device);
-    for (int b = 0; b < B; b++) {
-        for (int t = 0; t < T; t++) {
-            float *probs_bt = probs->t + b * T * C + t * C;
-            int ix = (int)targets->t[b * T + t];
-            out->t[b * T + t] = -logf(probs_bt[ix]);
-        }
-    }
+
+    cross_entropy_forward_dispatch(probs, targets, out);
     
     loss->cache[0] = probs; 
     loss->cache[1] = targets;
@@ -102,30 +93,11 @@ tensor_t *backward_cross_entropy_loss(cross_entropy_loss_t *loss, tensor_t *glob
     */
 
     device_t device = global_grad->device;
-    int B, T, C;
     tensor_t *probs = loss->cache[0];
     tensor_t *targets = loss->cache[1];
+    tensor_t *dout = zeros(probs->shape, probs->ndims, device);
 
-    B = probs->shape[0];
-    T = probs->shape[1];
-    C = probs->shape[2];
-
-    tensor_t *out = zeros(probs->shape, probs->ndims, device);
-
-    for (int b = 0; b < B; b++) {
-        for (int t = 0; t < T; t++) {
-            float *out_bt = out->t + b * T * C + t * C;
-            float *prob_bt = probs->t + b * T * C + t * C;
-            float dloss = global_grad->t[b * T + t];
-            int ix = (int)targets->t[b * T + t]; 
-
-            for (int i = 0; i < C; i++) {
-                float p = prob_bt[i];
-                float indicator = i == ix ? 1.0f : 0.0f;
-                out_bt[i] += (p - indicator) * dloss;
-            }
-        }
-    }
+    cross_entropy_backward_dispatch(global_grad, loss->cache, dout);
 
     free_tensor(global_grad);
     free_tensor(loss->cache[0]);
@@ -133,7 +105,7 @@ tensor_t *backward_cross_entropy_loss(cross_entropy_loss_t *loss, tensor_t *glob
     global_grad = NULL;
     loss->cache[0] = NULL;
     loss->cache[1] = NULL;
-    return out;
+    return dout;
 }
 
 

@@ -73,8 +73,11 @@ void step_adamW_pytorch_cpu_kernel(
 
         for (int j = 0; j < grad->length; j++) {
             _param_t[j] -= lr * weight_decay * _param_t[j];
-            float _m = lerpf(_grad_t[j], _m_t[j], beta1);                // beta1 * _m_t[j] + (1.0f - beta1) * _grad_t[j];
-            float _v = lerpf(_grad_t[j] * _grad_t[j], _v_t[j], beta2);   // beta2 * _v_t[j] + (1.0f - beta2) * _grad_t[j] * _grad_t[j];
+            // float _m = lerpf(_grad_t[j], _m_t[j], beta1);                // beta1 * _m_t[j] + (1.0f - beta1) * _grad_t[j];
+            // float _v = lerpf(_grad_t[j] * _grad_t[j], _v_t[j], beta2);   // beta2 * _v_t[j] + (1.0f - beta2) * _grad_t[j] * _grad_t[j];
+            float _m = beta1 * _m_t[j] + (1.0f - beta1) * _grad_t[j];
+            float _v = beta2 * _v_t[j] + (1.0f - beta2) * _grad_t[j] * _grad_t[j];
+
             float m_hat = _m / beta1_correction;
             float v_hat = _v / beta2_correction;
             _m_t[j] = _m;

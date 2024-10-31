@@ -101,115 +101,30 @@ tensor_t *forward_attention(attention_t *attn, tensor_t *x) {
     C = C3 / 3;
     n_heads = attn->n_heads;
     hs = C / n_heads;
-    buffer_row_size = attn->buffer->shape[attn->buffer->ndims - 1];
-    float scale = 1.0f / sqrtf(hs);
 
     tensor_t *q, *k, *v; 
+    tensor_t **cache = attn->cache;
     int qkv_transpose_shape[4] = {B, n_heads, T, hs};
     q = create_tensor(qkv_transpose_shape, 4, device);
     k = create_tensor(qkv_transpose_shape, 4, device);
     v = create_tensor(qkv_transpose_shape, 4, device);
 
-    for (int b = 0; b < B; b++) {
-        for (int h = 0; h < n_heads; h++) {
-            for (int t = 0; t < T; t++) {
-                const float *x_q = x->t + b * T * C3 + t * C3;
-                const float *x_k = x_q + C;
-                const float *x_v = x_k + C;
-
-                const float *x_qt = x_q + h * hs;
-                const float *x_kt = x_k + h * hs;
-                const float *x_vt = x_v + h * hs;
-
-                float *qt = q->t + b * n_heads * T * hs + h * T * hs + t * hs;
-                float *kt = k->t + b * n_heads * T * hs + h * T * hs + t * hs;
-                float *vt = v->t + b * n_heads * T * hs + h * T * hs + t * hs;
-
-                for (int j = 0; j < hs; j++) {
-                    qt[j] = x_qt[j];
-                    kt[j] = x_kt[j];
-                    vt[j] = x_vt[j];
-                }
-            }
-        }
-    }
-
     int att_shape[4] = {B, n_heads, T, T};
     tensor_t *att = create_tensor(att_shape, 4, device);
-
-    // att = (q @ k.transpose(-2, -1)) * (1.0/sqrt(hs))
-    for (int b = 0; b < B; b++) {
-        for (int h = 0; h < n_heads; h++) {
-            sgemm_dispatch(
-                0, 1, T, T, hs,
-                scale, q, b * n_heads * T * hs + h * T * hs, hs,
-                k, b * n_heads * T * hs + h * T * hs, hs,
-                0.0f, att, b * n_heads * T * T + h * T * T, T
-            );
-        }
-    }
-
-    // cache current att scores
     tensor_t *preatt = create_tensor(att->shape, att->ndims, device);
-    tensor_copy(preatt, att);
 
     int out_shape[3] = {B, T, C};
-    tensor_t *out, *_out; 
-    out = create_tensor(out_shape, 3, device);
-    _out = create_tensor(out_shape, 3, device);
-
-    for (int i = 0; i < B * n_heads; i++) {
-        for (int j = 0; j < T; j++) {
-            float max_val = -FLT_MAX;
-            float *att_tt = att->t + i * T * T + j * T;
-
-            for (int k = 0; k < T; k++) {
-                att_tt[k] = attn->buffer->t[j * buffer_row_size + k] == 1.0f ? att_tt[k] : -INFINITY;
-                max_val = (att_tt[k] > max_val) ? att_tt[k] : max_val;
-            }
-
-            float expsum = 0.0f;
-            for (int k = 0; k <= j; k++) {
-                float expv = expf(att_tt[k] - max_val);
-                expsum += expv;
-                att_tt[k] = expv;
-            }
-            float expsum_inv = expsum == 0.0f ? 0.0f : 1.0f / expsum;
-            for (int k = 0; k < T; k++) {
-                if (k <= j)
-                    att_tt[k] *= expsum_inv;
-                else
-                    att_tt[k] = 0.0f;
-            }
-            
-        }
-
-        // compute out = att @ v : att(B, n_heads, T, T) @ v(B, n_heads, T, hs)
-        sgemm_dispatch(
-            0, 0, T, hs, T,
-            1.0f, att, i * T * T, T,
-            v, i * T * hs, hs,
-            0.0f, _out, i * T * hs, hs
-        );
-    }
-
-    for (int b = 0; b < B; b++) {
-        for (int t = 0; t < T; t++) {
-            for (int h = 0; h < n_heads; h++) {
-                memcpy(out->t + b * T * n_heads * hs + t * n_heads * hs + h * hs, _out->t + b * n_heads * T * hs + h * T * hs + t * hs, hs * sizeof(float));
-            }
-        }
-    }
+    tensor_t *out = create_tensor(out_shape, 3, device);
     
-    attn->cache[0] = q;
-    attn->cache[1] = k;
-    attn->cache[2] = v;
-    attn->cache[3] = preatt;
-    attn->cache[4] = att;
+    cache[0] = q;
+    cache[1] = k;
+    cache[2] = v;
+    cache[3] = preatt;
+    cache[4] = att;
+
+    attention_forward_dispatch(x, attn->buffer, n_heads, cache, out);
     
-    free_tensor(x);
-    free_tensor(_out);
-    
+    free_tensor(x);    
     return out;
 }
 
@@ -226,152 +141,19 @@ tensor_t *backward_attention(attention_t *attn, tensor_t *global_grad) {
     C = global_grad->shape[2];
     n_heads = attn->n_heads;
     hs = C / n_heads;
-    float scale = 1.0f / sqrtf(hs);
 
-    int datt_shape[4] = {B, n_heads, T, T};
-    tensor_t *preatt, *dpreatt, *att, *datt, *q, *dq, *k, *dk, *v, *dv;
-
-    q = attn->cache[0];
-    k = attn->cache[1];
-    v = attn->cache[2];
-    preatt = attn->cache[3];
-    att = attn->cache[4];
-
-    dq = zeros(q->shape, q->ndims, device);
-    dk = zeros(k->shape, k->ndims, device);
-    dv = zeros(v->shape, v->ndims, device);
-    dpreatt = zeros(datt_shape, 4, device);
-    datt = zeros(datt_shape, 4, device);
-
-    int global_grad_T_shape[4] = {B, n_heads, T, hs};
-    tensor_t *global_grad_T = create_tensor(global_grad_T_shape, 4, device);
-
-    for (int b = 0; b < B; b++) {
-        for (int t = 0; t < T; t++) {
-            for (int h = 0; h < n_heads; h++) {
-                memcpy(global_grad_T->t + b * n_heads * T * hs + h * T * hs + t * hs, global_grad->t + b * T * n_heads * hs + t * n_heads * hs + h * hs, hs * sizeof(float));
-            }
-        }
-    }
-
-    free_tensor(global_grad);
-    global_grad = global_grad_T;
-    global_grad_T = NULL;
-
-    for (int b = 0; b < B; b++) {
-        for (int h = 0; h < n_heads; h++) {
-
-            // backprop into q, k
-            // dq: (B, n_heads, T, hs)
-            // dk: (B, n_heads, T, hs)
-            // dpreatt: (B, n_heads, T, T)
-            //
-            // Forward
-            // -------
-            // out = att @ v
-            //
-            // Backward
-            // --------
-            // datt = global_grad (B, n_heads, T, hs) @ v (B, n_heads, T, hs).T
-            // dv = att (B, n_heads, T, T).T @ global_grad (B, n_heads, T, hs)
-            sgemm_dispatch(
-                0, 1, T, T, hs,
-                1.0f, global_grad, b * n_heads * T * hs + h * T * hs, hs,
-                v, b * n_heads * T * hs + h * T * hs, hs,
-                1.0f, datt, b * n_heads * T * T + h * T * T, T
-            );
-
-            sgemm_dispatch(
-                1, 0, T, hs, T,
-                1.0f, att, b * n_heads * T * T + h * T * T, T,
-                global_grad, b * n_heads * T * hs + h * T * hs, hs,
-                1.0f, dv, b * n_heads * T * hs + h * T * hs, hs 
-            );
-
-            // backprop into softmax
-
-            for (int t = 0; t < T; t++) {
-                float *att_bth = att->t + b * n_heads * T * T + h * T * T + t * T;
-                float *datt_bth = datt->t + b * n_heads * T * T + h * T * T + t * T;
-                float *dpreatt_bth = dpreatt->t + b * n_heads * T * T + h * T * T + t * T;
-                for (int t2 = 0; t2 <= t; t2++) {
-                    for (int t3 = 0; t3 <= t; t3++) {
-                        float indicator = t2 == t3 ? 1.0f : 0.0f;
-                        float local_grad = att_bth[t2] * (indicator - att_bth[t3]);
-                        dpreatt_bth[t3] += local_grad * datt_bth[t2];
-                    }
-                }
-            }
-
-            // backprop into q, k
-            // dq: (B, n_heads, T, hs)
-            // dk: (B, n_heads, T, hs)
-            // dpreatt: (B, n_heads, T, T)
-            //
-            // Forward
-            // -------
-            // att = ( q @ k.transpose(-2, -1)) * scale
-            // 
-            // Backward
-            // --------
-            // dq = dpreatt (B, n_heads, T, T) @ k (B, n_heads, T, hs)
-            // dk = dpreatt (B, n_heads, T, T) @ q (B, n_heads, T, hs)
-
-            sgemm_dispatch(
-                0, 0, T, hs, T,
-                scale, dpreatt, b * n_heads * T * T + h * T * T, T,
-                k, b * n_heads * T * hs + h * T * hs, hs,
-                1.0f, dq, b * n_heads * T * hs + h * T * hs, hs
-            );
-
-            sgemm_dispatch(
-                1, 0, T, hs, T,
-                scale, dpreatt, b * n_heads * T * T + h * T * T, T,
-                q, b * n_heads * T * hs + h * T * hs, hs,
-                1.0f, dk, b * n_heads * T * hs + h * T * hs, hs
-            );
-        }
-    }
-
-    free_tensor(global_grad);
-    free_tensor(datt);
-    free_tensor(dpreatt);
-
-    // accumulate all gradients to dout and free the tensors
+    const tensor_t **cache = attn->cache;
     int dout_shape[3] = {B, T, C * 3};
     tensor_t *dout = create_tensor(dout_shape, 3, device);
 
-    for (int b = 0; b < B; b++) {
-        for (int t = 0; t < T; t++) {
-            float *dout_q = dout->t + b * T * C * 3 + t * C * 3;
-            float *dout_k = dout_q + C;
-            float *dout_v = dout_k + C;
-            for (int h = 0; h < n_heads; h++) {
-                const float *_dq = dq->t + b * n_heads * T * hs + h * T * hs + t * hs;
-                const float *_dk = dk->t + b * n_heads * T * hs + h * T * hs + t * hs;
-                const float *_dv = dv->t + b * n_heads * T * hs + h * T * hs + t * hs;
+    attention_backward_dispatch(global_grad, cache, n_heads, dout);
 
-                float *dout_qh = dout_q + h * hs;
-                float *dout_kh = dout_k + h * hs;
-                float *dout_vh = dout_v + h * hs;
-                #pragma omp simd
-                for (int j = 0; j < hs; j++) {
-                    dout_qh[j] = _dq[j];
-                    dout_kh[j] = _dk[j];
-                    dout_vh[j] = _dv[j];
-                }
-            }
-        }
-    }
-
-    free_tensor(q);
-    free_tensor(k);
-    free_tensor(v);
-    free_tensor(preatt);
-    free_tensor(att);
-    free_tensor(dq);
-    free_tensor(dk);
-    free_tensor(dv);
+    free_tensor(global_grad);
+    free_tensor(attn->cache[0]);
+    free_tensor(attn->cache[1]);
+    free_tensor(attn->cache[2]);
+    free_tensor(attn->cache[3]);
+    free_tensor(attn->cache[4]);
     attn->cache[0] = NULL;
     attn->cache[1] = NULL;
     attn->cache[2] = NULL;

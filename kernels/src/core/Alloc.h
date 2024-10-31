@@ -12,7 +12,7 @@ void *alloc_dispatch(
 );
 
 void free_dispatch(
-    void *ptr, const device_t device
+    float *ptr, const device_t device
 );
 
 #ifdef __cplusplus
