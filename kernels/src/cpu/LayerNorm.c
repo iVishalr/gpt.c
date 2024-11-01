@@ -39,9 +39,9 @@ void layer_norm_forward_cpu_kernel(
         sum /= in_features;
         sum2 /= in_features;
 
-        float m = sum;
-        float var = sum2 - sum * sum;
-        float rstd = 1.0f / sqrtf(var + eps);
+        const float m = sum;
+        const float var = sum2 - sum * sum;
+        const float rstd = 1.0f / sqrtf(var + eps);
 
         for (int j = 0; j < in_features; j++) {
             float n = rstd * (_inp_i[j] - m);

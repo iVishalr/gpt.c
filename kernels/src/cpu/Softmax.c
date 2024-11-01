@@ -1,5 +1,6 @@
 #include <math.h>
-#include <omp.h>
+#include <float.h>
+// #include <omp.h>
 #include <cpu/Softmax.h>
 
 
@@ -9,18 +10,17 @@ void softmax_forward_cpu_kernel(const tensor_t *input, tensor_t *output) {
     T = input->shape[1];
     C = input->shape[2];
 
-    float *_inp = __builtin_assume_aligned(input->t, 64);
+    const float *_inp = __builtin_assume_aligned(input->t, 64);
     float *_out = __builtin_assume_aligned(output->t, 64);
 
     #pragma omp parallel for collapse(2)
     for (int b = 0; b < B; b++) {
         for (int t = 0; t < T; t++) {
-            float *x_bt = _inp + b * T * C + t * C;
+            const float *x_bt = _inp + b * T * C + t * C;
             float *out_bt = _out + b * T * C + t * C;
-            float maxval = -INFINITY;
+            float maxval = -FLT_MAX;
             for (int i = 0; i < C; i++)
-                if (x_bt[i] > maxval)
-                    maxval = x_bt[i];
+                maxval = x_bt[i] > maxval ? x_bt[i] : maxval;
             
             float sum = 0.0f;
             for (int i = 0; i < C; i++) {

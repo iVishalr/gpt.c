@@ -2,7 +2,7 @@
 #include <omp.h>
 #include <cpu/AdamW.h>
 
-inline float lerpf(const float start, const float end, const float weight) {
+static inline float lerpf(const float start, const float end, const float weight) {
     return fmaf(weight, end, fmaf(-weight, start, start));
 }
 
@@ -44,10 +44,10 @@ void step_adamW_naive_cpu_kernel(
 }
 
 void step_adamW_pytorch_cpu_kernel(
-    tensor_t **restrict parameters,
-    tensor_t **restrict gradients,
-    tensor_t **restrict m,
-    tensor_t **restrict v,
+    tensor_t **parameters,
+    tensor_t **gradients,
+    tensor_t **m,
+    tensor_t **v,
     const int n,
     const float lr,
     const float beta1,
@@ -89,8 +89,8 @@ void step_adamW_pytorch_cpu_kernel(
 
 void zero_grad_adamW_cpu_kernel(tensor_t **gradients, const int n) {
     for (int i = 0; i < n; i++) {
-        tensor_t *restrict grad = gradients[i];
-        float *restrict _grad_t = __builtin_assume_aligned(grad->t, 64);
+        tensor_t *grad = gradients[i];
+        float *_grad_t = __builtin_assume_aligned(grad->t, 64);
         for (int j = 0; j < grad->length; j++)
             _grad_t[j] = 0.0f;
     }

@@ -10,7 +10,7 @@ void attention_forward_cpu_kernel(
     const tensor_t *input,
     const tensor_t *mask,
     const int n_heads,
-    tensor_t **cache,
+    const tensor_t **cache,
     tensor_t *output
 ) {
     /*
@@ -40,7 +40,7 @@ void attention_forward_cpu_kernel(
     C = C3 / 3;
     hs = C / n_heads;
     mask_row_size = mask->shape[mask->ndims - 1];
-    float scale = 1.0f / sqrtf(hs);
+    const float scale = 1.0f / sqrtf(hs);
 
     const float *x = __builtin_assume_aligned(input->t, 64);
     const float *_mask = __builtin_assume_aligned(mask->t, 64);
@@ -162,7 +162,7 @@ void attention_backward_cpu_kernel(
     T = global_grad->shape[1];
     C = global_grad->shape[2];
     hs = C / n_heads;
-    float scale = 1.0f / sqrtf(hs);
+    const float scale = 1.0f / sqrtf(hs);
 
     const tensor_t *q, *k, *v, *preatt, *att;
     q = cache[0]; 

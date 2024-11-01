@@ -10,7 +10,7 @@ void attention_forward_cpu_kernel(
     const tensor_t *input,
     const tensor_t *mask,
     const int n_heads,
-    tensor_t **cache,
+    const tensor_t **cache,
     tensor_t *output
 );
 
