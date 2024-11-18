@@ -20,7 +20,7 @@ void softmax_forward_cpu_kernel(const tensor_t *input, tensor_t *output) {
             float *out_bt = _out + b * T * C + t * C;
             float maxval = -FLT_MAX;
             for (int i = 0; i < C; i++)
-                maxval = x_bt[i] > maxval ? x_bt[i] : maxval;
+                maxval = fmaxf(maxval, x_bt[i]);
             
             float sum = 0.0f;
             for (int i = 0; i < C; i++) {

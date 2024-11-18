@@ -2,7 +2,7 @@
 #include <cpu/Alloc.h>
 #include "utils.h"
 
-size_t compute_aligned_tensor_size(const size_t nbytes, const size_t alignment) {
+static inline size_t compute_aligned_tensor_size(const size_t nbytes, const size_t alignment) {
     return (nbytes + alignment - 1) & (~(alignment - 1));
 }
 

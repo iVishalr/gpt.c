@@ -111,7 +111,7 @@ void attention_forward_cpu_kernel(
 
             for (int k = 0; k < T; k++) {
                 att_tt[k] = _mask[j * mask_row_size + k] == 1.0f ? att_tt[k] : -INFINITY;
-                max_val = (att_tt[k] > max_val) ? att_tt[k] : max_val;
+                max_val = fmaxf(max_val, att_tt[k]);
             }
 
             float expsum = 0.0f;
