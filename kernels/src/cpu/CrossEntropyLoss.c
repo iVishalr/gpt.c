@@ -1,5 +1,7 @@
 #include <math.h>
+#include <float.h>
 #include <omp.h>
+#include <stdlib.h>
 #include <cpu/CrossEntropyLoss.h>
 
 void cross_entropy_forward_cpu_kernel(
@@ -16,12 +18,11 @@ void cross_entropy_forward_cpu_kernel(
     const float *_targets = __builtin_assume_aligned(targets->t, 64);
     float *_out = __builtin_assume_aligned(output->t, 64);
 
-    for (int b = 0; b < B; b++) {
-        for (int t = 0; t < T; t++) {
-            const float *_probs_bt = _probs + b * T * C + t * C;
-            int ix = (int)_targets[b * T + t];
-            _out[b * T + t] = -logf(_probs_bt[ix]);
-        }
+    // #pragma omp parallel
+    for (int i = 0; i < B * T; i++) {
+        const float *_probs_bt = _probs + i * C;
+        int ix = (int)_targets[i];
+        _out[i] = -logf(_probs_bt[ix]);
     }
 }
 
