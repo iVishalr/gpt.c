@@ -488,16 +488,11 @@ int main(int argc, char **argv) {
             // calculate loss
             tensor_t *losses = loss->forward(loss, logits, targets);
 
-            float training_mean_loss = 0.0f;
-            for (int i = 0; i < losses->length; i++)
-                training_mean_loss += losses->t[i];
-            training_mean_loss /= losses->length;
+            float training_mean_loss = losses->t[0];
 
             // backward pass
-            for (int i = 0; i < losses->length; i++)
-                losses->t[i] = 1.0f / losses->length;
-
-            tensor_t *global_grad = loss->backward(loss, losses);
+            tensor_t *global_grad = ones(targets->shape, targets->ndims, targets->device);
+            global_grad = loss->backward(loss, global_grad);
             global_grad = gpt->backward(gpt, global_grad);
 
             // update parameters
@@ -513,6 +508,7 @@ int main(int argc, char **argv) {
             free_tensor(logits);
             free_tensor(_x);
             free_tensor(_targets);
+            free_tensor(losses);
         }
         // run validation every validation_interval
         if (val_loader && epoch % training_config.validation_interval == 0) {

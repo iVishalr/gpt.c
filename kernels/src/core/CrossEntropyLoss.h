@@ -8,8 +8,9 @@ extern "C"
 #endif
 
 void cross_entropy_forward_dispatch(
-    const tensor_t *probs,
+    const tensor_t *logits,
     const tensor_t *targets,
+    tensor_t **cache,
     tensor_t *output
 );
 

@@ -3,21 +3,22 @@
 #include "utils.h"
 
 void cross_entropy_forward_dispatch(
-    const tensor_t *probs,
+    const tensor_t *logits,
     const tensor_t *targets,
+    tensor_t **cache,
     tensor_t *output
 ) {
     CHECK_ERROR(
-        probs->device != targets->device,
+        logits->device != targets->device,
         "Expected both probs and targets tensors to be on the same device, but got probs.device != targets.device"
     );
     CHECK_ERROR(
-        probs->device != output->device, 
+        logits->device != output->device, 
         "Expected both probs and output tensors to be on the same device, but got probs.device != output.device"
     );
     device_t device = output->device;
     if (device == CPU)
-        cross_entropy_forward_cpu_kernel(probs, targets, output);
+        cross_entropy_forward_cpu_kernel(logits, targets, cache, output);
     else
         CHECK_ERROR(1, "Given device is not supported.");
 }

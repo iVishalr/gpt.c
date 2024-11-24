@@ -30,7 +30,7 @@ void softmax_forward_cpu_kernel(const tensor_t *input, tensor_t *output) {
             sum += val;
             output_bt[j] = val;
         }
-        sum = 1 / sum;
+        sum = 1.0f / sum;
 
         for (int j = 0; j < C; j++)
             output_bt[j] = output_bt[j] * sum;

@@ -17,7 +17,6 @@ void free_cache_cross_entropy_loss(cross_entropy_loss_t *loss);
 // CrossEntropyLoss Class
 cross_entropy_loss_t *CrossEntropyLoss() {
     cross_entropy_loss_t *loss = (cross_entropy_loss_t *)mallocCheck(sizeof(cross_entropy_loss_t));
-    loss->softmax = Softmax();
     loss->cache[0] = NULL;
     loss->cache[1] = NULL;
     loss->forward = forward_cross_entropy_loss;
@@ -58,12 +57,13 @@ tensor_t *forward_cross_entropy_loss(cross_entropy_loss_t *loss, tensor_t *logit
     */
 
     device_t device = logits->device;
-    tensor_t *probs = loss->softmax->forward(loss->softmax, logits);
-    tensor_t *out = zeros(targets->shape, targets->ndims, device);
+    int out_shape[1] = {1};
+    tensor_t *out = zeros(out_shape, 1, device);
 
-    cross_entropy_forward_dispatch(probs, targets, out);
+    loss->cache[0] = create_tensor(logits->shape, logits->ndims, device);
+
+    cross_entropy_forward_dispatch(logits, targets, loss->cache, out);
     
-    loss->cache[0] = probs; 
     loss->cache[1] = targets;
     return out;
 }
@@ -93,9 +93,9 @@ tensor_t *backward_cross_entropy_loss(cross_entropy_loss_t *loss, tensor_t *glob
     */
 
     device_t device = global_grad->device;
-    tensor_t *probs = loss->cache[0];
+    tensor_t *log_softmax_output = loss->cache[0];
     tensor_t *targets = loss->cache[1];
-    tensor_t *dout = zeros(probs->shape, probs->ndims, device);
+    tensor_t *dout = zeros(log_softmax_output->shape, log_softmax_output->ndims, device);
 
     cross_entropy_backward_dispatch(global_grad, loss->cache, dout);
 
@@ -123,7 +123,6 @@ void free_layer_cross_entropy_loss(cross_entropy_loss_t *loss) {
     if (loss == NULL)
         return;
 
-    loss->softmax->free_layer(loss->softmax);
     free_tensor(loss->cache[0]);
     free_tensor(loss->cache[1]);
     free(loss);
