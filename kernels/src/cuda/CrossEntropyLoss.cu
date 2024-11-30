@@ -1,8 +1,7 @@
 #include <math.h>
-#include <stdlib.h>
-#include <cuda/CrossEntropyLoss.h>
 #include <cuda/common.cuh>
 #include <cuda/cuda_common.h>
+#include <cuda/CrossEntropyLoss.h>
 
 C10_LAUNCH_BOUNDS_1(num_threads())
 __global__ void cross_entropy_forward_cuda_kernel_impl(
