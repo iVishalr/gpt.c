@@ -12,23 +12,8 @@ void *aligned_alloc_cpu(const size_t nbytes, const size_t alignment) {
     return ptr;
 }
 
-void free_cpu(float *ptr) {
+void free_cpu(void *ptr) {
     if (ptr == NULL) 
         return;
     free(ptr);
-}
-
-tensor_t *as_tensor(float *data, const int *shape, const int n) {
-    tensor_t *tensor = (tensor_t*)mallocCheck(sizeof(tensor_t));
-    tensor->t = data;
-    int length = 1;
-    for (int i = 0; i < n; i++) {
-        length *= shape[i];
-        tensor->shape[i] = shape[i];
-    }
-    tensor->length = length;
-    tensor->ndims = n;
-    tensor->device = CPU;
-    tensor->to = NULL;
-    return tensor;
 }

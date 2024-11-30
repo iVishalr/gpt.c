@@ -1,8 +1,7 @@
-#include <omp.h>
 #include <math.h>
+#include <float.h>
 #include <cblas.h>
 #include <string.h>
-#include <float.h>
 #include <cpu/Alloc.h>
 #include <cpu/Attention.h>
 
@@ -175,8 +174,8 @@ void attention_backward_cpu_kernel(
     float *dq           = (float *)aligned_alloc_cpu(B * n_heads * T * hs * sizeof(float), 64);
     float *dk           = (float *)aligned_alloc_cpu(B * n_heads * T * hs * sizeof(float), 64);
     float *dv           = (float *)aligned_alloc_cpu(B * n_heads * T * hs * sizeof(float), 64);
-    float *datt         = (float *)aligned_alloc_cpu(B * n_heads * T * T * sizeof(float), 64);
-    float *dpreatt      = (float *)aligned_alloc_cpu(B * n_heads * T * T * sizeof(float), 64);
+    float *datt         = (float *)aligned_alloc_cpu(B * n_heads * T * T  * sizeof(float), 64);
+    float *dpreatt      = (float *)aligned_alloc_cpu(B * n_heads * T * T  * sizeof(float), 64);
 
     for(int i = 0; i < B * n_heads * T * hs; i++) {
         dq[i] = 0.0f;
@@ -296,7 +295,6 @@ void attention_backward_cpu_kernel(
                 float *dout_qh = dout_q + h * hs;
                 float *dout_kh = dout_k + h * hs;
                 float *dout_vh = dout_v + h * hs;
-                #pragma omp simd
                 for (int j = 0; j < hs; j++) {
                     dout_qh[j] = _dq[j];
                     dout_kh[j] = _dk[j];
