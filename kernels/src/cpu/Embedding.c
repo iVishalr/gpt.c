@@ -14,14 +14,12 @@ void embedding_forward_cpu_kernel(
     const float *_inp = __builtin_assume_aligned(input->t, 64);
     float *_out = __builtin_assume_aligned(output->t, 64);
 
-    for (int b = 0; b < B; b++) {
-        for (int t = 0; t < T; t++) {
-            float *out_bt = _out + b * T * C + t * C;
-            int ix = (int)_inp[b * T + t];
-            const float *w_ix = _W + ix * C;
-            for (int i = 0; i < C; i++)
-                out_bt[i] = w_ix[i];
-        }
+    for (int i = 0; i < B * T; i++) {
+        float *out_bt = _out + i * C;
+        const int ix = (int)_inp[i];
+        const float *w_ix = _W + ix * C;
+        for (int j = 0; j < C; j++)
+            out_bt[j] = w_ix[j];
     }
 }
 
@@ -39,14 +37,11 @@ void embedding_backward_cpu_kernel(
     const float *_cache = __builtin_assume_aligned(cache->t, 64);
     float *_dW = __builtin_assume_aligned(dW->t, 64);
 
-    for (int b = 0; b < B; b++) {
-        for (int t = 0; t < T; t++) {
-            const float *global_grad_bt = _global_grad + b * T * C + t * C;
-            int ix = (int)_cache[b * T + t];
-            float *dW_ix = _dW + ix * C;
-            for (int i = 0; i < C; i++) {
-                dW_ix[i] += global_grad_bt[i];
-            }
-        }
+    for (int i = 0; i < B * T; i++) {
+        const float *global_grad_bt = _global_grad + i * C;
+        const int ix = (int)_cache[i];
+        float *dW_ix = _dW + ix * C;
+        for (int j = 0; j < C; j++)
+            dW_ix[j] += global_grad_bt[j];
     }
 }
