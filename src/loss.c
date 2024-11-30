@@ -63,7 +63,7 @@ tensor_t *forward_cross_entropy_loss(cross_entropy_loss_t *loss, tensor_t *logit
     loss->cache[0] = create_tensor(logits->shape, logits->ndims, device);
 
     cross_entropy_forward_dispatch(logits, targets, loss->cache, out);
-    
+
     loss->cache[1] = targets;
     return out;
 }
@@ -94,7 +94,6 @@ tensor_t *backward_cross_entropy_loss(cross_entropy_loss_t *loss, tensor_t *glob
 
     device_t device = global_grad->device;
     tensor_t *log_softmax_output = loss->cache[0];
-    tensor_t *targets = loss->cache[1];
     tensor_t *dout = zeros(log_softmax_output->shape, log_softmax_output->ndims, device);
 
     cross_entropy_backward_dispatch(global_grad, loss->cache, dout);

@@ -1,5 +1,6 @@
 #include <core/CrossEntropyLoss.h>
 #include <cpu/CrossEntropyLoss.h>
+#include <cuda/CrossEntropyLoss.h>
 #include "utils.h"
 
 void cross_entropy_forward_dispatch(
@@ -16,9 +17,11 @@ void cross_entropy_forward_dispatch(
         logits->device != output->device, 
         "Expected both probs and output tensors to be on the same device, but got probs.device != output.device"
     );
-    device_t device = output->device;
+    device_t device = logits->device;
     if (device == CPU)
         cross_entropy_forward_cpu_kernel(logits, targets, cache, output);
+    else if (device == CUDA)
+        cross_entropy_forward_cuda_kernel(logits, targets, cache, output);
     else
         CHECK_ERROR(1, "Given device is not supported.");
 }
@@ -35,6 +38,8 @@ void cross_entropy_backward_dispatch(
     device_t device = global_grad->device;
     if (device == CPU)
         cross_entropy_backward_cpu_kernel(global_grad, cache, dout);
+    else if (device == CUDA)
+        cross_entropy_backward_cuda_kernel(global_grad, cache, dout);
     else
         CHECK_ERROR(1, "Given device is not supported.");
 }
