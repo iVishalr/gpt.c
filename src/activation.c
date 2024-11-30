@@ -6,9 +6,6 @@
 #include "activation.h"
 #include "dispatch.h"
 
-#define GELU_SCALING_FACTOR sqrtf(2.0f / M_PI)
-
-
 tensor_t *forward_gelu(gelu_t *gelu, tensor_t *x);
 tensor_t *backward_gelu(gelu_t *gelu, tensor_t *global_grad);
 void description_gelu(const gelu_t *gelu);
@@ -49,7 +46,7 @@ tensor_t *backward_gelu(gelu_t *gelu, tensor_t *global_grad) {
     CHECK_ERROR(gelu == NULL, "Expected *gelu to be a gelu_t pointer, but got NULL.");
     CHECK_ERROR(global_grad == NULL, "Expected *global_grad to be a tensor_t pointer, but got NULL.");
 
-    tensor_t *dout = zeros(gelu->cache->shape, gelu->cache->ndims, gelu->cache->device);
+    tensor_t *dout = zeros(gelu->cache->shape, gelu->cache->ndims, global_grad->device);
 
     gelu_backward_dispatch(global_grad, gelu->cache, dout);
 
@@ -118,31 +115,28 @@ tensor_t *forward_softmax(softmax_t *softmax, tensor_t *x) {
     CHECK_ERROR(softmax == NULL, "Expected *softmax to be a softmax_t pointer, but got NULL.");
     CHECK_ERROR(x == NULL, "Expected *x to be a tensor_t pointer, but got NULL.");
 
-    int B, T, C;
-    B = x->shape[0];
-    T = x->shape[1];
-    C = x->shape[2];
-
     tensor_t *out = create_tensor(x->shape, x->ndims, x->device);
 
     softmax_forward_dispatch(x, out);
 
+    softmax->cache = out;
     return out;
 }
 
 
 tensor_t *backward_softmax(softmax_t *softmax, tensor_t *global_grad) {
-
     CHECK_ERROR(softmax == NULL, "Expected *softmax to be a softmax_t pointer, but got NULL.");
     CHECK_ERROR(global_grad == NULL, "Expected *global_grad to be a tensor_t pointer, but got NULL.");
 
-    printf("NotImplementedError: softmax.backward() is not implemented. Please use CrossEntropyLoss instead.\n");
+    tensor_t *dout = zeros(global_grad->shape, global_grad->ndims, global_grad->device);
+
+    softmax_backward_dispatch(global_grad, softmax->cache, dout);
 
     free_tensor(softmax->cache);
     free_tensor(global_grad);
     softmax->cache = NULL;
     global_grad = NULL;
-    return NULL;
+    return dout;
 }
 
 

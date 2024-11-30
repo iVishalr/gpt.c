@@ -2,7 +2,7 @@
 #include <cuda/cuda_common.h>
 
 C10_LAUNCH_BOUNDS_1(num_threads())
-__global__ void gelu_forward_cuda_kernel(const float *__restrict__ input, float *output, const int n) {
+__global__ void gelu_forward_cuda_kernel_impl(const float *__restrict__ input, float *output, const int n) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < n) {
         const float kBeta = M_SQRT2 * M_2_SQRTPI * 0.5;
@@ -13,7 +13,7 @@ __global__ void gelu_forward_cuda_kernel(const float *__restrict__ input, float 
 }
 
 C10_LAUNCH_BOUNDS_1(num_threads())
-__global__ void gelu_backward_cuda_kernel(const float* global_grad, const float* input, float* dout, int n) {
+__global__ void gelu_backward_cuda_kernel_impl(const float* global_grad, const float* input, float* dout, int n) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i < n) {
         const float kBeta = M_SQRT2 * M_2_SQRTPI * 0.5f;
@@ -44,7 +44,7 @@ void gelu_forward_cuda_kernel(
     const int n = input->length;
     const int block_size = num_threads();
     const int grid_size = (n + block_size - 1) / block_size;
-    gelu_forward_cuda_kernel<<<grid_size, block_size>>>(input->t, output->t, n);
+    gelu_forward_cuda_kernel_impl<<<grid_size, block_size>>>(input->t, output->t, n);
     cudaCheck(cudaGetLastError());
 }
 
@@ -54,7 +54,7 @@ void gelu_backward_cuda_kernel(
     const int n = global_grad->length;
     const int block_size = num_threads();
     const int grid_size = (n + block_size - 1) / block_size;
-    gelu_backward_cuda_kernel<<<grid_size, block_size>>>(global_grad->t, cache->t, dout->t, n);
+    gelu_backward_cuda_kernel_impl<<<grid_size, block_size>>>(global_grad->t, cache->t, dout->t, n);
     cudaCheck(cudaGetLastError());
 }
 
