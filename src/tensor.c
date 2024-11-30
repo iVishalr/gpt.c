@@ -65,9 +65,6 @@ float rand_norm(double mean, double stddev) {
     return (float)(mean + stddev * (u * s));
 }
 
-void __move_tensor_to_device(tensor_t *tensor, const device_t device) {}
-
-
 tensor_t *create_tensor(const int *shape, const int n, const device_t device) {
     CHECK_ERROR(shape == NULL, "Expected *shape to be a integer pointer, but got NULL.");
 
@@ -75,7 +72,7 @@ tensor_t *create_tensor(const int *shape, const int n, const device_t device) {
 
     tensor->ndims = n;
     tensor->device = device;
-    tensor->to = __move_tensor_to_device;
+    tensor->to = move_tensor_data_dispatch;
 
     int total_elements = 1;
     for (int i = 0; i < n; i++) {

@@ -1,13 +1,18 @@
 CC = gcc
+NVCC = nvcc -ccbin=gcc
 BUILD = release
 CFLAGS_RELEASE = -O3 -Ofast -march=native -Wno-unused-result -Wno-ignored-pragmas -Wno-unknown-attributes -ggdb3 -fPIC
 CFLAGS_DEBUG = -Wno-unused-result -O0 -ggdb3 -fPIC
+NVCC_CFLAGS_RELEASE = -Xcompiler="-O3 -Ofast -march=native -Wno-unused-result -Wno-ignored-pragmas -Wno-unknown-attributes -ggdb3 -fPIC" --expt-relaxed-constexpr
+NVCC_CFLAGS_DEBUG = -O0 -Xcompiler -fPIC
 
 INCLUDES = -I include/ -I kernels/include/ -I third_party/OpenBLAS/include/
 KERNELS_INCLUDES = -I kernels/src/
 
 LDLIBS = -lm -lopenblas
 LDFLAGS = -L third_party/OpenBLAS/lib/
+NVCC_LDLIBS = -lcudart
+NVCC_LDFLAGS = -L /usr/local/cuda/lib64
 
 SRC_DIR = src
 KERNELS_DIR = kernels
@@ -57,12 +62,16 @@ ifeq ($(_CC), clang)
 CFLAGS_RELEASE += -Xclang -fopenmp -DOMP
 CFLAGS_DEBUG += -Xclang -fopenmp -DOMP
 endif
+LDLIBS += $(NVCC_LDLIBS)
+LDFLAGS += $(NVCC_LDFLAGS)
 endif
 
 ifeq ($(BUILD), release)
 CFLAGS = $(CFLAGS_RELEASE)
+NVCC_CFLAGS = $(NVCC_CFLAGS_RELEASE)
 else ifeq ($(BUILD), debug)
 CFLAGS = $(CFLAGS_DEBUG)
+NVCC_CFLAGS = $(NVCC_CFLAGS_DEBUG)
 else
 $(error Invalid BUILD '$(BUILD)', expected 'release' or 'debug')
 endif
@@ -76,12 +85,14 @@ SRCS = $(wildcard $(SRC_DIR)/*.c)
 COMMON_SRCS = $(wildcard $(KERNELS_DIR)/src/common/*.c)
 CORE_SRCS = $(wildcard $(KERNELS_DIR)/src/core/*.c)
 CPU_SRCS = $(wildcard $(KERNELS_DIR)/src/cpu/*.c)
+CUDA_SRCS = $(wildcard $(KERNELS_DIR)/src/cuda/*.cu)
 
 # Generate object file names from source file names
 OBJS = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(SRCS))
 COMMON_OBJS = $(patsubst $(KERNELS_DIR)/src/common/%.c, $(KERNELS_DIR)/build/common/%.o, $(COMMON_SRCS))
 CORE_OBJS = $(patsubst $(KERNELS_DIR)/src/core/%.c, $(KERNELS_DIR)/build/core/%.o, $(CORE_SRCS))
 CPU_OBJS = $(patsubst $(KERNELS_DIR)/src/cpu/%.c, $(KERNELS_DIR)/build/cpu/%.o, $(CPU_SRCS))
+CUDA_OBJS = $(patsubst $(KERNELS_DIR)/src/cuda/%.cu, $(KERNELS_DIR)/build/cuda/%.o, $(CUDA_SRCS))
 
 # Find all C files in the project root directory
 ROOT_SRCS = $(wildcard ./*.c)
@@ -121,12 +132,12 @@ $(KERNELS_DIR)/build/core/%.o: $(KERNELS_DIR)/src/core/%.c
 $(KERNELS_DIR)/build/cpu/%.o: $(KERNELS_DIR)/src/cpu/%.c
 	$(CC) $(CFLAGS) $(INCLUDES) $(KERNELS_INCLUDES) -c $< -o $@
 
-# Rule to create the shared library
-$(SHARED_LIB): $(OBJS) $(COMMON_OBJS) $(CORE_OBJS) $(CPU_OBJS)
-	$(CC) -o $(SHARED_LIB) $(LDFLAGS) $(LDLIBS) $^ -shared
+# Compile rule for object files in kernels/src/cuda/
+$(KERNELS_DIR)/build/cuda/%.o: $(KERNELS_DIR)/src/cuda/%.cu
+	$(NVCC) $(NVCC_CFLAGS) $(INCLUDES) $(KERNELS_INCLUDES) -c $< -o $@
 
 # Rule to create the shared library
-$(SHARED_LIB): $(OBJS) $(CORE_OBJS) $(CPU_OBJS)
+$(SHARED_LIB): $(OBJS) $(COMMON_OBJS) $(CORE_OBJS) $(CPU_OBJS) $(CUDA_OBJS)
 	$(CC) -o $(SHARED_LIB) $(LDFLAGS) $(LDLIBS) $^ -shared
 
 # Compile rule for root source files into executables
@@ -197,6 +208,9 @@ setup: third_party
 	fi
 	@if ! test -d $(KERNELS_DIR)/build/cpu;\
 		then echo "\033[93mSetting up $(KERNELS_DIR)/build/cpu directory...\033[0m"; mkdir -p kernels/build/cpu;\
+	fi
+	@if ! test -d $(KERNELS_DIR)/build/cuda;\
+		then echo "\033[93mSetting up $(KERNELS_DIR)/build/cuda directory...\033[0m"; mkdir -p kernels/build/cuda;\
 	fi
 
 # Clean rule to remove all generated files

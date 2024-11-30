@@ -1,5 +1,6 @@
 #include <core/Tensor.h>
 #include <cpu/Tensor.h>
+#include <cuda/Tensor.h>
 #include "utils.h"
 
 void create_tensor_data_dispatch(tensor_t *tensor) {
@@ -32,6 +33,37 @@ void fill_tensor_data_dispatch(tensor_t *tensor, const float value) {
         fill_tensor_data_cpu(tensor, value);
     else
         CHECK_ERROR(1, "Given device is not supported.");
+}
+
+void move_tensor_data_dispatch(tensor_t *tensor, const device_t device) {
+    const device_t src_device = tensor->device;
+    int to_host = 0, to_device = 0;
+    if (src_device != device && device != CPU) to_device = 1;
+    else if (src_device != device && device == CPU) to_host = 1;
+
+    if (to_host) {
+        switch (src_device)
+        {
+        case CPU:
+            move_tensor_to_host_cpu(tensor);
+            break;
+        case CUDA:
+            move_tensor_to_host_cuda(tensor);
+        default:
+            break;
+        }
+    } else if (to_device) {
+        switch (device)
+        {
+        case CPU:
+            move_tensor_to_device_cpu(tensor);
+            break;
+        case CUDA:
+            move_tensor_to_device_cuda(tensor);
+        default:
+            break;
+        }
+    }
 }
 
 void copy_tensor_data_dispatch(tensor_t *dst, const tensor_t *src) {

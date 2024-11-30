@@ -11,7 +11,7 @@ void create_tensor_data_dispatch(tensor_t *tensor);
 void zeros_tensor_data_dispatch(tensor_t *tensor);
 void ones_tensor_data_dispatch(tensor_t *tensor);
 void fill_tensor_data_dispatch(tensor_t *tensor, const float value);
-
+void move_tensor_data_dispatch(tensor_t *tensor, const device_t device);
 void copy_tensor_data_dispatch(tensor_t *dst, const tensor_t *src);
 
 void saxpy_dispatch(
