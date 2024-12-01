@@ -111,6 +111,8 @@ void sgemm_dispatch(
     device_t device = C->device;
     if (device == CPU)
         sgemm_cpu(TransA, TransB, M, N, K, alpha, A, offsetA, lda, B, offsetB, ldb, beta, C, offsetC, ldc);
-    else
+    else if (device == CUDA)
+        sgemm_cuda(TransA, TransB, M, N, K, alpha, A, offsetA, lda, B, offsetB, ldb, beta, C, offsetC, ldc);
+    else    
         CHECK_ERROR(1, "Given device is not supported.");
 }

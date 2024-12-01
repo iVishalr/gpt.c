@@ -11,7 +11,7 @@ KERNELS_INCLUDES = -I kernels/src/
 
 LDLIBS = -lm -lopenblas
 LDFLAGS = -L third_party/OpenBLAS/lib/
-NVCC_LDLIBS = -lcudart
+NVCC_LDLIBS = -lcudart -lcublas
 NVCC_LDFLAGS = -L /usr/local/cuda/lib64
 
 SRC_DIR = src

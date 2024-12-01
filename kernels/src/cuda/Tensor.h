@@ -22,11 +22,18 @@ void move_tensor_to_device_cuda(tensor_t *tensor);
 //     tensor_t *y, const int offsety, const int incy
 // );
 
-// void sgemm_cpu(
+void sgemm_cuda(
+    const int TransA, const int TransB, const int M, const int N, const int K,
+    const float alpha, const tensor_t *A, const int offsetA, const int lda,
+    const tensor_t *B, const int offsetB, const int ldb, 
+    const float beta, tensor_t *C, const int offsetC, const int ldc
+);
+
+// void sgemm_strided_batched_cuda(
 //     const int TransA, const int TransB, const int M, const int N, const int K,
-//     const float alpha, const tensor_t *A, const int offsetA, const int lda,
-//     const tensor_t *B, const int offsetB, const int ldb, 
-//     const float beta, tensor_t *C, const int offsetC, const int ldc
+//     const float alpha, const tensor_t *A, const int strideA, const int lda,
+//     const tensor_t *B, const int strideB, const int ldb,
+//     const float beta, tensor_t *C, const int strideC, const int ldc, const int batch_count
 // );
 
 #ifdef __cplusplus
