@@ -42,12 +42,16 @@ __global__ void layer_norm_forward_cuda_kernel_impl(
     const float var = mean_var.y * scale - mean_val * mean_val;
     const float rstd_val = 1.0f / sqrtf(var + eps);
 
-    if (b)
+    if (b) {
+        #pragma unroll
         for (int j = tid; j < C; j += block_size)
             output_bt[j] = (input_bt[j] + _b) * rstd_val * W[j] + b[j];
-    else
+    }
+    else {
+        #pragma unroll
         for (int j = tid; j < C; j += block_size)
             output_bt[j] = (input_bt[j] + _b) * rstd_val * W[j];
+    }
 
     mean[i] = mean_val;
     rstd[i] = rstd_val;
@@ -98,6 +102,7 @@ __global__ void layer_norm_backward_cuda_kernel_impl(
 
     const float _b = (d_acc.y * mean[i] - d_acc.x) * a * a * a * scale;
     const float c = -_b * mean[i] - d_acc.y * a * scale;
+    #pragma unroll
     for (int j = tid; j < C; j += block_size)
         dout_bt[j] += a * global_grad_bt[j] * W[j] + _b * input_bt[j] + c;
 }
