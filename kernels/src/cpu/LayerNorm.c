@@ -23,34 +23,36 @@ void layer_norm_forward_cpu_kernel(
     float *_mean = __builtin_assume_aligned(cache[0]->t, 64);
     float *_rstd = __builtin_assume_aligned(cache[1]->t, 64);
 
+    /*
+    Implementation taken from:
+    https://github.com/pytorch/pytorch/blob/b6a64b64de87cddd16c528215acae73502ca4611/aten/src/ATen/native/cpu/layer_norm_kernel.cpp#L28
+    */
+
     for(int i = 0; i < B * T; i++) {
-        float sum = 0.0f;
-        float sum2 = 0.0f;
-        
-        const float *_inp_i = _inp + i * in_features;
-        float *_out_i = _out + i * in_features;
+        float mean_var[2] = {0.0f, 0.0f};
+        const float *input_bt = _inp + i * in_features;
+        float *output_bt = _out + i * in_features;
 
         for (int j = 0; j < in_features; j++) {
-            float xi = _inp_i[j];
-            sum += xi;
-            sum2 += xi * xi;
+            float xi = input_bt[j];
+            mean_var[0] += xi;
+            mean_var[1] += xi * xi;
         }
 
-        sum /= in_features;
-        sum2 /= in_features;
+        const float scale = 1.0f / in_features;
+        const float mean_val = mean_var[0] * scale;
+        const float __b = -mean_val;
+        const float var = mean_var[1] * scale - mean_val * mean_val;
+        const float rstd_val = 1.0f / sqrtf(var + eps);
 
-        const float m = sum;
-        const float var = sum2 - sum * sum;
-        const float rstd = 1.0f / sqrtf(var + eps);
-
-        for (int j = 0; j < in_features; j++) {
-            float n = rstd * (_inp_i[j] - m);
-            float o = _b != NULL ? n * _W[j] + _b[j] : n * _W[j];
-            _out_i[j] = o;
-        }
-
-        _mean[i] = m;
-        _rstd[i] = rstd;
+        if (_b)
+            for (int j = 0; j < in_features; j++)
+                output_bt[j] = (input_bt[j] + __b) * rstd_val * _W[j] + _b[j];
+        else
+            for (int j = 0; j < in_features; j++)
+                output_bt[j] = (input_bt[j] + __b) * rstd_val * _W[j];
+        _mean[i] = mean_val;
+        _rstd[i] = rstd_val;
     }
 }
 
@@ -83,37 +85,41 @@ void layer_norm_backward_cpu_kernel(
     float *_db = db != NULL ? __builtin_assume_aligned(db->t, 64) : NULL;
     float *_dout = __builtin_assume_aligned(dout->t, 64);
 
+    /*
+    Implementation taken from:
+    https://github.com/pytorch/pytorch/blob/b6a64b64de87cddd16c528215acae73502ca4611/aten/src/ATen/native/cpu/layer_norm_kernel.cpp#L185
+
+    This implementation is ~2X faster compared to:
+    https://github.com/karpathy/llm.c/blob/7ecd8906afe6ed7a2b2cdb731c042f26d525b820/train_gpt2.c#L120
+    */
+
+    const float scale = 1.0f / in_features;
     for (int i = 0; i < B * T; i++) {
-        float dnorm_mean = 0.0f;
-        float dnorm_norm_mean = 0.0f;
-        
-        const float *_inp_i = _inp + i * in_features;
-        const float *_global_grad_i = _global_grad + i * in_features;
-        float *_dout_i = _dout + i * in_features;
-
-        for(int j = 0; j < in_features; j++) {
-            const float norm_i = (_inp_i[j] - _mean[i]) * _rstd[i];
-            const float dnorm_i = _W[j] * _global_grad_i[j];
-            dnorm_mean += dnorm_i;
-            dnorm_norm_mean += dnorm_i * norm_i;
+        const float *input_bt = _inp + i * in_features;
+        const float *global_grad_bt = _global_grad + i * in_features;
+        float *dout_bt = _dout + i * in_features;
+        {
+        const float a = _rstd[i];
+        const float b = -a * _mean[i];
+        for (int j = 0; j < in_features; j++)
+            _dW[j] += (a * input_bt[j] + b) * global_grad_bt[j];
         }
+        if (_db)
+            for (int j = 0; j < in_features; j++)
+                _db[j] += global_grad_bt[j];
 
-        dnorm_mean /= in_features;
-        dnorm_norm_mean /= in_features;
-
+        float ds_acc = 0.0f;
+        float db_acc = 0.0f;
         for (int j = 0; j < in_features; j++) {
-            const float norm_i = (_inp_i[j] - _mean[i]) * _rstd[i];
-            const float dnorm_i = _W[j] * _global_grad_i[j];
-
-            if (_db) _db[j] += _global_grad_i[j];
-            _dW[j] += norm_i * _global_grad_i[j];
-
-            float dval = 0.0f;
-            dval += dnorm_i;
-            dval -= dnorm_mean;
-            dval -= norm_i * dnorm_norm_mean;
-            dval *= _rstd[i];
-            _dout_i[j] += dval;
+            ds_acc += global_grad_bt[j] * input_bt[j] * _W[j];
+            db_acc += global_grad_bt[j] * _W[j];
+        }
+        {
+        const float a = _rstd[i];
+        const float b = (db_acc * _mean[i] - ds_acc) * a * a * a * scale;
+        const float c = -b * _mean[i] - db_acc * a * scale;
+        for (int j = 0; j < in_features; j++)
+            dout_bt[j] += a * global_grad_bt[j] * _W[j] + b * input_bt[j] + c;
         }
     }
 }
