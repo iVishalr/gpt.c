@@ -28,6 +28,7 @@ void layer_norm_forward_cpu_kernel(
     https://github.com/pytorch/pytorch/blob/b6a64b64de87cddd16c528215acae73502ca4611/aten/src/ATen/native/cpu/layer_norm_kernel.cpp#L28
     */
 
+    const float scale = 1.0f / in_features;
     for(int i = 0; i < B * T; i++) {
         float mean_var[2] = {0.0f, 0.0f};
         const float *input_bt = _inp + i * in_features;
@@ -39,7 +40,6 @@ void layer_norm_forward_cpu_kernel(
             mean_var[1] += xi * xi;
         }
 
-        const float scale = 1.0f / in_features;
         const float mean_val = mean_var[0] * scale;
         const float __b = -mean_val;
         const float var = mean_var[1] * scale - mean_val * mean_val;
