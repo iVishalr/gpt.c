@@ -102,7 +102,7 @@ void layer_norm_backward_cpu_kernel(
         const float a = _rstd[i];
         const float b = -a * _mean[i];
         for (int j = 0; j < in_features; j++)
-            _dW[j] += (a * input_bt[j] + b) * global_grad_bt[j];
+            _dW[j] += global_grad_bt[j] * (a * input_bt[j] + b);
         }
         if (_db)
             for (int j = 0; j < in_features; j++)
