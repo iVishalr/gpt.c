@@ -79,7 +79,7 @@ tensor_t *create_tensor(const int *shape, const int n, const device_t device) {
         total_elements *= shape[i];
         tensor->shape[i] = shape[i];
     }
-
+    tensor->t = NULL;
     tensor->length = total_elements;
     create_tensor_data_dispatch(tensor);
     return tensor;

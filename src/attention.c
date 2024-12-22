@@ -38,7 +38,6 @@ attention_t *Attention(int n_embd, int n_heads, int block_size) {
     attn->cache[1] = NULL;
     attn->cache[2] = NULL;
     attn->cache[3] = NULL;
-    attn->cache[4] = NULL;
     attn->n_embd = n_embd;
     attn->n_heads = n_heads;
     attn->forward = forward_attention;
@@ -94,7 +93,7 @@ tensor_t *forward_attention(attention_t *attn, tensor_t *x) {
     */
 
     device_t device = x->device;
-    int B, T, C, C3, n_heads, hs, buffer_row_size;
+    int B, T, C, C3, n_heads, hs;
     B = x->shape[0];
     T = x->shape[1];
     C3 = x->shape[2];
@@ -103,7 +102,6 @@ tensor_t *forward_attention(attention_t *attn, tensor_t *x) {
     hs = C / n_heads;
 
     tensor_t *q, *k, *v; 
-    tensor_t **cache = attn->cache;
     int qkv_transpose_shape[4] = {B, n_heads, T, hs};
     q = create_tensor(qkv_transpose_shape, 4, device);
     k = create_tensor(qkv_transpose_shape, 4, device);
@@ -111,19 +109,17 @@ tensor_t *forward_attention(attention_t *attn, tensor_t *x) {
 
     int att_shape[4] = {B, n_heads, T, T};
     tensor_t *att = create_tensor(att_shape, 4, device);
-    tensor_t *preatt = create_tensor(att->shape, att->ndims, device);
 
     int out_shape[3] = {B, T, C};
     tensor_t *out = create_tensor(out_shape, 3, device);
-    
-    cache[0] = q;
-    cache[1] = k;
-    cache[2] = v;
-    cache[3] = preatt;
-    cache[4] = att;
 
-    attention_forward_dispatch(x, attn->buffer, n_heads, cache, out);
-    
+    attn->cache[0] = q;
+    attn->cache[1] = k;
+    attn->cache[2] = v;
+    attn->cache[3] = att;
+
+    attention_forward_dispatch(x, attn->buffer, n_heads, attn->cache, out);
+
     free_tensor(x);    
     return out;
 }
@@ -142,23 +138,20 @@ tensor_t *backward_attention(attention_t *attn, tensor_t *global_grad) {
     n_heads = attn->n_heads;
     hs = C / n_heads;
 
-    const tensor_t **cache = attn->cache;
     int dout_shape[3] = {B, T, C * 3};
-    tensor_t *dout = create_tensor(dout_shape, 3, device);
+    tensor_t *dout = zeros(dout_shape, 3, device);
 
-    attention_backward_dispatch(global_grad, cache, n_heads, dout);
+    attention_backward_dispatch(global_grad, attn->cache, n_heads, dout);
 
     free_tensor(global_grad);
     free_tensor(attn->cache[0]);
     free_tensor(attn->cache[1]);
     free_tensor(attn->cache[2]);
     free_tensor(attn->cache[3]);
-    free_tensor(attn->cache[4]);
     attn->cache[0] = NULL;
     attn->cache[1] = NULL;
     attn->cache[2] = NULL;
     attn->cache[3] = NULL;
-    attn->cache[4] = NULL;
     return dout;
 }
 
@@ -188,7 +181,6 @@ void free_layer_attention(attention_t *attn) {
     free_tensor(attn->cache[1]);
     free_tensor(attn->cache[2]);
     free_tensor(attn->cache[3]);
-    free_tensor(attn->cache[4]);
     free(attn);
 }
 
@@ -201,12 +193,10 @@ void free_cache_attention(attention_t *attn) {
     free_tensor(attn->cache[1]);
     free_tensor(attn->cache[2]);
     free_tensor(attn->cache[3]);
-    free_tensor(attn->cache[4]);
     attn->cache[0] = NULL;
     attn->cache[1] = NULL;
     attn->cache[2] = NULL;
     attn->cache[3] = NULL;
-    attn->cache[4] = NULL;
 }
 
 
@@ -218,5 +208,4 @@ void to_attention(attention_t *attn, const device_t device) {
     attn->cache[1]->to(attn->cache[1], device);
     attn->cache[2]->to(attn->cache[2], device);
     attn->cache[3]->to(attn->cache[3], device);
-    attn->cache[4]->to(attn->cache[4], device);
 }

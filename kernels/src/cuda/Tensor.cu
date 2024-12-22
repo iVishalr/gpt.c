@@ -18,7 +18,7 @@ void move_tensor_to_host_cuda(tensor_t *tensor) {
     if (tensor->device == CPU) return;
 
     float *device_ptr = tensor->t;
-    float *host_ptr = (float*)AllocCheck(aligned_alloc_cpu, tensor->length * sizeof(float), 64);
+    float *host_ptr = (float*)aligned_alloc_cpu(tensor->length * sizeof(float), 64);
     cudaCheck(cudaMemcpy(host_ptr, device_ptr, tensor->length * sizeof(float), cudaMemcpyDeviceToHost));
 
     tensor->t = host_ptr;
@@ -31,7 +31,10 @@ void move_tensor_to_device_cuda(tensor_t *tensor) {
     CHECK_ERROR(tensor->t == NULL, "Expected *tensor->t to be a float pointer. Got NULL");
 
     // if tensor is already present on device, return
-    if (tensor->device == CUDA) return;
+    if (tensor->device == 1) {
+        printf("Tensor already on CUDA. Returning.\n");
+        return;
+    }
 
     float *host_ptr = tensor->t;
     float *device_ptr;
@@ -42,6 +45,18 @@ void move_tensor_to_device_cuda(tensor_t *tensor) {
     tensor->t = device_ptr;
     tensor->device = CUDA;
     free_cpu(host_ptr);
+}
+
+void create_tensor_data_cuda(tensor_t *tensor) {
+    CHECK_ERROR(tensor == NULL, "Expected *tensor to be a tensor_t pointer. Got NULL");
+    CHECK_ERROR(tensor->t != NULL, "Expected *tensor->t to be NULL. Got a pointer to address %p.", tensor->t);
+    tensor->t = (float*)alloc_cuda(tensor->length * sizeof(float));
+}
+
+void zeros_tensor_data_cuda(tensor_t *tensor) {
+    CHECK_ERROR(tensor == NULL, "Expected *tensor to be a tensor_t pointer. Got NULL");
+    if (!tensor->t) create_tensor_data_cuda(tensor);
+    cudaCheck(cudaMemset(tensor->t, 0, tensor->length * sizeof(float)));
 }
 
 void sgemm_cuda(
@@ -65,7 +80,7 @@ void sgemm_cuda(
 
     cublasHandle_t cublas_handle = get_cublas_handle();
 
-    // // cuBLAS gemm: C = alpha * op(A) * op(B) + beta * C
+    // cuBLAS gemm: C = alpha * op(A) * op(B) + beta * C
     cublasCheck(
         cublasSgemm(
             cublas_handle, transb, transa,  // Note swapped order for row-major
@@ -75,6 +90,36 @@ void sgemm_cuda(
             A_ptr, lda,                     // Matrix A
             &beta,                          // Scalar beta
             C_ptr, ldc                      // Matrix C
+        )
+    );
+}
+
+void sgemm_strided_batched_cuda(
+    const int TransA, const int TransB, const int M, const int N, const int K,
+    const float alpha, const tensor_t *A, const int lda, const int strideA,
+    const tensor_t *B, const int ldb, const int strideB,
+    const float beta, tensor_t *C, const int ldc, const int strideC, const int batch_count
+) {
+    const float *_A = A->t;
+    const float *_B = B->t;
+    float *_C = C->t;
+
+    cublasOperation_t transa = (TransA == 1) ? CUBLAS_OP_T : CUBLAS_OP_N;
+    cublasOperation_t transb = (TransB == 1) ? CUBLAS_OP_T : CUBLAS_OP_N;
+
+    cublasHandle_t cublas_handle = get_cublas_handle();
+
+    // cuBLAS gemm: C = alpha * op(A) * op(B) + beta * C
+    cublasCheck(
+        cublasSgemmStridedBatched(
+            cublas_handle, transb, transa, // Note swapped order for row-major
+            N, M, K,                       // Dimensions
+            &alpha,                        // Scalar alpha
+            _B, ldb, strideB,              // Matrix B
+            _A, lda, strideA,              // Matrix A
+            &beta,                         // Scalar beta
+            _C, ldc, strideC,              // Matrix C
+            batch_count                    // batch_count
         )
     );
 }

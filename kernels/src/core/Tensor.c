@@ -7,6 +7,8 @@ void create_tensor_data_dispatch(tensor_t *tensor) {
     device_t device = tensor->device;
     if (device == CPU)  
         create_tensor_data_cpu(tensor);
+    else if (device == CUDA)
+        create_tensor_data_cuda(tensor);
     else
         CHECK_ERROR(1, "Given device is not supported.");
 }
@@ -15,6 +17,8 @@ void zeros_tensor_data_dispatch(tensor_t *tensor) {
     device_t device = tensor->device;
     if (device == CPU)  
         zeros_tensor_data_cpu(tensor);
+    else if (device == CUDA)
+        zeros_tensor_data_cuda(tensor);
     else
         CHECK_ERROR(1, "Given device is not supported.");
 }
@@ -40,7 +44,6 @@ void move_tensor_data_dispatch(tensor_t *tensor, const device_t device) {
     int to_host = 0, to_device = 0;
     if (src_device != device && device != CPU) to_device = 1;
     else if (src_device != device && device == CPU) to_host = 1;
-
     if (to_host) {
         switch (src_device)
         {

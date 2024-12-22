@@ -3,11 +3,10 @@
 #include "tensor.h"
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
-void attention_forward_dispatch(
+void attention_forward_cuda_kernel(
     const tensor_t *input,
     const tensor_t *mask,
     const int n_heads,
@@ -15,8 +14,8 @@ void attention_forward_dispatch(
     tensor_t *output
 );
 
-void attention_backward_dispatch(
-    const tensor_t *global_grad,
+void attention_backward_cuda_kernel(
+    const tensor_t *global_grad, 
     tensor_t **cache,
     const int n_heads,
     tensor_t *dout

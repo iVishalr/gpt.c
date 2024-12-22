@@ -42,7 +42,7 @@ extern "C" {
 typedef struct attention {
     // Pointers grouped together
     tensor_t *buffer;   // 8 bytes
-    tensor_t *cache[5]; // 5 * 8 bytes = 40 bytes (assuming pointers are 8 bytes each)
+    tensor_t *cache[4]; // 4 * 8 bytes = 32 bytes (assuming pointers are 8 bytes each)
 
     // Function pointers grouped together
     tensor_t *(*forward)(struct attention *, tensor_t *);  // 8 bytes

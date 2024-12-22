@@ -9,8 +9,8 @@ extern "C" {
 void move_tensor_to_host_cuda(tensor_t *tensor);
 void move_tensor_to_device_cuda(tensor_t *tensor);
 
-// void create_tensor_data_cpu(tensor_t *tensor);
-// void zeros_tensor_data_cpu(tensor_t *tensor);
+void create_tensor_data_cuda(tensor_t *tensor);
+void zeros_tensor_data_cuda(tensor_t *tensor);
 // void ones_tensor_data_cpu(tensor_t *tensor);
 // void fill_tensor_data_cpu(tensor_t *tensor, const float value);
 
@@ -29,12 +29,12 @@ void sgemm_cuda(
     const float beta, tensor_t *C, const int offsetC, const int ldc
 );
 
-// void sgemm_strided_batched_cuda(
-//     const int TransA, const int TransB, const int M, const int N, const int K,
-//     const float alpha, const tensor_t *A, const int strideA, const int lda,
-//     const tensor_t *B, const int strideB, const int ldb,
-//     const float beta, tensor_t *C, const int strideC, const int ldc, const int batch_count
-// );
+void sgemm_strided_batched_cuda(
+    const int TransA, const int TransB, const int M, const int N, const int K,
+    const float alpha, const tensor_t *A, const int lda, const int strideA,
+    const tensor_t *B, const int ldb, const int strideB,
+    const float beta, tensor_t *C, const int ldc, const int strideC, const int batch_count
+);
 
 #ifdef __cplusplus
 }

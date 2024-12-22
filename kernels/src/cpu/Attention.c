@@ -5,11 +5,49 @@
 #include <cpu/Alloc.h>
 #include <cpu/Attention.h>
 
+void _softmax_forward(const float *input, float *output, const int B, const int T, const int C) {
+    for (int i = 0; i < B * T; i++) {
+        const float *input_bt = input + i * C;
+        float *output_bt = output + i * C;
+
+        // find maximum for softmax
+        float max = -INFINITY;
+        for (int j = 0; j < C; j++)
+            max = fmaxf(max, input_bt[j]);
+
+        float sum = 0.0f;
+        for (int j = 0; j < C; j++) {
+            float val = expf(input_bt[j] - max);
+            sum += val;
+            output_bt[j] = val;
+        }
+        sum = 1.0f / sum;
+
+        for (int j = 0; j < C; j++)
+            output_bt[j] = output_bt[j] * sum;
+    }
+}
+
+void _softmax_backward(const float *global_grad, const float *cache, float *dout, const int B, const int T, const int C) {
+    for (int i = 0; i < B * T; i++) {
+        const float *output_bt = cache + i * C;
+        const float *grad_output_bt = global_grad + i * C;
+        float *grad_input_bt = dout + i * C;
+
+        float sum = 0.0f;
+        for (int j = 0; j < C; j++)
+            sum += grad_output_bt[j] * output_bt[j];
+
+        for (int j = 0; j < C; j++)
+            grad_input_bt[j] = (grad_output_bt[j] - sum) * output_bt[j];
+    }
+}
+
 void attention_forward_cpu_kernel(
     const tensor_t *input,
     const tensor_t *mask,
     const int n_heads,
-    const tensor_t **cache,
+    tensor_t **cache,
     tensor_t *output
 ) {
     /*
@@ -46,8 +84,7 @@ void attention_forward_cpu_kernel(
     float *q = __builtin_assume_aligned(cache[0]->t, 64);
     float *k = __builtin_assume_aligned(cache[1]->t, 64);
     float *v = __builtin_assume_aligned(cache[2]->t, 64);
-    float *preatt = __builtin_assume_aligned(cache[3]->t, 64);
-    float *att = __builtin_assume_aligned(cache[4]->t, 64);
+    float *att = __builtin_assume_aligned(cache[3]->t, 64);
     float *out = __builtin_assume_aligned(output->t, 64);
 
     /*
@@ -85,55 +122,34 @@ void attention_forward_cpu_kernel(
     }
 
     // att = (q @ k.transpose(-2, -1)) * (1.0/sqrt(hs))
-    for (int b = 0; b < B; b++) {
-        for (int h = 0; h < n_heads; h++) {
-            const int inp_offset = b * n_heads * T * hs + h * T * hs;
-            const int out_offset = b * n_heads * T * T + h * T * T;
-            cblas_sgemm(
-                CblasRowMajor, CblasNoTrans, CblasTrans,
-                T, T, hs,
-                scale , q + inp_offset, hs,
-                k + inp_offset, hs,
-                0.0f, att + out_offset, T
-            );
-        }
+    for (int i = 0; i < B * n_heads; i++) {
+        cblas_sgemm(
+            CblasRowMajor, CblasNoTrans, CblasTrans,
+            T, T, hs,
+            scale , q + i * T * hs, hs,
+            k + i * T * hs, hs,
+            0.0f, att + i * T * T, T
+        );
     }
-
-    cblas_scopy(B * n_heads * T * T, att, 1, preatt, 1);
-
-    float *_out = (float*)aligned_alloc_cpu(B * n_heads * T * hs * sizeof(float), 64);
 
     for (int i = 0; i < B * n_heads; i++) {
         for (int j = 0; j < T; j++) {
-            float max_val = -FLT_MAX;
             float *att_tt = att + i * T * T + j * T;
-
             for (int k = 0; k < T; k++) {
                 att_tt[k] = _mask[j * mask_row_size + k] == 1.0f ? att_tt[k] : -INFINITY;
-                max_val = fmaxf(max_val, att_tt[k]);
             }
-
-            float expsum = 0.0f;
-            for (int k = 0; k <= j; k++) {
-                float expv = expf(att_tt[k] - max_val);
-                expsum += expv;
-                att_tt[k] = expv;
-            }
-            const float expsum_inv = expsum == 0.0f ? 0.0f : 1.0f / expsum;
-            for (int k = 0; k < T; k++) {
-                if (k <= j)
-                    att_tt[k] *= expsum_inv;
-                else
-                    att_tt[k] = 0.0f;
-            }
-            
         }
+    }
 
+    _softmax_forward(att, att, B, T * n_heads, T);
+
+    float *_out = (float *)aligned_alloc_cpu(B * n_heads * T * hs * sizeof(float), 64);
+    for (int i = 0; i < B * n_heads; i++) {
         // compute out = att @ v : att(B, n_heads, T, T) @ v(B, n_heads, T, hs)
         cblas_sgemm(
             CblasRowMajor, CblasNoTrans, CblasNoTrans,
-            T, hs, T, 
-            1.0f, att + i * T * T, T, 
+            T, hs, T,
+            1.0f, att + i * T * T, T,
             v + i * T * hs, hs,
             0.0f, _out + i * T * hs, hs
         );
@@ -152,7 +168,7 @@ void attention_forward_cpu_kernel(
 
 void attention_backward_cpu_kernel(
     const tensor_t *global_grad, 
-    const tensor_t **cache,
+    tensor_t **cache,
     const int n_heads,
     tensor_t *dout
 ) {
@@ -167,8 +183,7 @@ void attention_backward_cpu_kernel(
     q = cache[0]; 
     k = cache[1];
     v = cache[2];
-    preatt = cache[3];
-    att = cache[4];
+    att = cache[3];
 
     float *_global_grad = (float *)aligned_alloc_cpu(B * n_heads * T * hs * sizeof(float), 64);
     float *dq           = (float *)aligned_alloc_cpu(B * n_heads * T * hs * sizeof(float), 64);
@@ -203,84 +218,73 @@ void attention_backward_cpu_kernel(
         }
     }
 
-    for(int b = 0; b < B; b++) {
-        for (int h = 0; h < n_heads; h++) {
-            // backprop into q, k
-            // dq: (B, n_heads, T, hs)
-            // dk: (B, n_heads, T, hs)
-            // dpreatt: (B, n_heads, T, T)
-            //
-            // Forward
-            // -------
-            // out = att @ v
-            //
-            // Backward
-            // --------
-            // datt = global_grad (B, n_heads, T, hs) @ v (B, n_heads, T, hs).T
-            // dv = att (B, n_heads, T, T).T @ global_grad (B, n_heads, T, hs)
-            cblas_sgemm(
-                CblasRowMajor, CblasNoTrans, CblasTrans, 
-                T, T, hs,
-                1.0f, _global_grad + b * n_heads * T * hs + h * T * hs, hs,
-                _v + b * n_heads * T * hs + h * T * hs, hs,
-                1.0f, datt + b * n_heads * T * T + h * T * T, T
-            );
 
-            cblas_sgemm(
-                CblasRowMajor, CblasTrans, CblasNoTrans, 
-                T, hs, T,
-                1.0f, _att + b * n_heads * T * T + h * T * T, T,
-                _global_grad + b * n_heads * T * hs + h * T * hs, hs,
-                1.0f, dv + b * n_heads * T * hs + h * T * hs, hs
-            );
+    for(int i = 0; i < B * n_heads; i++) {
+        // backprop into q, k
+        // dq: (B, n_heads, T, hs)
+        // dk: (B, n_heads, T, hs)
+        // dpreatt: (B, n_heads, T, T)
+        //
+        // Forward
+        // -------
+        // out = att @ v
+        //
+        // Backward
+        // --------
+        // datt = global_grad (B, n_heads, T, hs) @ v (B, n_heads, T, hs).T
+        // dv = att (B, n_heads, T, T).T @ global_grad (B, n_heads, T, hs)
+        cblas_sgemm(
+            CblasRowMajor, CblasNoTrans, CblasTrans, 
+            T, T, hs,
+            1.0f, _global_grad + i * T * hs, hs,
+            _v + i * T * hs, hs,
+            1.0f, datt + i * T * T, T
+        );
 
-            // backprop into softmax
-            const int idx = b * n_heads * T * T + h * T * T;
-            for (int t = 0; t < T; t++) {
-                const float *att_bth = _att + idx + t * T;
-                const float *datt_bth = datt + idx + t * T;
-                float *dpreatt_bth = dpreatt + idx + t * T;
-                for (int t2 = 0; t2 <= t; t2++) {
-                    for (int t3 = 0; t3 <= t; t3++) {
-                        const float indicator = t2 == t3 ? 1.0f : 0.0f;
-                        const float local_grad = att_bth[t2] * (indicator - att_bth[t3]);
-                        dpreatt_bth[t3] += local_grad * datt_bth[t2];
-                    }
-                }
-            }
-
-            // backprop into q, k
-            // dq: (B, n_heads, T, hs)
-            // dk: (B, n_heads, T, hs)
-            // dpreatt: (B, n_heads, T, T)
-            //
-            // Forward
-            // -------
-            // att = ( q @ k.transpose(-2, -1)) * scale
-            //
-            // Backward
-            // --------
-            // dq = dpreatt (B, n_heads, T, T) @ k (B, n_heads, T, hs)
-            // dk = dpreatt (B, n_heads, T, T) @ q (B, n_heads, T, hs)
-
-            cblas_sgemm(
-                CblasRowMajor, CblasNoTrans, CblasNoTrans, 
-                T, hs, T,
-                scale, dpreatt + b * n_heads * T * T + h * T * T, T,
-                _k + b * n_heads * T * hs + h * T * hs, hs,
-                1.0f, dq + b * n_heads * T * hs + h * T * hs, hs
-            );
-
-            cblas_sgemm(
-                CblasRowMajor, CblasTrans, CblasNoTrans, 
-                T, hs, T,
-                scale, dpreatt + b * n_heads * T * T + h * T * T, T,
-                _q + b * n_heads * T * hs + h * T * hs, hs,
-                1.0f, dk + b * n_heads * T * hs + h * T * hs, hs
-            );
-        }
+        cblas_sgemm(
+            CblasRowMajor, CblasTrans, CblasNoTrans, 
+            T, hs, T,
+            1.0f, _att + i * T * T, T,
+            _global_grad + i * T * hs, hs,
+            1.0f, dv + i * T * hs, hs
+        );
     }
 
+    _softmax_backward(datt, _att, dpreatt, B, T * n_heads, T);
+
+
+
+    for (int i = 0; i < B * n_heads; i++) {
+        // backprop into q, k
+        // dq: (B, n_heads, T, hs)
+        // dk: (B, n_heads, T, hs)
+        // dpreatt: (B, n_heads, T, T)
+        //
+        // Forward
+        // -------
+        // att = ( q @ k.transpose(-2, -1)) * scale
+        //
+        // Backward
+        // --------
+        // dq = dpreatt (B, n_heads, T, T) @ k (B, n_heads, T, hs)
+        // dk = dpreatt (B, n_heads, T, T) @ q (B, n_heads, T, hs)
+
+        cblas_sgemm(
+            CblasRowMajor, CblasNoTrans, CblasNoTrans, 
+            T, hs, T,
+            scale, dpreatt + i * T * T, T,
+            _k + i * T * hs, hs,
+            1.0f, dq + i * T * hs, hs
+        );
+
+        cblas_sgemm(
+            CblasRowMajor, CblasTrans, CblasNoTrans, 
+            T, hs, T,
+            scale, dpreatt + i * T * T, T,
+            _q + i * T * hs, hs,
+            1.0f, dk + i * T * hs, hs
+        );
+    }
 
     for (int b = 0; b < B; b++) {
         for (int t = 0; t < T; t++) {
