@@ -47,15 +47,18 @@ adamW_t *AdamW(tensor_t **parameters, tensor_t **gradients, const int n_paramete
     optimizer->beta2 = beta2;
     optimizer->eps = eps != ADAMW_DEFAULT_EPS ? eps : ADAMW_DEFAULT_EPS;
     optimizer->weight_decay = weight_decay != ADAMW_DEAFULT_WEIGHT_DECAY ? weight_decay : ADAMW_DEAFULT_WEIGHT_DECAY;
-    optimizer->m = (tensor_t **)mallocCheck(sizeof(tensor_t *) * optimizer->n_parameters);
-    optimizer->v = (tensor_t **)mallocCheck(sizeof(tensor_t *) * optimizer->n_parameters);
+    // optimizer->m = (tensor_t **)mallocCheck(sizeof(tensor_t *) * optimizer->n_parameters);
+    // optimizer->v = (tensor_t **)mallocCheck(sizeof(tensor_t *) * optimizer->n_parameters);
 
-    for (int i = 0; i < optimizer->n_parameters; i++) {
-        const tensor_t *grad = optimizer->gradients[i];
-        const device_t device = grad->device;
-        optimizer->m[i] = zeros(grad->shape, grad->ndims, device);
-        optimizer->v[i] = zeros(grad->shape, grad->ndims, device);
-    }
+    // for (int i = 0; i < optimizer->n_parameters; i++) {
+    //     const tensor_t *grad = optimizer->gradients[i];
+    //     const device_t device = grad->device;
+    //     optimizer->m[i] = zeros(grad->shape, grad->ndims, device);
+    //     optimizer->v[i] = zeros(grad->shape, grad->ndims, device);
+    // }
+
+    optimizer->m = NULL;
+    optimizer->v = NULL;
 
     optimizer->step_t = 0;
     optimizer->step = step_adamW;
@@ -69,8 +72,22 @@ adamW_t *AdamW(tensor_t **parameters, tensor_t **gradients, const int n_paramete
 void step_adamW(adamW_t *optimizer) {
     CHECK_ERROR(optimizer == NULL, "Expected *optimizer to be a adamW_t pointer, but got NULL.");
 
-    const float lr = optimizer->lr;
-    const float weight_decay = optimizer->weight_decay;
+    // hate doing this here, but for some reason, moving this code to AdamW() causes 
+    // a noticable slowdown in iteration speed on CPU :(.
+    // This bug started when CPU objects were linked with CUDA objects.
+    if (optimizer->m == NULL) {
+        optimizer->m = (tensor_t **)mallocCheck(sizeof(tensor_t *) * optimizer->n_parameters);
+        optimizer->v = (tensor_t **)mallocCheck(sizeof(tensor_t *) * optimizer->n_parameters);
+
+        for (int i = 0; i < optimizer->n_parameters; i++)
+        {
+            const tensor_t *grad = optimizer->gradients[i];
+            const device_t device = grad->device;
+            optimizer->m[i] = zeros(grad->shape, grad->ndims, device);
+            optimizer->v[i] = zeros(grad->shape, grad->ndims, device);
+        }
+    }
+
     optimizer->step_t += 1;
 
     step_adamW_dispatch(

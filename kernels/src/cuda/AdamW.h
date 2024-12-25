@@ -7,7 +7,7 @@ extern "C"
 {
 #endif
 
-void step_adamW_cpu_kernel(
+void step_adamW_cuda_kernel(
     tensor_t **parameters,
     tensor_t **gradients,
     tensor_t **m,
@@ -21,7 +21,7 @@ void step_adamW_cpu_kernel(
     const int step
 );
 
-void zero_grad_adamW_cpu_kernel(tensor_t **gradients, const int n);
+void zero_grad_adamW_cuda_kernel(tensor_t **gradients, const int n);
 
 #ifdef __cplusplus
 }
