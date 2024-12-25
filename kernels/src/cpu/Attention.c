@@ -253,7 +253,6 @@ void attention_backward_cpu_kernel(
     _softmax_backward(datt, _att, dpreatt, B, T * n_heads, T);
 
 
-
     for (int i = 0; i < B * n_heads; i++) {
         // backprop into q, k
         // dq: (B, n_heads, T, hs)

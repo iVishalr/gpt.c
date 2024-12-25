@@ -6,6 +6,13 @@
 
 #include <common/kutils.h>
 
+C10_LAUNCH_BOUNDS_1(num_threads())
+__global__ void fill_tensor_data_cuda_kernel_impl(float *tensor, const int n, const float value) {
+    const int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= n) return;
+    tensor[i] = value;
+}
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -57,6 +64,42 @@ void zeros_tensor_data_cuda(tensor_t *tensor) {
     CHECK_ERROR(tensor == NULL, "Expected *tensor to be a tensor_t pointer. Got NULL");
     if (!tensor->t) create_tensor_data_cuda(tensor);
     cudaCheck(cudaMemset(tensor->t, 0, tensor->length * sizeof(float)));
+}
+
+void ones_tensor_data_cuda(tensor_t *tensor) {
+    CHECK_ERROR(tensor == NULL, "Expected *tensor to be a tensor_t pointer. Got NULL");
+    if (!tensor->t) create_tensor_data_cuda(tensor);
+    const int block_size = num_threads();
+    const int grid_size = (tensor->length + block_size - 1) / block_size;
+    fill_tensor_data_cuda_kernel_impl<<<grid_size, block_size>>>(tensor->t, tensor->length, 1.0f);
+    cudaCheck(cudaGetLastError());
+}
+
+void fill_tensor_data_cuda(tensor_t *tensor, const float value) {
+    CHECK_ERROR(tensor == NULL, "Expected *tensor to be a tensor_t pointer. Got NULL");
+    if (!tensor->t) create_tensor_data_cuda(tensor);
+    const int block_size = num_threads();
+    const int grid_size = (tensor->length + block_size - 1) / block_size;
+    fill_tensor_data_cuda_kernel_impl<<<grid_size, block_size>>>(tensor->t, tensor->length, value);
+    cudaCheck(cudaGetLastError());
+}
+
+void copy_tensor_data_cuda(tensor_t *dst, const tensor_t *src) {
+    CHECK_ERROR(dst == NULL, "Expected *dst to be a tensor_t pointer. Got NULL");
+    CHECK_ERROR(src == NULL, "Expected *src to be a tensor_t pointer. Got NULL");
+    CHECK_ERROR(dst->t == NULL, "Expected *dst->t to be a float pointer. Got NULL");
+    CHECK_ERROR(src->t == NULL, "Expected *src->t to be a float pointer. Got NULL");
+    CHECK_ERROR(src->length == dst->length, "Expected src and dst tensors to be of same length. Got %d != %d", src->length, dst->length);
+    cudaCheck(cudaMemcpy(dst->t, src->t, dst->length * sizeof(float), cudaMemcpyDeviceToDevice));
+}
+
+void saxpy_cuda(
+    const int n, const float alpha, 
+    const tensor_t *x, const int offsetx, const int incx, 
+    tensor_t *y, const int offsety, const int incy
+) { 
+    cublasHandle_t cublas_handle = get_cublas_handle();
+    cublasCheck(cublasSaxpy(cublas_handle, n, alpha, x->t + offsetx, incx, y->t + offsety, incy));
 }
 
 void sgemm_cuda(

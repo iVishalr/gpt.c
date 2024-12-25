@@ -52,6 +52,7 @@ void copy_tensor_data_cpu(tensor_t *dst, const tensor_t *src) {
     CHECK_ERROR(src == NULL, "Expected *src to be a tensor_t pointer. Got NULL");
     CHECK_ERROR(dst->t == NULL, "Expected *dst->t to be a float pointer. Got NULL");
     CHECK_ERROR(src->t == NULL, "Expected *src->t to be a float pointer. Got NULL");
+    CHECK_ERROR(src->length == dst->length, "Expected src and dst tensors to be of same length. Got %d != %d", src->length, dst->length);
 
     const float *_src = __builtin_assume_aligned(src->t, 64);
     float *_dst = __builtin_assume_aligned(dst->t, 64);

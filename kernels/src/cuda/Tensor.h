@@ -11,16 +11,15 @@ void move_tensor_to_device_cuda(tensor_t *tensor);
 
 void create_tensor_data_cuda(tensor_t *tensor);
 void zeros_tensor_data_cuda(tensor_t *tensor);
-// void ones_tensor_data_cpu(tensor_t *tensor);
-// void fill_tensor_data_cpu(tensor_t *tensor, const float value);
+void ones_tensor_data_cuda(tensor_t *tensor);
+void fill_tensor_data_cuda(tensor_t *tensor, const float value);
+void copy_tensor_data_cuda(tensor_t *dst, const tensor_t *src);
 
-// void copy_tensor_data_cpu(tensor_t *dst, const tensor_t *src);
-
-// void saxpy_cpu(
-//     const int n, const float alpha, 
-//     const tensor_t *x, const int offsetx, const int incx, 
-//     tensor_t *y, const int offsety, const int incy
-// );
+void saxpy_cuda(
+    const int n, const float alpha, 
+    const tensor_t *x, const int offsetx, const int incx, 
+    tensor_t *y, const int offsety, const int incy
+);
 
 void sgemm_cuda(
     const int TransA, const int TransB, const int M, const int N, const int K,

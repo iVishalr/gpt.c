@@ -27,6 +27,8 @@ void ones_tensor_data_dispatch(tensor_t *tensor) {
     device_t device = tensor->device;
     if (device == CPU)  
         ones_tensor_data_cpu(tensor);
+    else if (device == CUDA)
+        ones_tensor_data_cuda(tensor);
     else
         CHECK_ERROR(1, "Given device is not supported.");
 }
@@ -35,6 +37,8 @@ void fill_tensor_data_dispatch(tensor_t *tensor, const float value) {
     device_t device = tensor->device;
     if (device == CPU)  
         fill_tensor_data_cpu(tensor, value);
+    else if (device == CUDA)
+        fill_tensor_data_cuda(tensor, value);
     else
         CHECK_ERROR(1, "Given device is not supported.");
 }
@@ -77,6 +81,8 @@ void copy_tensor_data_dispatch(tensor_t *dst, const tensor_t *src) {
     device_t device = dst->device;
     if (device == CPU)
         copy_tensor_data_cpu(dst, src);
+    else if (device == CUDA)
+        copy_tensor_data_cuda(dst, src);
     else
         CHECK_ERROR(1, "Given device is not supported.");
 }
@@ -93,6 +99,8 @@ void saxpy_dispatch(
     device_t device = y->device;
     if (device == CPU)
         saxpy_cpu(n, alpha, x, offsetx, incx, y, offsety, incy);
+    else if (device == CUDA)
+        saxpy_cuda(n, alpha, x, offsetx, incx, y, offsety, incy);
     else
         CHECK_ERROR(1, "Given device is not supported.");
 }
