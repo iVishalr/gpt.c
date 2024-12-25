@@ -89,7 +89,7 @@ void copy_tensor_data_cuda(tensor_t *dst, const tensor_t *src) {
     CHECK_ERROR(src == NULL, "Expected *src to be a tensor_t pointer. Got NULL");
     CHECK_ERROR(dst->t == NULL, "Expected *dst->t to be a float pointer. Got NULL");
     CHECK_ERROR(src->t == NULL, "Expected *src->t to be a float pointer. Got NULL");
-    CHECK_ERROR(src->length == dst->length, "Expected src and dst tensors to be of same length. Got %d != %d", src->length, dst->length);
+    CHECK_ERROR(src->length != dst->length, "Expected src and dst tensors to be of same length. Got %d != %d", src->length, dst->length);
     cudaCheck(cudaMemcpy(dst->t, src->t, dst->length * sizeof(float), cudaMemcpyDeviceToDevice));
 }
 
@@ -99,7 +99,9 @@ void saxpy_cuda(
     tensor_t *y, const int offsety, const int incy
 ) { 
     cublasHandle_t cublas_handle = get_cublas_handle();
-    cublasCheck(cublasSaxpy(cublas_handle, n, alpha, x->t + offsetx, incx, y->t + offsety, incy));
+    const float *_x = x->t + offsetx;
+    float *_y = y->t + offsety;
+    cublasCheck(cublasSaxpy(cublas_handle, n, &alpha, _x, incx, _y, incy));
 }
 
 void sgemm_cuda(
