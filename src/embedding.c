@@ -46,7 +46,7 @@ embedding_t *Embedding(int num_embeddings, int embedding_dim) {
 
 
 tensor_t *forward_embedding(embedding_t *embedding, tensor_t *x) {
-    
+
     CHECK_ERROR(embedding == NULL, "Expected *embedding to be a embedding_t pointer, but got NULL.");
     CHECK_ERROR(x == NULL, "Expected *x to be a tensor_t pointer, but got NULL.");
 
@@ -175,5 +175,6 @@ void to_embedding(embedding_t *embedding, const device_t device) {
     CHECK_ERROR(embedding == NULL, "Expected *embedding to be a embedding_t pointer, but got NULL.");
     embedding->W->to(embedding->W, device);
     embedding->dW->to(embedding->dW, device);
-    embedding->cache->to(embedding->cache, device);
+    if (embedding->cache)
+        embedding->cache->to(embedding->cache, device);
 }

@@ -6,6 +6,7 @@ int initialized = 0;
 
 void setup_cublas_handle() {
     cublasCheck(cublasCreate(&cublas_handle));
+    cublasCheck(cublasSetMathMode(cublas_handle, CUBLAS_TF32_TENSOR_OP_MATH));
     initialized = 1;
 }
 

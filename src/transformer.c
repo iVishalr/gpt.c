@@ -90,12 +90,7 @@ tensor_t *forward_transformer(gpt2_t *gpt, tensor_t *x) {
 
     tensor_t *tok_emb = wte->forward(wte, x);
 
-    int pos_shape[2] = {1, T};
-    tensor_t *pos = create_tensor(pos_shape, 2, device);
-    
-    for (int t = 0; t < T; t++)
-        pos->t[t] = t;
-
+    tensor_t *pos = arange(0, T, 1, device);
     tensor_t *pos_emb = wpe->forward(wpe, pos);
 
     for (int b = 0; b < B; b++)
@@ -149,27 +144,16 @@ tensor_t *backward_transformer(gpt2_t *gpt, tensor_t *global_grad) {
     for (int i = gpt->n_layers - 1; i >= 0; i--)
         out = layers[i]->backward(layers[i], out);
 
-    int gg_pos_emb_shape[3] = {1, T, n_embd};
-    tensor_t *gg_pos_emb = zeros(gg_pos_emb_shape, 3, device);
+    tensor_t *out2 = create_tensor(out->shape, out->ndims, device);
+    tensor_copy(out2, out);
 
-    for (int b = 0; b < B; b++) {
-        for (int t = 0; t < T; t++) {
-            float *global_grad_bt = out->t + b * T * n_embd + t * n_embd;
-            for (int i = 0; i < n_embd; i++) {
-                gg_pos_emb->t[t * n_embd + i] += global_grad_bt[i];
-            }
-        }
-    }
-
-    tensor_t *d_pos_emb = wpe->backward(wpe, gg_pos_emb);
+    tensor_t *d_pos_emb = wpe->backward(wpe, out2);
     tensor_t *d_tok_emb = wte->backward(wte, out);
 
-    // add up gradients of wte.W (wte->dW) to lm_head->dW 
+    // add up gradients of lm_head.W (wte->dW) to wte->dW 
     // We need to do this because both the layers are sharing weights
     // wte.W = lm_head.W: (vocab_size, C)
-    for (int v = 0; v < gpt->vocab_size; v++)
-        saxpy(n_embd, 1.0f, lm_head->dW, v * n_embd, 1, wte->dW, v * n_embd, 1);
-    
+    saxpy(wte->dW->length, 1.0f, lm_head->dW, 0, 1, wte->dW, 0, 1);
     return d_tok_emb;
 }
 

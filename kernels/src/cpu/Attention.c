@@ -190,18 +190,16 @@ void attention_backward_cpu_kernel(
     float *dk           = (float *)aligned_alloc_cpu(B * n_heads * T * hs * sizeof(float), 64);
     float *dv           = (float *)aligned_alloc_cpu(B * n_heads * T * hs * sizeof(float), 64);
     float *datt         = (float *)aligned_alloc_cpu(B * n_heads * T * T  * sizeof(float), 64);
-    float *dpreatt      = (float *)aligned_alloc_cpu(B * n_heads * T * T  * sizeof(float), 64);
 
-    for(int i = 0; i < B * n_heads * T * hs; i++) {
-        dq[i] = 0.0f;
-        dk[i] = 0.0f;
-        dv[i] = 0.0f;
-    }
+    // for(int i = 0; i < B * n_heads * T * hs; i++) {
+    //     dq[i] = 0.0f;
+    //     dk[i] = 0.0f;
+    //     dv[i] = 0.0f;
+    // }
 
-    for(int i = 0; i < B * n_heads * T * T; i++) {
-        dpreatt[i] = 0.0f;
-        datt[i] = 0.0f;
-    }
+    // for(int i = 0; i < B * n_heads * T * T; i++) {
+    //     datt[i] = 0.0f;
+    // }
 
     const float *__global_grad = __builtin_assume_aligned(global_grad->t, 64);
     const float *_q = __builtin_assume_aligned(q->t, 64);
@@ -238,7 +236,7 @@ void attention_backward_cpu_kernel(
             T, T, hs,
             1.0f, _global_grad + i * T * hs, hs,
             _v + i * T * hs, hs,
-            1.0f, datt + i * T * T, T
+            0.0f, datt + i * T * T, T
         );
 
         cblas_sgemm(
@@ -246,11 +244,11 @@ void attention_backward_cpu_kernel(
             T, hs, T,
             1.0f, _att + i * T * T, T,
             _global_grad + i * T * hs, hs,
-            1.0f, dv + i * T * hs, hs
+            0.0f, dv + i * T * hs, hs
         );
     }
 
-    _softmax_backward(datt, _att, dpreatt, B, T * n_heads, T);
+    _softmax_backward(datt, _att, datt, B, T * n_heads, T);
 
 
     for (int i = 0; i < B * n_heads; i++) {
@@ -271,17 +269,17 @@ void attention_backward_cpu_kernel(
         cblas_sgemm(
             CblasRowMajor, CblasNoTrans, CblasNoTrans, 
             T, hs, T,
-            scale, dpreatt + i * T * T, T,
+            scale, datt + i * T * T, T,
             _k + i * T * hs, hs,
-            1.0f, dq + i * T * hs, hs
+            0.0f, dq + i * T * hs, hs
         );
 
         cblas_sgemm(
             CblasRowMajor, CblasTrans, CblasNoTrans, 
             T, hs, T,
-            scale, dpreatt + i * T * T, T,
+            scale, datt + i * T * T, T,
             _q + i * T * hs, hs,
-            1.0f, dk + i * T * hs, hs
+            0.0f, dk + i * T * hs, hs
         );
     }
 
@@ -311,6 +309,5 @@ void attention_backward_cpu_kernel(
     free_cpu(dk);
     free_cpu(dv);
     free_cpu(datt);
-    free_cpu(dpreatt);
     free_cpu(_global_grad);
 }

@@ -3,7 +3,7 @@
 #include <cuda/cuda_common.h>
 #include <cuda/CrossEntropyLoss.h>
 
-C10_LAUNCH_BOUNDS_1(num_threads())
+C10_LAUNCH_BOUNDS_1(num_threads() * 2)
 __global__ void cross_entropy_forward_cuda_kernel_impl(
     const float *__restrict__ logits, 
     const float *__restrict__ targets, 
@@ -79,6 +79,7 @@ __global__ void cross_entropy_forward_cuda_kernel_impl(
 
     float loss = 0.0f;
     const float bt = 1.0f / (B * T);
+    #pragma unroll
     for (int j = tid; j < B * T; j += block_size)
         loss += loss_cache[j];
     loss = warp_reduce_sum(loss);
@@ -98,12 +99,12 @@ __global__ void cross_entropy_forward_cuda_kernel_impl(
         output[0] = loss * bt;
 }
 
-C10_LAUNCH_BOUNDS_1(num_threads())
+C10_LAUNCH_BOUNDS_1(num_threads() * 2)
 __global__ void cross_entropy_backward_cuda_kernel_impl(
     const float *__restrict__ global_grad, 
     const float *__restrict__ targets,
     const float *__restrict__ cache,
-    float *dlog_softmax, float *dout, 
+    float *__restrict__ dout, 
     const int B, const int T, const int C
 ) {
     extern __shared__ float shared[];
@@ -116,12 +117,12 @@ __global__ void cross_entropy_backward_cuda_kernel_impl(
     const int num_warps = block_size / C10_WARP_SIZE;
 
     const int curr_target = (int)targets[i];
-    dlog_softmax[i * C + curr_target] = -global_grad[i] / (B * T);
+    dout[i * C + curr_target] = -global_grad[i] / (B * T);
 
     __syncthreads();
 
     const float *cache_bt = cache + i * C;
-    const float *dlog_softmax_bt = dlog_softmax + i * C;
+    const float *dlog_softmax_bt = dout + i * C;
     float *dout_bt = dout + i * C;
 
     float sum = 0.0f;
@@ -163,7 +164,7 @@ void cross_entropy_forward_cuda_kernel(
     float *loss_cache;
     cudaCheck(cudaMalloc((void**)&loss_cache, B * T * sizeof(float)));
 
-    const int block_size = C10_WARP_SIZE * 2;
+    const int block_size = C10_WARP_SIZE * 4;
     const int grid_size = B * T;
     const size_t shmem_size = (block_size / C10_WARP_SIZE) * sizeof(float);
     cross_entropy_forward_cuda_kernel_impl<<<grid_size, block_size, shmem_size>>>(logits->t, targets->t, cache[0]->t, loss_cache, output->t, B, T, C);
@@ -186,17 +187,11 @@ void cross_entropy_backward_cuda_kernel(
     T = log_softmax_output->shape[1];
     C = log_softmax_output->shape[2];
 
-    float *dlog_softmax;
-    cudaCheck(cudaMalloc((void**)&dlog_softmax, B * T * C * sizeof(float)));
-    cudaCheck(cudaMemset(dlog_softmax, 0, B * T * C * sizeof(float)));
-
-    const int block_size = C10_WARP_SIZE * 2;
+    const int block_size = C10_WARP_SIZE * 4;
     const int grid_size = B * T;
     const size_t shmem_size = (block_size / C10_WARP_SIZE) * sizeof(float);
-    cross_entropy_backward_cuda_kernel_impl<<<grid_size, block_size, shmem_size>>>(global_grad->t, targets->t, log_softmax_output->t, dlog_softmax, dout->t, B, T, C);
+    cross_entropy_backward_cuda_kernel_impl<<<grid_size, block_size, shmem_size>>>(global_grad->t, targets->t, log_softmax_output->t, dout->t, B, T, C);
     cudaCheck(cudaGetLastError());
-
-    cudaCheck(cudaFree(dlog_softmax));
 }
 
 #ifdef __cplusplus

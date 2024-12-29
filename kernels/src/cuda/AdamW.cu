@@ -6,13 +6,17 @@ __device__ inline float lerpf(float start, float end, float weight) {
     return fmaf(weight, end, fmaf(-weight, start, start));
 }
 
-C10_LAUNCH_BOUNDS_1(num_threads() * 2)
+__device__ inline float lerp(float start, float end, float weight) {
+    return fma(weight, end, fma(-weight, start, start));
+}
+
+C10_LAUNCH_BOUNDS_1(num_threads() * 4)
 __global__ void step_adamW_cuda_kernel_impl(
-    float **parameters,
-    float **gradients,
-    float **m,
-    float **v,
-    const int *lengths,
+    float **__restrict__ parameters,
+    float **__restrict__ gradients,
+    float **__restrict__ m,
+    float **__restrict__ v,
+    const int *__restrict__ lengths,
     const int n,
     const float lr,
     const float beta1,
@@ -35,6 +39,95 @@ __global__ void step_adamW_cuda_kernel_impl(
     const float beta2_correction = 1.0f - powf(beta2, step);
 
     for (int j = tid; j < length; j += block_size) {
+        param[j] -= lr * weight_decay * param[j];
+        float _m = lerpf(gradient[j], m_t[j], beta1);
+        float _v = lerpf(gradient[j] * gradient[j], v_t[j], beta2);
+        float m_hat = _m / beta1_correction;
+        float v_hat = _v / beta2_correction;
+        m_t[j] = _m;
+        v_t[j] = _v;
+        param[j] -= lr * m_hat / (sqrtf(v_hat) + eps);
+    }
+}
+
+
+C10_LAUNCH_BOUNDS_1(num_threads() * 2)
+__global__ void step_adamW_cuda_kernel_impl2(
+    float **__restrict__ parameters,
+    float **__restrict__ gradients,
+    float **__restrict__ m,
+    float **__restrict__ v,
+    const int *__restrict__ lengths,
+    const int n,
+    const float lr,
+    const float beta1,
+    const float beta2,
+    const float weight_decay,
+    const float eps,
+    const float beta1_correction,
+    const float beta2_correction
+) {
+    const int i = blockIdx.x;
+    const int tid = threadIdx.x;
+    const int block_size = blockDim.x;
+    const int j = i * block_size + tid;
+
+    for (int y = 0; y < n; y++) {
+        if (j >= lengths[y]) continue;
+
+        const float *gradient = gradients[y];
+        float *param = parameters[y];
+        float *m_t = m[y];
+        float *v_t = v[y];
+
+        const float grad_j = gradient[j];
+        float param_j = param[j];
+        float _m = m_t[j];
+        float _v = v_t[j];
+
+        param_j -= lr * weight_decay * param_j;
+        _m = lerpf(grad_j, _m, beta1);
+        _v = lerpf(grad_j * grad_j, _v, beta2);
+        m_t[j] = _m;
+        v_t[j] = _v;
+        _m *= beta1_correction;
+        _v *= beta2_correction;
+        param_j -= lr * _m / (sqrtf(_v) + eps);
+        param[j] = param_j;
+    }
+}
+
+
+C10_LAUNCH_BOUNDS_1(num_threads() * 4)
+__global__ void step_adamW_cuda_kernel_impl3(
+    float **__restrict__ parameters,
+    float **__restrict__ gradients,
+    float **__restrict__ m,
+    float **__restrict__ v,
+    const int *__restrict__ lengths,
+    const int n,
+    const float lr,
+    const float beta1,
+    const float beta2,
+    const float weight_decay,
+    const float eps,
+    const float beta1_correction,
+    const float beta2_correction
+) {
+    const int i = blockIdx.x;
+    const int tid = threadIdx.x;
+    const int block_size = blockDim.x;
+    const int j = i * block_size + tid;
+
+    for (int y = blockIdx.y; y < n; y += gridDim.y) {
+        const int length = lengths[y];
+        if (j >= length) continue;
+
+        float *param = parameters[y];
+        float *gradient = gradients[y];
+        float *m_t = m[y];
+        float *v_t = v[y];
+
         param[j] -= lr * weight_decay * param[j];
         float _m = lerpf(gradient[j], m_t[j], beta1);
         float _v = lerpf(gradient[j] * gradient[j], v_t[j], beta2);
@@ -72,7 +165,7 @@ void step_adamW_cuda_kernel(
     _m = (float**)malloc(n * sizeof(float*));
     _v = (float**)malloc(n * sizeof(float*));
     _parameters_sizes = (int*)malloc(n * sizeof(int));
-
+    int max_length = 0;
     // assign device pointers
     for (int i = 0; i < n; i++) {
         _parameters[i] = parameters[i]->t;
@@ -80,6 +173,7 @@ void step_adamW_cuda_kernel(
         _m[i] = m[i]->t;
         _v[i] = v[i]->t;
         _parameters_sizes[i] = parameters[i]->length;
+        max_length = parameters[i]->length > max_length ? parameters[i]->length : max_length;
     }
 
     // Initialize containers for storing device pointers on device
@@ -100,8 +194,11 @@ void step_adamW_cuda_kernel(
 
     // launch kernel
     const int block_size = num_threads() * 2;
-    const int grid_size = n;
-    step_adamW_cuda_kernel_impl<<<grid_size, block_size>>>(
+    const int grid_size = (max_length + block_size - 1) / block_size;
+    const float beta1_correction = 1.0f / (1.0f - powf(beta1, step));
+    const float beta2_correction = 1.0f / (1.0f - powf(beta2, step));
+
+    step_adamW_cuda_kernel_impl2<<<grid_size, block_size>>>(
         d_parameters,
         d_gradients,
         d_m,
@@ -113,7 +210,8 @@ void step_adamW_cuda_kernel(
         beta2,
         weight_decay,
         eps,
-        step
+        beta1_correction,
+        beta2_correction
     );
     cudaCheck(cudaGetLastError());
 

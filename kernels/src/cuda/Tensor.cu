@@ -13,6 +13,13 @@ __global__ void fill_tensor_data_cuda_kernel_impl(float *tensor, const int n, co
     tensor[i] = value;
 }
 
+C10_LAUNCH_BOUNDS_1(num_threads())
+__global__ void arange_tensor_data_cuda_kernel_impl(float *tensor, const int n, const int start, const int steps) {
+    const int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= n) return;
+    tensor[i] = start + steps * i;
+}
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -81,6 +88,15 @@ void fill_tensor_data_cuda(tensor_t *tensor, const float value) {
     const int block_size = num_threads();
     const int grid_size = (tensor->length + block_size - 1) / block_size;
     fill_tensor_data_cuda_kernel_impl<<<grid_size, block_size>>>(tensor->t, tensor->length, value);
+    cudaCheck(cudaGetLastError());
+}
+
+void arange_tensor_data_cuda(tensor_t *tensor, const int start, const int end, const int steps) {
+    CHECK_ERROR(tensor == NULL, "Expected *tensor to be a tensor_t pointer. Got NULL");
+    if (!tensor->t) create_tensor_data_cuda(tensor);
+    const int block_size = num_threads();
+    const int grid_size = (tensor->length + block_size - 1) / block_size;
+    arange_tensor_data_cuda_kernel_impl<<<grid_size, block_size>>>(tensor->t, tensor->length, start, steps);
     cudaCheck(cudaGetLastError());
 }
 

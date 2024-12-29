@@ -70,7 +70,7 @@ void cross_entropy_backward_cpu_kernel(
     // nll_backward
     float *_global_grad = __builtin_assume_aligned(global_grad->t, 64);
     float *_targets = __builtin_assume_aligned(targets->t, 64);
-    float *dlog_softmax = (float*)aligned_alloc(64, B * T * C * sizeof(float));
+    float *dlog_softmax = __builtin_assume_aligned(dout->t, 64);
 
     const int bt = B * T;
     for (int i = 0; i < B * T; i++) {
@@ -95,6 +95,4 @@ void cross_entropy_backward_cpu_kernel(
         for (int j = 0; j < C; j++)
             grad_input_bt[j] = grad_output_bt[j] - (expf(output_bt[j]) * sum);
     }
-
-    free(dlog_softmax);
 }

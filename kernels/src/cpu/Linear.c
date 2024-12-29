@@ -57,7 +57,7 @@ void linear_backward_cpu_kernel(
         B * T, in_features, out_features,
         1.0f, _global_grad, out_features,
         _W, in_features, 
-        1.0f, _dout, in_features
+        0.0f, _dout, in_features
     );
 
     // backprop into dW

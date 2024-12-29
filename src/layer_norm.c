@@ -58,7 +58,6 @@ layer_norm_t *LayerNorm(int in_features, const float eps, const int use_bias) {
 
 
 tensor_t *forward_layer_norm(layer_norm_t *norm, tensor_t *x) {
-    
     CHECK_ERROR(norm == NULL, "Expected *norm to be a layer_norm_t pointer, but got NULL.");
     CHECK_ERROR(x == NULL, "Expected *x to be a tensor_t pointer, but got NULL.");
 
@@ -263,10 +262,15 @@ void to_layer_norm(layer_norm_t *norm, const device_t device) {
     CHECK_ERROR(norm == NULL, "Expected *norm to be a layer_norm_t pointer, but got NULL.");
 
     norm->W->to(norm->W, device);
-    norm->b->to(norm->b, device);
     norm->dW->to(norm->dW, device);
-    norm->db->to(norm->db, device);
-    norm->cache[0]->to(norm->cache[0], device);
-    norm->cache[1]->to(norm->cache[1], device);
-    norm->cache[2]->to(norm->cache[2], device);
+    if (norm->b)
+        norm->b->to(norm->b, device);
+    if (norm->db)
+        norm->db->to(norm->db, device);
+    if (norm->cache[0])
+        norm->cache[0]->to(norm->cache[0], device);
+    if (norm->cache[1])
+        norm->cache[1]->to(norm->cache[1], device);
+    if (norm->cache[2])
+        norm->cache[2]->to(norm->cache[2], device);
 }

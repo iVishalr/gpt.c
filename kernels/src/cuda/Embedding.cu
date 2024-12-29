@@ -23,14 +23,14 @@ __global__ void embedding_backward_cuda_kernel_impl(
     const float *__restrict__ global_grad, 
     const float *__restrict__ cache,
     float *dW, 
-    const int B, const int T, const int C
+    const int B, const int T, const int C, const int cache_length
 ) {
     const int i = blockIdx.x;
     const int tid = threadIdx.x;
     const int block_size = blockDim.x;
 
     const float *global_grad_bt = global_grad + i * C;
-    const int curr_idx = (int)cache[i];
+    const int curr_idx = (int)cache[i % cache_length];
     float *dW_ix = dW + curr_idx * C;
 
     #pragma unroll
@@ -52,7 +52,7 @@ void embedding_forward_cuda_kernel(
     T = output->shape[1];
     C = output->shape[2];
 
-    const int block_size = C10_WARP_SIZE * 2;
+    const int block_size = C10_WARP_SIZE * 4;
     const int grid_size = B * T;
     embedding_forward_cuda_kernel_impl<<<grid_size, block_size>>>(W->t, input->t, output->t, B, T, C);
     cudaCheck(cudaGetLastError());
@@ -64,9 +64,9 @@ void embedding_backward_cuda_kernel(const tensor_t *global_grad, const tensor_t 
     T = global_grad->shape[1];
     C = global_grad->shape[2];
 
-    const int block_size = C10_WARP_SIZE * 2;
+    const int block_size = C10_WARP_SIZE * 4;
     const int grid_size = B * T;
-    embedding_backward_cuda_kernel_impl<<<grid_size, block_size>>>(global_grad->t, cache->t, dW->t, B, T, C);
+    embedding_backward_cuda_kernel_impl<<<grid_size, block_size>>>(global_grad->t, cache->t, dW->t, B, T, C, cache->length);
     cudaCheck(cudaGetLastError());
 }
 

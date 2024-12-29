@@ -116,6 +116,15 @@ tensor_t *fill(const int *shape, const int n, const float value, const device_t 
 }
 
 
+tensor_t *arange(const int start, const int end, const int steps, const device_t device) {
+    int num_elements = ceil((end - start) / steps);
+    int shape[2] = {1, num_elements};
+    tensor_t *tensor = create_tensor(shape, 2, device);
+    arange_tensor_data_dispatch(tensor, start, end, steps);
+    return tensor;
+}
+
+
 void tensor_copy(tensor_t *dest, const tensor_t *src) {
 
     CHECK_ERROR(src == NULL, "Expected *src to be a tensor_t pointer, but got NULL.");

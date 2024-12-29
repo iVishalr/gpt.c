@@ -55,6 +55,7 @@ tensor_t *randn(const int *shape, const int n, const device_t device);
 tensor_t *zeros(const int *shape, const int n, const device_t device);
 tensor_t *ones(const int *shape, const int n, const device_t device);
 tensor_t *fill(const int *shape, const int n, const float value, const device_t device);
+tensor_t *arange(const int start, const int end, const int steps, const device_t device);
 
 void tensor_copy(tensor_t *dest, const tensor_t *src);
 
@@ -65,6 +66,7 @@ void sgemm(
     const tensor_t *B, const int offsetB, const int ldb,
     const float beta, tensor_t *C, const int offsetC, const int ldc
 );
+
 void uniform(tensor_t *tensor, const float low, const float high);
 void shape(const tensor_t *tensor, char *shape);
 void view(tensor_t *tensor, const int *shape, const int n);

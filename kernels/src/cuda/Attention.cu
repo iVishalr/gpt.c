@@ -6,6 +6,7 @@
 #include <cuda/Tensor.h>
 #include <cuda/Softmax.h>
 #include <cuda/runtime.h>
+#include "utils.h"
 
 
 C10_LAUNCH_BOUNDS_1(num_threads())
@@ -47,9 +48,9 @@ __global__ void permute_forward_cuda_kernel_impl(const float *input, float *q, f
             +          (nh_ * hs)
             +                d_;
 
-        q[idx] = input[inp_idx];
-        k[idx] = input[inp_idx + n_heads * hs];
-        v[idx] = input[inp_idx + 2 * (n_heads * hs)];
+        q[idx] = __ldcs(&input[inp_idx]);
+        k[idx] = __ldcs(&input[inp_idx + n_heads * hs]);
+        v[idx] = __ldcs(&input[inp_idx + 2 * (n_heads * hs)]);
     }
 }
 
@@ -69,7 +70,7 @@ __global__ void unpermute_forward_cuda_kernel_impl(const float *input, float *ou
         int d_ = rest % hs;
 
         int other_idx = (b * n_heads * T * hs) + (n * n_heads * hs) + (nh_ * hs) + d_;
-        output[other_idx] = input[idx];
+        output[other_idx] = __ldcs(&input[idx]);
     }
 }
 
@@ -176,7 +177,7 @@ void attention_forward_cuda_kernel(
     hs = C / n_heads;
     mask_row_size = mask->shape[mask->ndims - 1];
 
-    float scale = 1.0f / sqrtf(hs);
+    const float scale = 1.0f / sqrtf(hs);
     tensor_t *k, *q, *v, *att;
     q = cache[0];
     k = cache[1];
@@ -246,12 +247,11 @@ void attention_backward_cuda_kernel(
     att = cache[3];
 
     tensor_t *dq, *dk, *dv, *datt, *dpreatt, *_global_grad;
-    _global_grad = zeros(global_grad->shape, global_grad->ndims, CUDA);
-    dq           = zeros(q->shape, q->ndims, CUDA);
-    dk           = zeros(k->shape, k->ndims, CUDA);
-    dv           = zeros(v->shape, v->ndims, CUDA);
-    datt         = zeros(att->shape, att->ndims, CUDA);
-    dpreatt      = zeros(att->shape, att->ndims, CUDA);
+    _global_grad = create_tensor(global_grad->shape, global_grad->ndims, CUDA);
+    dq           = create_tensor(q->shape, q->ndims, CUDA);
+    dk           = create_tensor(k->shape, k->ndims, CUDA);
+    dv           = create_tensor(v->shape, v->ndims, CUDA);
+    datt         = create_tensor(att->shape, att->ndims, CUDA);
 
     unpermute_backward_cuda_kernel(global_grad->t, _global_grad->t, B, T, C, n_heads);
 
@@ -262,7 +262,7 @@ void attention_backward_cuda_kernel(
         1.0f, 
         _global_grad, hs, T * hs,
         v, hs, T * hs,
-        1.0f, 
+        0.0f, 
         datt, T, T * T,
         B * n_heads
     );
@@ -274,13 +274,13 @@ void attention_backward_cuda_kernel(
         1.0f, 
         att, T, T * T,
         _global_grad, hs, T * hs,
-        1.0f, 
+        0.0f, 
         dv, hs, T * hs,
         B * n_heads
     );
 
     datt->shape[1] = n_heads * T;
-    softmax_backward_cuda_kernel(datt, att, dpreatt);
+    softmax_backward_cuda_kernel(datt, att, datt);
     datt->shape[1] = n_heads;
 
     // dq = dpreatt (B, n_heads, T, T) @ k (B, n_heads, T, hs)
@@ -288,9 +288,9 @@ void attention_backward_cuda_kernel(
         0, 0, 
         T, hs, T,
         scale, 
-        dpreatt, T, T * T,
+        datt, T, T * T,
         k, hs, T * hs,
-        1.0f, 
+        0.0f, 
         dq, hs, T * hs,
         B * n_heads
     );
@@ -300,9 +300,9 @@ void attention_backward_cuda_kernel(
         1, 0, 
         T, hs, T,
         scale, 
-        dpreatt, T, T * T,
+        datt, T, T * T,
         q, hs, T * hs,
-        1.0f, 
+        0.0f, 
         dk, hs, T * hs,
         B * n_heads
     );
@@ -313,7 +313,6 @@ void attention_backward_cuda_kernel(
     free_tensor(dk);
     free_tensor(dv);
     free_tensor(datt);
-    free_tensor(dpreatt);
     free_tensor(_global_grad);
 }
 

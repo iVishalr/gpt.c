@@ -63,7 +63,7 @@ inline void cuda_check(cudaError_t error, const char *file, int line) {
         printf("[CUDA ERROR] at file %s:%d: %s\n", file, line, cudaGetErrorString(error));
         exit(EXIT_FAILURE);
     }
-    cudaDeviceSynchronize();
+    // cudaDeviceSynchronize();
 }
 #define cudaCheck(err) { cuda_check(err, __FILE__, __LINE__); }
 
@@ -73,7 +73,7 @@ inline void cublas_check(cublasStatus_t status, const char *file, int line)
         printf("[cuBLAS ERROR] at file %s:%d: %s status: %d\n", file, line, cublasGetStatusString(status), status);
         exit(EXIT_FAILURE);
     }
-    cudaDeviceSynchronize();
+    // cudaDeviceSynchronize();
 }
 #define cublasCheck(status) { cublas_check((status), __FILE__, __LINE__); }
 

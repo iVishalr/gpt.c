@@ -462,10 +462,14 @@ int main(int argc, char **argv) {
     int total_training_steps = ckpt_steps;
     int training_steps = train_loader->len(train_loader);
 
+    // move model to device
+    gpt->to(gpt, device);
+
     for (int epoch = 1; epoch <= max_epochs; epoch++) {
-        for (int step = 1; step <= training_steps; step++) {
+        for (int step = 1; step <= 100; step++) {
             total_training_steps += 1;
 
+            clock_gettime(CLOCK_MONOTONIC, &train_start);
             tensor_t *training_batch[2];
             train_loader->next(train_loader, training_batch);
             tensor_t *_x = training_batch[0], *_targets = training_batch[1];
@@ -476,19 +480,23 @@ int main(int argc, char **argv) {
             tensor_t *x = create_tensor(inp_shape, 2, device);
             tensor_t *targets = create_tensor(inp_shape, 2, device);
 
+            _x->to(_x, device);
+            _targets->to(_targets, device);
+
             tensor_copy(x, _x);
             tensor_copy(targets, _targets);
 
             // zero the gradients
             optimizer->zero_grad(optimizer);
 
-            clock_gettime(CLOCK_MONOTONIC, &train_start);
             tensor_t *logits = gpt->forward(gpt, x);
 
             // calculate loss
             tensor_t *losses = loss->forward(loss, logits, targets);
 
+            losses->to(losses, CPU);
             float training_mean_loss = losses->t[0];
+            losses->to(losses, device);
 
             // backward pass
             tensor_t *global_grad = ones(targets->shape, targets->ndims, targets->device);

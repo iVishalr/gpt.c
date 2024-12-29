@@ -138,10 +138,9 @@ tensor_t *forward_linear(linear_t *linear, tensor_t *x) {
     // y: (B * T, in_features) @ (in_features, out_features) -> (B * T, out_features) + (out_features)
     
     device_t device = x->device;
-    int B, T, in_features;
+    int B, T;
     B = x->shape[0];
     T = x->shape[1];
-    in_features = x->shape[2];
 
     int out_shape[3] = {B, T, linear->out_features};
     tensor_t *out = create_tensor(out_shape, 3, device);
@@ -325,8 +324,12 @@ void to_linear(linear_t *linear, const device_t device) {
     CHECK_ERROR(linear == NULL, "Expected *linear to be a linear_t pointer, but got NULL.");
 
     linear->W->to(linear->W, device);
-    linear->b->to(linear->b, device);
-    linear->dW->to(linear->dW, device);
-    linear->db->to(linear->db, device);
-    linear->cache->to(linear->cache, device);
+    if (linear->dW)
+        linear->dW->to(linear->dW, device);
+    if (linear->b)
+        linear->b->to(linear->b, device);
+    if (linear->db)
+        linear->db->to(linear->db, device);
+    if (linear->cache)
+        linear->cache->to(linear->cache, device);
 }

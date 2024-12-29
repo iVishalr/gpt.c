@@ -92,7 +92,6 @@ tensor_t *forward_attention(attention_t *attn, tensor_t *x) {
         as this becomes input to "out = att @ v", and will be accessed during backprop.
     */
 
-    device_t device = x->device;
     int B, T, C, C3, n_heads, hs;
     B = x->shape[0];
     T = x->shape[1];
@@ -100,6 +99,8 @@ tensor_t *forward_attention(attention_t *attn, tensor_t *x) {
     C = C3 / 3;
     n_heads = attn->n_heads;
     hs = C / n_heads;
+
+    device_t device = x->device;
 
     tensor_t *q, *k, *v; 
     int qkv_transpose_shape[4] = {B, n_heads, T, hs};
@@ -119,7 +120,6 @@ tensor_t *forward_attention(attention_t *attn, tensor_t *x) {
     attn->cache[3] = att;
 
     attention_forward_dispatch(x, attn->buffer, n_heads, attn->cache, out);
-
     free_tensor(x);    
     return out;
 }
@@ -130,13 +130,14 @@ tensor_t *backward_attention(attention_t *attn, tensor_t *global_grad) {
     CHECK_ERROR(attn == NULL, "Expected *attn to be a attention_t pointer, but got NULL.");
     CHECK_ERROR(global_grad == NULL, "Expected *global_grad to be a tensor_t pointer, but got NULL.");
 
-    device_t device = global_grad->device;
     int B, T, C, n_heads, hs;
     B = global_grad->shape[0];
     T = global_grad->shape[1];
     C = global_grad->shape[2];
     n_heads = attn->n_heads;
     hs = C / n_heads;
+
+    device_t device = global_grad->device;
 
     int dout_shape[3] = {B, T, C * 3};
     tensor_t *dout = zeros(dout_shape, 3, device);
@@ -204,8 +205,12 @@ void to_attention(attention_t *attn, const device_t device) {
     CHECK_ERROR(attn == NULL, "Expected *attn to be a attention_t pointer, but got NULL.");
 
     attn->buffer->to(attn->buffer, device);
-    attn->cache[0]->to(attn->cache[0], device);
-    attn->cache[1]->to(attn->cache[1], device);
-    attn->cache[2]->to(attn->cache[2], device);
-    attn->cache[3]->to(attn->cache[3], device);
+    if (attn->cache[0])
+        attn->cache[0]->to(attn->cache[0], device);
+    if (attn->cache[1])
+        attn->cache[1]->to(attn->cache[1], device);
+    if (attn->cache[2])
+        attn->cache[2]->to(attn->cache[2], device);
+    if (attn->cache[3])
+        attn->cache[3]->to(attn->cache[3], device);
 }

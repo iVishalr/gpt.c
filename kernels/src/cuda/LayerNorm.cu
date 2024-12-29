@@ -2,7 +2,7 @@
 #include <cuda/common.cuh>
 #include <cuda/cuda_common.h>
 
-C10_LAUNCH_BOUNDS_1(num_threads())
+C10_LAUNCH_BOUNDS_1(num_threads() * 2)
 __global__ void layer_norm_forward_cuda_kernel_impl(
     const float *input, const float *W, const float *b, const float eps, 
     float *mean, float *rstd, float *output, 
@@ -57,7 +57,7 @@ __global__ void layer_norm_forward_cuda_kernel_impl(
     rstd[i] = rstd_val;
 }
 
-C10_LAUNCH_BOUNDS_1(num_threads())
+C10_LAUNCH_BOUNDS_1(num_threads() * 2)
 __global__ void layer_norm_backward_cuda_kernel_impl(
     const float *global_grad, const float *input, const float *mean, const float *rstd, const float *W, 
     float *dW, float *db, float *dout, 
@@ -127,7 +127,7 @@ void layer_norm_forward_cuda_kernel(
     tensor_t *mean = cache[0];
     tensor_t *rstd = cache[1];
 
-    const int block_size = C10_WARP_SIZE;
+    const int block_size = C10_WARP_SIZE * 4;
     const int grid_size = B * T;
     layer_norm_forward_cuda_kernel_impl<<<grid_size, block_size>>>(input->t, W->t, b->t, eps, mean->t, rstd->t, output->t, B, T, C);
     cudaCheck(cudaGetLastError());
@@ -151,7 +151,7 @@ void layer_norm_backward_cuda_kernel(
     rstd = cache[1];
     input = cache[2];
 
-    const int block_size = C10_WARP_SIZE;
+    const int block_size = C10_WARP_SIZE * 4;
     const int grid_size = B * T;
 
     float *_db = db ? db->t : NULL;

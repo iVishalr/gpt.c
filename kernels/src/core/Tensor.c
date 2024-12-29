@@ -43,6 +43,16 @@ void fill_tensor_data_dispatch(tensor_t *tensor, const float value) {
         CHECK_ERROR(1, "Given device is not supported.");
 }
 
+void arange_tensor_data_dispatch(tensor_t *tensor, const int start, const int end, const int steps) {
+    device_t device = tensor->device;
+    if (device == CPU)
+        arange_tensor_data_cpu(tensor, start, end, steps);
+    else if (device == CUDA)
+        arange_tensor_data_cuda(tensor, start, end, steps);
+    else
+        CHECK_ERROR(1, "Given device is not supported.");
+}
+ 
 void move_tensor_data_dispatch(tensor_t *tensor, const device_t device) {
     const device_t src_device = tensor->device;
     int to_host = 0, to_device = 0;

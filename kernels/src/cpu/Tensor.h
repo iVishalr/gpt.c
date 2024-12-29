@@ -13,6 +13,7 @@ void create_tensor_data_cpu(tensor_t *tensor);
 void zeros_tensor_data_cpu(tensor_t *tensor);
 void ones_tensor_data_cpu(tensor_t *tensor);
 void fill_tensor_data_cpu(tensor_t *tensor, const float value);
+void arange_tensor_data_cpu(tensor_t *tensor, const int start, const int end, const int steps);
 
 void copy_tensor_data_cpu(tensor_t *dst, const tensor_t *src);
 

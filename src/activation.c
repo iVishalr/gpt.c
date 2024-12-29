@@ -35,7 +35,7 @@ tensor_t *forward_gelu(gelu_t *gelu, tensor_t *x) {
     CHECK_ERROR(x == NULL, "Expected *x to be a tensor_t pointer, but got NULL.");
 
     tensor_t *out = create_tensor(x->shape, x->ndims, x->device);
-
+    
     gelu_forward_dispatch(x, out);
 
     gelu->cache = x;
@@ -83,7 +83,8 @@ void free_cache_gelu(gelu_t *gelu) {
 
 void to_gelu(gelu_t *gelu, const device_t device) {
     CHECK_ERROR(gelu == NULL, "Expected *gelu to be a gelu_t pointer, but got NULL.");
-    gelu->cache->to(gelu->cache, device);
+    if (gelu->cache)
+        gelu->cache->to(gelu->cache, device);
 } 
 
 
@@ -165,5 +166,6 @@ void free_cache_softmax(softmax_t *softmax) {
 
 void to_softmax(softmax_t *softmax, const device_t device) {
     CHECK_ERROR(softmax == NULL, "Expected *softmax to be a softmax_t pointer, but got NULL.");
-    softmax->cache->to(softmax->cache, device);
+    if (softmax->cache)
+        softmax->cache->to(softmax->cache, device);
 }

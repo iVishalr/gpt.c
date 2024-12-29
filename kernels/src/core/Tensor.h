@@ -11,6 +11,7 @@ void create_tensor_data_dispatch(tensor_t *tensor);
 void zeros_tensor_data_dispatch(tensor_t *tensor);
 void ones_tensor_data_dispatch(tensor_t *tensor);
 void fill_tensor_data_dispatch(tensor_t *tensor, const float value);
+void arange_tensor_data_dispatch(tensor_t *tensor, const int start, const int end, const int steps);
 void move_tensor_data_dispatch(tensor_t *tensor, const device_t device);
 void copy_tensor_data_dispatch(tensor_t *dst, const tensor_t *src);
 
