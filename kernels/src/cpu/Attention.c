@@ -179,34 +179,26 @@ void attention_backward_cpu_kernel(
     hs = C / n_heads;
     const float scale = 1.0f / sqrtf(hs);
 
-    const tensor_t *q, *k, *v, *preatt, *att;
+    tensor_t *q, *k, *v, *att;
     q = cache[0]; 
     k = cache[1];
     v = cache[2];
     att = cache[3];
 
-    float *_global_grad = (float *)aligned_alloc_cpu(B * n_heads * T * hs * sizeof(float), 64);
-    float *dq           = (float *)aligned_alloc_cpu(B * n_heads * T * hs * sizeof(float), 64);
-    float *dk           = (float *)aligned_alloc_cpu(B * n_heads * T * hs * sizeof(float), 64);
     float *dv           = (float *)aligned_alloc_cpu(B * n_heads * T * hs * sizeof(float), 64);
     float *datt         = (float *)aligned_alloc_cpu(B * n_heads * T * T  * sizeof(float), 64);
 
-    // for(int i = 0; i < B * n_heads * T * hs; i++) {
-    //     dq[i] = 0.0f;
-    //     dk[i] = 0.0f;
-    //     dv[i] = 0.0f;
-    // }
-
-    // for(int i = 0; i < B * n_heads * T * T; i++) {
-    //     datt[i] = 0.0f;
-    // }
-
-    const float *__global_grad = __builtin_assume_aligned(global_grad->t, 64);
+    const float *_att = __builtin_assume_aligned(att->t, 64);
     const float *_q = __builtin_assume_aligned(q->t, 64);
     const float *_k = __builtin_assume_aligned(k->t, 64);
-    const float *_v = __builtin_assume_aligned(v->t, 64);
-    const float *_att = __builtin_assume_aligned(att->t, 64);
+    float *_v = __builtin_assume_aligned(v->t, 64);
     float *_dout = __builtin_assume_aligned(dout->t, 64);
+    float *__global_grad = __builtin_assume_aligned(global_grad->t, 64);
+
+    // Reuse arrays to save on memory
+    float *_global_grad = _dout;
+    float *dq = __global_grad;
+    float *dk = _v;
 
     for (int b = 0; b < B; b++) {
         for (int t = 0; t < T; t++) {
@@ -249,7 +241,6 @@ void attention_backward_cpu_kernel(
     }
 
     _softmax_backward(datt, _att, datt, B, T * n_heads, T);
-
 
     for (int i = 0; i < B * n_heads; i++) {
         // backprop into q, k
@@ -305,9 +296,6 @@ void attention_backward_cpu_kernel(
         }
     }
 
-    free_cpu(dq);
-    free_cpu(dk);
     free_cpu(dv);
     free_cpu(datt);
-    free_cpu(_global_grad);
 }

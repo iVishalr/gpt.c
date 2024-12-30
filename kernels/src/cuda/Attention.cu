@@ -240,18 +240,22 @@ void attention_backward_cuda_kernel(
     hs = C / n_heads;
 
     const float scale = 1.0f / sqrtf(hs);
-    const tensor_t *k, *q, *v, *att;
+    
+    tensor_t *k, *q, *v, *att;
     q = cache[0];
     k = cache[1];
     v = cache[2];
     att = cache[3];
 
-    tensor_t *dq, *dk, *dv, *datt, *dpreatt, *_global_grad;
+    tensor_t *dq, *dk, *dv, *datt, *_global_grad;
     _global_grad = create_tensor(global_grad->shape, global_grad->ndims, CUDA);
-    dq           = create_tensor(q->shape, q->ndims, CUDA);
-    dk           = create_tensor(k->shape, k->ndims, CUDA);
     dv           = create_tensor(v->shape, v->ndims, CUDA);
     datt         = create_tensor(att->shape, att->ndims, CUDA);
+
+    // Reuse tensors to save on memory
+    // _global_grad = dout;
+    dq = _global_grad;
+    dk = v;
 
     unpermute_backward_cuda_kernel(global_grad->t, _global_grad->t, B, T, C, n_heads);
 
@@ -309,11 +313,9 @@ void attention_backward_cuda_kernel(
 
     permute_backward_cuda_kernel(dq->t, dk->t, dv->t, dout->t, B, T, C, n_heads);
 
-    free_tensor(dq);
-    free_tensor(dk);
+    free_tensor(_global_grad);
     free_tensor(dv);
     free_tensor(datt);
-    free_tensor(_global_grad);
 }
 
 #ifdef __cplusplus
