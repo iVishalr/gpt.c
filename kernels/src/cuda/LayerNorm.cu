@@ -127,7 +127,7 @@ void layer_norm_forward_cuda_kernel(
     tensor_t *mean = cache[0];
     tensor_t *rstd = cache[1];
 
-    const int block_size = C10_WARP_SIZE * 4;
+    const int block_size = C10_WARP_SIZE;
     const int grid_size = B * T;
     layer_norm_forward_cuda_kernel_impl<<<grid_size, block_size>>>(input->t, W->t, b->t, eps, mean->t, rstd->t, output->t, B, T, C);
     cudaCheck(cudaGetLastError());
@@ -151,7 +151,7 @@ void layer_norm_backward_cuda_kernel(
     rstd = cache[1];
     input = cache[2];
 
-    const int block_size = C10_WARP_SIZE * 4;
+    const int block_size = C10_WARP_SIZE;
     const int grid_size = B * T;
 
     float *_db = db ? db->t : NULL;
