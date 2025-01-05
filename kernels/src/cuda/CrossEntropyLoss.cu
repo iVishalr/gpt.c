@@ -81,23 +81,6 @@ __global__ void cross_entropy_forward_cuda_kernel_impl(
     atomicAdd(&output[0], loss_cache[i] / (B * T));
 }
 
-C10_LAUNCH_BOUNDS_1(num_threads())
-__global__ void reduce_sum_kernel_impl(
-    const float *input,
-    float *output,
-    const int n
-) {
-    const int i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i != 0)
-        return;
-
-    float loss_sum = 0.0f;
-    for (int j = 0; j < n; j++)
-        loss_sum += input[j];
-    output[0] = loss_sum / n;
-}
-
-
 
 C10_LAUNCH_BOUNDS_1(num_threads() * 2)
 __global__ void cross_entropy_backward_cuda_kernel_impl(
