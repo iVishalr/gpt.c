@@ -90,12 +90,6 @@ void step_adamW(adamW_t *optimizer) {
 
     optimizer->step_t += 1;
 
-    // for (int i = 0; i < optimizer->n_parameters; i++) {
-    //     optimizer->parameters[i]->to(optimizer->parameters[i], CUDA);
-    //     optimizer->gradients[i]->to(optimizer->gradients[i], CUDA);
-    //     optimizer->m[i]->to(optimizer->m[i], CUDA);
-    //     optimizer->v[i]->to(optimizer->v[i], CUDA);
-    // }
     step_adamW_dispatch(
         optimizer->parameters, 
         optimizer->gradients, 
@@ -110,13 +104,6 @@ void step_adamW(adamW_t *optimizer) {
         optimizer->step_t
     );
 
-    // for (int i = 0; i < optimizer->n_parameters; i++)
-    // {
-    //     optimizer->parameters[i]->to(optimizer->parameters[i], CPU);
-    //     optimizer->gradients[i]->to(optimizer->gradients[i], CPU);
-    //     optimizer->m[i]->to(optimizer->m[i], CPU);
-    //     optimizer->v[i]->to(optimizer->v[i], CPU);
-    // }
 }
 
 
