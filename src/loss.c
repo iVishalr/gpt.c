@@ -12,6 +12,7 @@ int num_parameters_cross_entropy_loss(const cross_entropy_loss_t *loss);
 void description_cross_entropy_loss(const cross_entropy_loss_t *loss);
 void free_layer_cross_entropy_loss(cross_entropy_loss_t *loss);
 void free_cache_cross_entropy_loss(cross_entropy_loss_t *loss);
+void to_cross_entropy_loss(cross_entropy_loss_t *loss, const device_t device);
 
 
 // CrossEntropyLoss Class
@@ -25,9 +26,9 @@ cross_entropy_loss_t *CrossEntropyLoss() {
     loss->num_parameters = num_parameters_cross_entropy_loss;
     loss->free_layer = free_layer_cross_entropy_loss;
     loss->free_cache = free_cache_cross_entropy_loss;
+    loss->to = to_cross_entropy_loss;
     return loss;
 }
-
 
 tensor_t *forward_cross_entropy_loss(cross_entropy_loss_t *loss, tensor_t *logits, tensor_t *targets) {
 
@@ -136,4 +137,13 @@ void free_cache_cross_entropy_loss(cross_entropy_loss_t *loss) {
     free_tensor(loss->cache[1]);
     loss->cache[0] = NULL;
     loss->cache[1] = NULL;
+}
+
+void to_cross_entropy_loss(cross_entropy_loss_t *loss, const device_t device) {
+    CHECK_ERROR(loss == NULL, "Expected *loss to be a cross_entropy_loss_t pointer, but got NULL.");
+
+    if (loss->cache[0])
+        loss->cache[0]->to(loss->cache[0], device);
+    if (loss->cache[1])
+        loss->cache[1]->to(loss->cache[1], device);
 }
