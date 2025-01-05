@@ -1,8 +1,8 @@
+#include <cuda/cuda_common.h>
+#include <cuda/runtime.cuh>
 #include <cpu/Alloc.h>
 #include <cuda/Alloc.h>
 #include <cuda/Tensor.h>
-#include <cuda/cuda_common.h>
-#include <cuda/runtime.h>
 
 #include <common/kutils.h>
 
@@ -51,9 +51,8 @@ void move_tensor_to_device_cuda(tensor_t *tensor) {
     }
 
     float *host_ptr = tensor->t;
-    float *device_ptr;
     const size_t size = tensor->length * sizeof(float);
-    cudaCheck(cudaMalloc((void**)&device_ptr, size));
+    float *device_ptr = (float*)alloc_cuda(size);
     cudaCheck(cudaMemcpy(device_ptr, host_ptr, size, cudaMemcpyHostToDevice));
 
     tensor->t = device_ptr;
@@ -70,7 +69,10 @@ void create_tensor_data_cuda(tensor_t *tensor) {
 void zeros_tensor_data_cuda(tensor_t *tensor) {
     CHECK_ERROR(tensor == NULL, "Expected *tensor to be a tensor_t pointer. Got NULL");
     if (!tensor->t) create_tensor_data_cuda(tensor);
-    cudaCheck(cudaMemset(tensor->t, 0, tensor->length * sizeof(float)));
+    const int block_size = num_threads();
+    const int grid_size = (tensor->length + block_size - 1) / block_size;
+    fill_tensor_data_cuda_kernel_impl<<<grid_size, block_size>>>(tensor->t, tensor->length, 0.0f);
+    cudaCheck(cudaGetLastError());
 }
 
 void ones_tensor_data_cuda(tensor_t *tensor) {
