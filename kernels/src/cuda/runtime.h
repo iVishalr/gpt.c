@@ -1,15 +1,12 @@
 #pragma once
 
-#include <cublas_v2.h>
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-extern cublasHandle_t cublas_handle;
-
-void setup_cublas_handle();
-cublasHandle_t get_cublas_handle();
+void runtime_init_cuda();
+void runtime_destroy_cuda();
+void synchronize_cuda();
 
 #ifdef __cplusplus
 }

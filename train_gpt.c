@@ -12,6 +12,7 @@
 #include "optim.h"
 #include "dataloader.h"
 #include "utils.h"
+#include "runtime.h"
 
 // define command line options
 const char *argp_program_version = "train_gpt version 1.0";
@@ -376,7 +377,8 @@ int main(int argc, char **argv) {
     sprintf(save_checkpoint_path, "%s/%s.bin", training_config.log_dir, training_config.output);
 
     gpt2_t *gpt = load_model(load_checkpoint);
-    device_t device = CPU;
+    device_t device = CUDA;
+    runtime_init(CUDA);
 
     // create the dataloaders for training and validation
     dataloader_t *train_loader = DataLoader(
@@ -466,7 +468,7 @@ int main(int argc, char **argv) {
     gpt->to(gpt, device);
 
     for (int epoch = 1; epoch <= max_epochs; epoch++) {
-        for (int step = 1; step <= 100; step++) {
+        for (int step = 1; step <= training_steps; step++) {
             total_training_steps += 1;
 
             clock_gettime(CLOCK_MONOTONIC, &train_start);
@@ -494,10 +496,6 @@ int main(int argc, char **argv) {
             // calculate loss
             tensor_t *losses = loss->forward(loss, logits, targets);
 
-            losses->to(losses, CPU);
-            float training_mean_loss = losses->t[0];
-            losses->to(losses, device);
-
             // backward pass
             tensor_t *global_grad = ones(targets->shape, targets->ndims, targets->device);
             global_grad = loss->backward(loss, global_grad);
@@ -505,6 +503,9 @@ int main(int argc, char **argv) {
 
             // update parameters
             optimizer->step(optimizer);
+
+            losses->to(losses, CPU);
+            float training_mean_loss = losses->t[0];
 
             clock_gettime(CLOCK_MONOTONIC, &train_end);
             double time_elapsed_s = (train_end.tv_sec - train_start.tv_sec) + (train_end.tv_nsec - train_start.tv_nsec) / 1e9;
@@ -569,5 +570,6 @@ int main(int argc, char **argv) {
     optimizer->free_layer(optimizer);
     loss->free_layer(loss);
     train_loader->free_layer(train_loader);
+    runtime_destroy(device);
     return 0;
 }

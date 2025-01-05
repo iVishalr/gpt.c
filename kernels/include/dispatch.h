@@ -1,5 +1,6 @@
 #pragma once
 
+#include <core/runtime.h>
 #include <core/Alloc.h>
 #include <core/Linear.h>
 #include <core/GeLU.h>
