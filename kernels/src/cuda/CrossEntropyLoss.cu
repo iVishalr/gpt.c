@@ -1,6 +1,8 @@
 #include <math.h>
-#include <cuda/common.cuh>
 #include <cuda/cuda_common.h>
+#include <cuda/runtime.cuh>
+#include <cuda/common.cuh>
+#include <cuda/Alloc.h>
 #include <cuda/CrossEntropyLoss.h>
 
 C10_LAUNCH_BOUNDS_1(num_threads() * 2)
@@ -43,12 +45,10 @@ __global__ void cross_entropy_forward_cuda_kernel_impl(
         max = warp_reduce_max(max);
     }
 
-    const float max_offset = max;
-
     float sum = 0.0f;
     #pragma unroll
     for (int j = tid; j < C; j += block_size)
-        sum += expf(logits_bt[j] - max_offset);
+        sum += expf(logits_bt[j] - max);
     sum = warp_reduce_sum(sum);
     
     if (num_warps > 1) {
@@ -65,39 +65,39 @@ __global__ void cross_entropy_forward_cuda_kernel_impl(
         sum = warp_reduce_sum(sum);
     }
 
-    const float sum_offset = logf(sum);
+    const float log_sum = logf(sum);
     #pragma unroll
     for (int j = tid; j < C; j += block_size)
-        softmax_cache_bt[j] = logits_bt[j] - max_offset - sum_offset;
+        softmax_cache_bt[j] = logits_bt[j] - max - log_sum;
 
     __syncthreads();
 
-    const int curr_target = (int)targets[i];
+    int curr_target = (int)targets[i];
     loss_cache[i] = -softmax_cache_bt[curr_target];
 
-    __syncthreads();
-
-    float loss = 0.0f;
-    const float bt = 1.0f / (B * T);
-    #pragma unroll
-    for (int j = tid; j < B * T; j += block_size)
-        loss += loss_cache[j];
-    loss = warp_reduce_sum(loss);
-
-    if (num_warps > 1) {
-        if (warp_id == 0)
-            shared[lane_id] = 0.0f;
-        __syncthreads();
-        if (lane_id == 0)
-            shared[warp_id] = loss;
-        __syncthreads();
-        loss = shared[lane_id];
-        loss = warp_reduce_sum(loss);
-    }
-
-    if (tid == 0)
-        output[0] = loss * bt;
+    if (warp_id != 0 || lane_id != 0)
+        return;
+    
+    atomicAdd(&output[0], loss_cache[i] / (B * T));
 }
+
+C10_LAUNCH_BOUNDS_1(num_threads())
+__global__ void reduce_sum_kernel_impl(
+    const float *input,
+    float *output,
+    const int n
+) {
+    const int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i != 0)
+        return;
+
+    float loss_sum = 0.0f;
+    for (int j = 0; j < n; j++)
+        loss_sum += input[j];
+    output[0] = loss_sum / n;
+}
+
+
 
 C10_LAUNCH_BOUNDS_1(num_threads() * 2)
 __global__ void cross_entropy_backward_cuda_kernel_impl(
@@ -161,16 +161,14 @@ void cross_entropy_forward_cuda_kernel(
     T = logits->shape[1];
     C = logits->shape[2];
 
-    float *loss_cache;
-    cudaCheck(cudaMalloc((void**)&loss_cache, B * T * sizeof(float)));
+    float *loss_cache = (float*)alloc_cuda(B * T * sizeof(float));
 
-    const int block_size = C10_WARP_SIZE * 4;
-    const int grid_size = B * T;
-    const size_t shmem_size = (block_size / C10_WARP_SIZE) * sizeof(float);
+    int block_size = C10_WARP_SIZE * 2;
+    int grid_size = B * T;
+    size_t shmem_size = (block_size / C10_WARP_SIZE) * sizeof(float);
     cross_entropy_forward_cuda_kernel_impl<<<grid_size, block_size, shmem_size>>>(logits->t, targets->t, cache[0]->t, loss_cache, output->t, B, T, C);
     cudaCheck(cudaGetLastError());
-
-    cudaCheck(cudaFree(loss_cache));
+    free_cuda(loss_cache);
 }
 
 void cross_entropy_backward_cuda_kernel(
@@ -187,7 +185,7 @@ void cross_entropy_backward_cuda_kernel(
     T = log_softmax_output->shape[1];
     C = log_softmax_output->shape[2];
 
-    const int block_size = C10_WARP_SIZE * 4;
+    const int block_size = C10_WARP_SIZE * 2;
     const int grid_size = B * T;
     const size_t shmem_size = (block_size / C10_WARP_SIZE) * sizeof(float);
     cross_entropy_backward_cuda_kernel_impl<<<grid_size, block_size, shmem_size>>>(global_grad->t, targets->t, log_softmax_output->t, dout->t, B, T, C);
