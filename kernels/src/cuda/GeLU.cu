@@ -1,5 +1,6 @@
-#include <cuda/GeLU.h>
 #include <cuda/cuda_common.h>
+#include <cuda/runtime.cuh>
+#include <cuda/GeLU.h>
 
 C10_LAUNCH_BOUNDS_1(num_threads())
 __global__ void gelu_forward_cuda_kernel_impl(const float *__restrict__ input, float *output, const int n) {
@@ -44,7 +45,8 @@ void gelu_forward_cuda_kernel(
     const int n = input->length;
     const int block_size = num_threads();
     const int grid_size = (n + block_size - 1) / block_size;
-    gelu_forward_cuda_kernel_impl<<<grid_size, block_size>>>(input->t, output->t, n);
+    cudaStream_t stream = get_cuda_stream();
+    gelu_forward_cuda_kernel_impl<<<grid_size, block_size, 0, stream>>>(input->t, output->t, n);
     cudaCheck(cudaGetLastError());
 }
 
@@ -54,7 +56,8 @@ void gelu_backward_cuda_kernel(
     const int n = global_grad->length;
     const int block_size = num_threads();
     const int grid_size = (n + block_size - 1) / block_size;
-    gelu_backward_cuda_kernel_impl<<<grid_size, block_size>>>(global_grad->t, cache->t, dout->t, n);
+    cudaStream_t stream = get_cuda_stream();
+    gelu_backward_cuda_kernel_impl<<<grid_size, block_size, 0, stream>>>(global_grad->t, cache->t, dout->t, n);
     cudaCheck(cudaGetLastError());
 }
 

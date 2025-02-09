@@ -1,4 +1,5 @@
 #include <cuda/cuda_common.h>
+#include <cuda/runtime.cuh>
 #include <cuda/Embedding.h>
 
 C10_LAUNCH_BOUNDS_1(num_threads())
@@ -52,9 +53,10 @@ void embedding_forward_cuda_kernel(
     T = output->shape[1];
     C = output->shape[2];
 
-    const int block_size = C10_WARP_SIZE * 2;
+    const int block_size = C10_WARP_SIZE;
     const int grid_size = B * T;
-    embedding_forward_cuda_kernel_impl<<<grid_size, block_size>>>(W->t, input->t, output->t, B, T, C);
+    cudaStream_t stream = get_cuda_stream();
+    embedding_forward_cuda_kernel_impl<<<grid_size, block_size, 0, stream>>>(W->t, input->t, output->t, B, T, C);
     cudaCheck(cudaGetLastError());
 }
 
@@ -64,9 +66,10 @@ void embedding_backward_cuda_kernel(const tensor_t *global_grad, const tensor_t 
     T = global_grad->shape[1];
     C = global_grad->shape[2];
 
-    const int block_size = C10_WARP_SIZE * 2;
+    const int block_size = C10_WARP_SIZE;
     const int grid_size = B * T;
-    embedding_backward_cuda_kernel_impl<<<grid_size, block_size>>>(global_grad->t, cache->t, dW->t, B, T, C, cache->length);
+    cudaStream_t stream = get_cuda_stream();
+    embedding_backward_cuda_kernel_impl<<<grid_size, block_size, 0, stream>>>(global_grad->t, cache->t, dW->t, B, T, C, cache->length);
     cudaCheck(cudaGetLastError());
 }
 

@@ -1,6 +1,7 @@
-#include <cuda/Linear.h>
-#include <cuda/Tensor.h>
 #include <cuda/cuda_common.h>
+#include <cuda/runtime.cuh>
+#include <cuda/Tensor.h>
+#include <cuda/Linear.h>
 #include "utils.h"
 
 C10_LAUNCH_BOUNDS_1(num_threads() * 4)
@@ -52,7 +53,8 @@ void linear_forward_cuda_kernel(
     if (b != NULL) {
         const int block_size = num_threads();
         const int grid_size = B * T;
-        add_bias_cuda_kernel_impl<<<grid_size, block_size>>>(b->t, output->t, B, T, out_features);
+        cudaStream_t stream = get_cuda_stream();
+        add_bias_cuda_kernel_impl<<<grid_size, block_size, 0, stream>>>(b->t, output->t, B, T, out_features);
         cudaCheck(cudaGetLastError());
     }
 }
@@ -81,9 +83,10 @@ void linear_backward_cuda_kernel(
     );
 
     if (db != NULL) {
-        const int block_size = num_threads() * 2;
+        const int block_size = num_threads();
         const int grid_size = (out_features + block_size - 1) / block_size;
-        bias_backward<<<grid_size, block_size>>>(global_grad->t, db->t, B, T, out_features);
+        cudaStream_t stream = get_cuda_stream();
+        bias_backward<<<grid_size, block_size, 0, stream>>>(global_grad->t, db->t, B, T, out_features);
         cudaCheck(cudaGetLastError());
     }
 }

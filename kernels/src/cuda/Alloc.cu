@@ -1,4 +1,5 @@
 #include <cuda/cuda_common.h>
+#include <cuda/runtime.cuh>
 #include <cuda/Alloc.h>
 
 #ifdef __cplusplus
@@ -7,13 +8,15 @@ extern "C" {
 
 void *alloc_cuda(const size_t size) {
     void *ptr;
-    cudaCheck(cudaMalloc((void**)&ptr, size));
+    cudaStream_t stream = get_cuda_stream();
+    cudaCheck(cudaMallocAsync((void**)&ptr, size, stream));
     return ptr;
 }
 
 void free_cuda(void *ptr) {
     if (ptr == NULL) return;
-    cudaCheck(cudaFree(ptr));
+    cudaStream_t stream = get_cuda_stream();
+    cudaCheck(cudaFreeAsync(ptr, stream));
 }
 
 #ifdef __cplusplus

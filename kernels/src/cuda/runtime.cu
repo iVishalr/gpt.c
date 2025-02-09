@@ -22,6 +22,7 @@ void runtime_init_cuda() {
     cudaCheck(cudaStreamCreateWithFlags(&cuda_stream, cudaStreamNonBlocking));
     cublasCheck(cublasCreate(&cublas_handle));
     cublasCheck(cublasSetMathMode(cublas_handle, cublas_math_mode));
+    cublasCheck(cublasSetStream(cublas_handle, cuda_stream));
     runtime_cuda_stream_initialized = 1;
     runtime_cublas_handle_initialized = 1;
     runtime_initialized = 1;
@@ -48,5 +49,5 @@ cublasHandle_t get_cublas_handle() {
 }
 
 void synchronize_cuda() {
-    cudaCheck(cudaDeviceSynchronize());
+    cudaCheck(cudaStreamSynchronize(cuda_stream));
 }

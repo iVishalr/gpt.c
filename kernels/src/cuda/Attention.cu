@@ -1,11 +1,11 @@
 #include <math.h>
-#include <cuda/common.cuh>
 #include <cuda/cuda_common.h>
+#include <cuda/runtime.cuh>
+#include <cuda/common.cuh>
 #include <cuda/Alloc.h>
-#include <cuda/Attention.h>
 #include <cuda/Tensor.h>
 #include <cuda/Softmax.h>
-#include <cuda/runtime.h>
+#include <cuda/Attention.h>
 #include "utils.h"
 
 
@@ -114,7 +114,8 @@ __global__ void unpermute_backward_cuda_kernel_impl(const float *global_grad, fl
 void apply_mask_cuda_kernel(const float *mask, float *input, const int B, const int T, const int n_heads, const int ldmask) {
     const int block_size = num_threads();
     const int grid_size = B * n_heads;
-    apply_mask_cuda_kernel_impl<<<grid_size, block_size>>>(mask, input, B, T, n_heads, ldmask);
+    cudaStream_t stream = get_cuda_stream();
+    apply_mask_cuda_kernel_impl<<<grid_size, block_size, 0, stream>>>(mask, input, B, T, n_heads, ldmask);
     cudaCheck(cudaGetLastError());
 }
 
@@ -124,7 +125,8 @@ void permute_forward_cuda_kernel(const float *input, float *q, float *k, float *
     const int block_size = num_threads();
     const int total_threads = B * T * n_heads * hs;
     const int grid_size = (total_threads + block_size - 1) / block_size;
-    permute_forward_cuda_kernel_impl<<<grid_size, block_size>>>(input, q, k, v, B, T, n_heads, hs);
+    cudaStream_t stream = get_cuda_stream();
+    permute_forward_cuda_kernel_impl<<<grid_size, block_size, 0, stream>>>(input, q, k, v, B, T, n_heads, hs);
     cudaCheck(cudaGetLastError());
 }
 
@@ -134,7 +136,8 @@ void permute_backward_cuda_kernel(const float *dq, const float *dk, const float 
     const int block_size = num_threads();
     const int total_threads = B * T * n_heads * hs;
     const int grid_size = (total_threads + block_size - 1) / block_size;
-    permute_backward_cuda_kernel_impl<<<grid_size, block_size>>>(dq, dk, dv, dout, B, T, n_heads, hs);
+    cudaStream_t stream = get_cuda_stream();
+    permute_backward_cuda_kernel_impl<<<grid_size, block_size, 0, stream>>>(dq, dk, dv, dout, B, T, n_heads, hs);
     cudaCheck(cudaGetLastError());
 }
 
@@ -143,7 +146,8 @@ void unpermute_forward_cuda_kernel(const float *input, float *output, const int 
     const int block_size = num_threads();
     const int total_threads = B * T * C;
     const int grid_size = (total_threads + block_size - 1) / block_size;
-    unpermute_forward_cuda_kernel_impl<<<grid_size, block_size>>>(input, output, B, T, n_heads, C / n_heads);
+    cudaStream_t stream = get_cuda_stream();
+    unpermute_forward_cuda_kernel_impl<<<grid_size, block_size, 0, stream>>>(input, output, B, T, n_heads, C / n_heads);
     cudaCheck(cudaGetLastError());
 }
 
@@ -153,7 +157,8 @@ void unpermute_backward_cuda_kernel(const float *global_grad, float *dout, const
     const int block_size = num_threads();
     const int total_threads = B * T * C;
     const int grid_size = (total_threads + block_size - 1) / block_size;
-    unpermute_backward_cuda_kernel_impl<<<grid_size, block_size>>>(global_grad, dout, B, T, n_heads, hs);
+    cudaStream_t stream = get_cuda_stream();
+    unpermute_backward_cuda_kernel_impl<<<grid_size, block_size, 0, stream>>>(global_grad, dout, B, T, n_heads, hs);
     cudaCheck(cudaGetLastError());
 }
 

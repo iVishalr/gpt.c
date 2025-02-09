@@ -1,6 +1,7 @@
 #include <math.h>
-#include <cuda/common.cuh>
 #include <cuda/cuda_common.h>
+#include <cuda/runtime.cuh>
+#include <cuda/common.cuh>
 #include <cuda/Softmax.h>
 
 C10_LAUNCH_BOUNDS_1(num_threads())
@@ -127,10 +128,11 @@ void softmax_forward_cuda_kernel(const tensor_t *input, tensor_t *output) {
     T = input->shape[1];
     C = input->shape[2];
 
-    const int block_size = C10_WARP_SIZE * 2;
+    const int block_size = C10_WARP_SIZE;
     const int grid_size = B * T;
     const size_t shmem_size = (block_size / C10_WARP_SIZE) * sizeof(float);
-    softmax_forward_cuda_kernel_impl<<<grid_size, block_size, shmem_size>>>(input->t, output->t, B, T, C);
+    cudaStream_t stream = get_cuda_stream();
+    softmax_forward_cuda_kernel_impl<<<grid_size, block_size, shmem_size, stream>>>(input->t, output->t, B, T, C);
     cudaCheck(cudaGetLastError());
 }
 
@@ -140,10 +142,11 @@ void softmax_backward_cuda_kernel(const tensor_t *global_grad, const tensor_t *c
     T = global_grad->shape[1];
     C = global_grad->shape[2];
 
-    const int block_size = C10_WARP_SIZE * 2;
+    const int block_size = C10_WARP_SIZE;
     const int grid_size = B * T;
     const size_t shmem_size = (block_size / C10_WARP_SIZE) * sizeof(float);
-    softmax_backward_cuda_kernel_impl<<<grid_size, block_size, shmem_size>>>(global_grad->t, cache->t, dout->t, B, T, C);
+    cudaStream_t stream = get_cuda_stream();
+    softmax_backward_cuda_kernel_impl<<<grid_size, block_size, shmem_size, stream>>>(global_grad->t, cache->t, dout->t, B, T, C);
     cudaCheck(cudaGetLastError());
 }
 

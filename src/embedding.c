@@ -66,7 +66,7 @@ tensor_t *forward_embedding(embedding_t *embedding, tensor_t *x) {
     C = embedding->embedding_dim;
     
     int out_shape[3] = {B, T, C};
-    tensor_t *out = zeros(out_shape, 3, device);
+    tensor_t *out = create_tensor(out_shape, 3, device);
 
     embedding_forward_dispatch(embedding->W, x, out);
 

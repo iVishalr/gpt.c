@@ -29,6 +29,7 @@ static struct argp_option options[] = {
     {"log-dir", 304, "LOG_DIR", OPTION_ARG_OPTIONAL, "Path to log directory to store checkpoints. Default: 'logs/'"},
     {"output", 305, "OUTPUT", OPTION_ARG_OPTIONAL, "Name of the model checkpoint. Default: 'checkpoint'"},
     {"load-checkpoint", 306, "LOAD_CHECKPOINT_PATH", OPTION_ARG_OPTIONAL, "Path to C model checkpoint to load the model from. Default: None"},
+    {"device", 307, "DEVICE", OPTION_ARG_OPTIONAL, "Specify the device to use for training and validation [cpu | cuda]. Default: cpu"},
 
     // validation settings
     {"val-batch-size", 401, "VAL_BATCH_SIZE", OPTION_ARG_OPTIONAL, "Batch size to use for validation. Default: 8"},
@@ -56,6 +57,7 @@ struct arguments {
     char *log_dir;
     char *output;
     char *load_checkpoint;
+    char *device;
 
     // validation settings
     int validation_batch_size;
@@ -82,6 +84,7 @@ static void init_arguments(struct arguments *args) {
     args->log_dir = "logs";
     args->output = "checkpoint";
     args->load_checkpoint = NULL;
+    args->device = "cpu";
 
     args->validation_batch_size = 8;
     args->validation_block_size = 128;
@@ -151,6 +154,9 @@ static error_t parse_options(int key, char *arg, struct argp_state *state) {
                 break;
             }
             arguments->load_checkpoint = arg;
+            break;
+        case 307:
+            if (arg != NULL) arguments->device = arg;
             break;
 
         case 401:
@@ -357,6 +363,7 @@ int main(int argc, char **argv) {
     const int batch_size = training_config.batch_size;
     const int block_size = training_config.block_size;
     const char *load_checkpoint = training_config.load_checkpoint;
+    const char *training_device = training_config.device;
     const float lr = training_config.lr;
 
     struct stat log_dir_stat;
@@ -376,9 +383,14 @@ int main(int argc, char **argv) {
     char save_checkpoint_path[1024];
     sprintf(save_checkpoint_path, "%s/%s.bin", training_config.log_dir, training_config.output);
 
+    device_t device = CPU;
+    if (strcmp(training_device, "cuda") == 0)
+        device = CUDA;
+    runtime_init(device);
+
     gpt2_t *gpt = load_model(load_checkpoint);
-    device_t device = CUDA;
-    runtime_init(CUDA);
+    // move model to device
+    gpt->to(gpt, device);
 
     // create the dataloaders for training and validation
     dataloader_t *train_loader = DataLoader(
@@ -424,7 +436,8 @@ int main(int argc, char **argv) {
         "weight_decay",
         "beta1",
         "beta2",
-        "eps"
+        "eps",
+        "device"
     };
 
     char vals[100][1024];
@@ -447,14 +460,15 @@ int main(int argc, char **argv) {
     sprintf(vals[16], "%.4e", training_config.beta1);
     sprintf(vals[17], "%.4e", training_config.beta2);
     sprintf(vals[18], "%.4e", training_config.eps);
+    sprintf(vals[19], "%s", training_config.device);
 
-    int total_rows = 19;
+    int total_rows = 20;
     char *values[1024];
     for (int i = 0; i < total_rows; i++)
         values[i] = vals[i];
 
     printf("Training Settings\n");
-    print_table(keys, values, 19);
+    print_table(keys, values, total_rows);
     printf("\n");
 
     float best_training_loss = INFINITY;
@@ -464,9 +478,6 @@ int main(int argc, char **argv) {
     int total_training_steps = ckpt_steps;
     int training_steps = train_loader->len(train_loader);
 
-    // move model to device
-    gpt->to(gpt, device);
-
     for (int epoch = 1; epoch <= max_epochs; epoch++) {
         for (int step = 1; step <= training_steps; step++) {
             total_training_steps += 1;
@@ -474,19 +485,10 @@ int main(int argc, char **argv) {
             clock_gettime(CLOCK_MONOTONIC, &train_start);
             tensor_t *training_batch[2];
             train_loader->next(train_loader, training_batch);
-            tensor_t *_x = training_batch[0], *_targets = training_batch[1];
+            tensor_t *x = training_batch[0], *targets = training_batch[1];
 
-            // we need to copy the tensors as the model always free's its inputs in backward pass
-            // hence copying prevents us from losing the current batch's inputs and targets
-            int inp_shape[2] = {batch_size, block_size};
-            tensor_t *x = create_tensor(inp_shape, 2, device);
-            tensor_t *targets = create_tensor(inp_shape, 2, device);
-
-            _x->to(_x, device);
-            _targets->to(_targets, device);
-
-            tensor_copy(x, _x);
-            tensor_copy(targets, _targets);
+            x->to(x, device);
+            targets->to(targets, device);
 
             // zero the gradients
             optimizer->zero_grad(optimizer);
@@ -495,17 +497,20 @@ int main(int argc, char **argv) {
 
             // calculate loss
             tensor_t *losses = loss->forward(loss, logits, targets);
+            free_tensor(logits);
 
             // backward pass
             tensor_t *global_grad = ones(targets->shape, targets->ndims, targets->device);
             global_grad = loss->backward(loss, global_grad);
             global_grad = gpt->backward(gpt, global_grad);
+            free_tensor(global_grad);
 
             // update parameters
             optimizer->step(optimizer);
 
             losses->to(losses, CPU);
             float training_mean_loss = losses->t[0];
+            free_tensor(losses);
 
             clock_gettime(CLOCK_MONOTONIC, &train_end);
             double time_elapsed_s = (train_end.tv_sec - train_start.tv_sec) + (train_end.tv_nsec - train_start.tv_nsec) / 1e9;
@@ -513,11 +518,6 @@ int main(int argc, char **argv) {
 
             if (training_mean_loss < best_training_loss)
                 best_training_loss = training_mean_loss;
-
-            free_tensor(logits);
-            free_tensor(_x);
-            free_tensor(_targets);
-            free_tensor(losses);
         }
         // run validation every validation_interval
         if (val_loader && epoch % training_config.validation_interval == 0) {
@@ -532,8 +532,13 @@ int main(int argc, char **argv) {
                 val_loader->next(val_loader, validation_batch);
                 tensor_t *val_x = validation_batch[0], *val_targets = validation_batch[1];
 
+                val_x->to(val_x, device);
+                val_targets->to(val_targets, device);
+
                 tensor_t *val_logits = gpt->forward(gpt, val_x);
                 tensor_t *val_losses = loss->forward(loss, val_logits, val_targets);
+
+                val_losses->to(val_losses, CPU);
 
                 float validation_batch_loss = 0.0f;
                 for (int i = 0; i < val_losses->length; i++)
@@ -567,8 +572,8 @@ int main(int argc, char **argv) {
     printf("Latest model checkpoint: %s\n", save_checkpoint_path);
 
     gpt->free_layer(gpt);
-    optimizer->free_layer(optimizer);
     loss->free_layer(loss);
+    optimizer->free_layer(optimizer);
     train_loader->free_layer(train_loader);
     runtime_destroy(device);
     return 0;

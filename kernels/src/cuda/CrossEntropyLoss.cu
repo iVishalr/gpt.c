@@ -146,10 +146,11 @@ void cross_entropy_forward_cuda_kernel(
 
     float *loss_cache = (float*)alloc_cuda(B * T * sizeof(float));
 
-    int block_size = C10_WARP_SIZE * 2;
+    int block_size = C10_WARP_SIZE;
     int grid_size = B * T;
     size_t shmem_size = (block_size / C10_WARP_SIZE) * sizeof(float);
-    cross_entropy_forward_cuda_kernel_impl<<<grid_size, block_size, shmem_size>>>(logits->t, targets->t, cache[0]->t, loss_cache, output->t, B, T, C);
+    cudaStream_t stream = get_cuda_stream();
+    cross_entropy_forward_cuda_kernel_impl<<<grid_size, block_size, shmem_size, stream>>>(logits->t, targets->t, cache[0]->t, loss_cache, output->t, B, T, C);
     cudaCheck(cudaGetLastError());
     free_cuda(loss_cache);
 }
@@ -168,10 +169,11 @@ void cross_entropy_backward_cuda_kernel(
     T = log_softmax_output->shape[1];
     C = log_softmax_output->shape[2];
 
-    const int block_size = C10_WARP_SIZE * 2;
+    const int block_size = C10_WARP_SIZE;
     const int grid_size = B * T;
     const size_t shmem_size = (block_size / C10_WARP_SIZE) * sizeof(float);
-    cross_entropy_backward_cuda_kernel_impl<<<grid_size, block_size, shmem_size>>>(global_grad->t, targets->t, log_softmax_output->t, dout->t, B, T, C);
+    cudaStream_t stream = get_cuda_stream();
+    cross_entropy_backward_cuda_kernel_impl<<<grid_size, block_size, shmem_size, stream>>>(global_grad->t, targets->t, log_softmax_output->t, dout->t, B, T, C);
     cudaCheck(cudaGetLastError());
 }
 

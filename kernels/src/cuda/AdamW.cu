@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <cuda/cuda_common.h>
+#include <cuda/runtime.cuh>
 #include <cuda/Alloc.h>
 #include <cuda/Tensor.h>
 #include <cuda/AdamW.h>
@@ -100,19 +101,23 @@ void step_adamW_cuda_kernel(
     int *d_parameters_sizes = (int*)alloc_cuda(n * sizeof(int));
 
     // Copy over the container data from host to device
-    cudaCheck(cudaMemcpy(d_parameters, _parameters, n * sizeof(float*), cudaMemcpyHostToDevice));
-    cudaCheck(cudaMemcpy(d_gradients, _gradients, n * sizeof(float*), cudaMemcpyHostToDevice));
-    cudaCheck(cudaMemcpy(d_m, _m, n * sizeof(float*), cudaMemcpyHostToDevice));
-    cudaCheck(cudaMemcpy(d_v, _v, n * sizeof(float*), cudaMemcpyHostToDevice));
-    cudaCheck(cudaMemcpy(d_parameters_sizes, _parameters_sizes, n * sizeof(int), cudaMemcpyHostToDevice));
+    cudaStream_t stream = get_cuda_stream();
+    cudaCheck(cudaMemcpyAsync(d_parameters, _parameters, n * sizeof(float*), cudaMemcpyHostToDevice, stream));
+    cudaCheck(cudaMemcpyAsync(d_gradients, _gradients, n * sizeof(float*), cudaMemcpyHostToDevice, stream));
+    cudaCheck(cudaMemcpyAsync(d_m, _m, n * sizeof(float*), cudaMemcpyHostToDevice, stream));
+    cudaCheck(cudaMemcpyAsync(d_v, _v, n * sizeof(float*), cudaMemcpyHostToDevice, stream));
+    cudaCheck(cudaMemcpyAsync(d_parameters_sizes, _parameters_sizes, n * sizeof(int), cudaMemcpyHostToDevice, stream));
+
+    // sync the stream to complete memcpy
+    cudaCheck(cudaStreamSynchronize(stream));
 
     // launch kernel
-    const int block_size = num_threads() * 2;
+    const int block_size = num_threads();
     const int grid_size = (max_length + block_size - 1) / block_size;
     const float beta1_correction = 1.0f / (1.0f - powf(beta1, step));
     const float beta2_correction = 1.0f / (1.0f - powf(beta2, step));
 
-    step_adamW_cuda_kernel_impl<<<grid_size, block_size>>>(
+    step_adamW_cuda_kernel_impl<<<grid_size, block_size, 0, stream>>>(
         d_parameters,
         d_gradients,
         d_m,

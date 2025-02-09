@@ -1,6 +1,7 @@
-#include <cuda/LayerNorm.h>
-#include <cuda/common.cuh>
 #include <cuda/cuda_common.h>
+#include <cuda/runtime.cuh>
+#include <cuda/common.cuh>
+#include <cuda/LayerNorm.h>
 
 C10_LAUNCH_BOUNDS_1(num_threads() * 2)
 __global__ void layer_norm_forward_cuda_kernel_impl(
@@ -129,7 +130,8 @@ void layer_norm_forward_cuda_kernel(
 
     const int block_size = C10_WARP_SIZE;
     const int grid_size = B * T;
-    layer_norm_forward_cuda_kernel_impl<<<grid_size, block_size>>>(input->t, W->t, b->t, eps, mean->t, rstd->t, output->t, B, T, C);
+    cudaStream_t stream = get_cuda_stream();
+    layer_norm_forward_cuda_kernel_impl<<<grid_size, block_size, 0, stream>>>(input->t, W->t, b->t, eps, mean->t, rstd->t, output->t, B, T, C);
     cudaCheck(cudaGetLastError());
 }
 
@@ -155,7 +157,8 @@ void layer_norm_backward_cuda_kernel(
     const int grid_size = B * T;
 
     float *_db = db ? db->t : NULL;
-    layer_norm_backward_cuda_kernel_impl<<<grid_size, block_size>>>(global_grad->t, input->t, mean->t, rstd->t, W->t, dW->t, _db, dout->t, B, T, C);
+    cudaStream_t stream = get_cuda_stream();
+    layer_norm_backward_cuda_kernel_impl<<<grid_size, block_size, 0, stream>>>(global_grad->t, input->t, mean->t, rstd->t, W->t, dW->t, _db, dout->t, B, T, C);
     cudaCheck(cudaGetLastError());
 }
 

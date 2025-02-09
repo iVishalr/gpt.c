@@ -7,17 +7,24 @@
 #include <common/kutils.h>
 
 C10_LAUNCH_BOUNDS_1(num_threads())
-__global__ void fill_tensor_data_cuda_kernel_impl(float *tensor, const int n, const float value) {
+__global__ void fill_tensor_data_cuda_kernel_impl(float *__restrict__ tensor, const int n, const float value) {
     const int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i >= n) return;
     tensor[i] = value;
 }
 
 C10_LAUNCH_BOUNDS_1(num_threads())
-__global__ void arange_tensor_data_cuda_kernel_impl(float *tensor, const int n, const int start, const int steps) {
+__global__ void arange_tensor_data_cuda_kernel_impl(float *__restrict__ tensor, const int n, const int start, const int steps) {
     const int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i >= n) return;
     tensor[i] = start + steps * i;
+}
+
+C10_LAUNCH_BOUNDS_1(num_threads())
+__global__ void copy_tensor_data_cuda_kernel_impl(float *__restrict__ dst, const float *__restrict__ src, const int n) {
+    const int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= n) return;
+    dst[i] = src[i];
 }
 
 #ifdef __cplusplus
@@ -33,7 +40,9 @@ void move_tensor_to_host_cuda(tensor_t *tensor) {
 
     float *device_ptr = tensor->t;
     float *host_ptr = (float*)aligned_alloc_cpu(tensor->length * sizeof(float), 64);
-    cudaCheck(cudaMemcpy(host_ptr, device_ptr, tensor->length * sizeof(float), cudaMemcpyDeviceToHost));
+    cudaStream_t stream = get_cuda_stream();
+    cudaCheck(cudaMemcpyAsync(host_ptr, device_ptr, tensor->length * sizeof(float), cudaMemcpyDeviceToHost, stream));
+    cudaCheck(cudaStreamSynchronize(stream));
 
     tensor->t = host_ptr;
     tensor->device = CPU;
@@ -51,10 +60,10 @@ void move_tensor_to_device_cuda(tensor_t *tensor) {
     }
 
     float *host_ptr = tensor->t;
-    const size_t size = tensor->length * sizeof(float);
-    float *device_ptr = (float*)alloc_cuda(size);
-    cudaCheck(cudaMemcpy(device_ptr, host_ptr, size, cudaMemcpyHostToDevice));
-
+    float *device_ptr = (float*)alloc_cuda(tensor->length * sizeof(float));
+    cudaStream_t stream = get_cuda_stream();
+    cudaCheck(cudaMemcpyAsync(device_ptr, host_ptr, tensor->length * sizeof(float), cudaMemcpyHostToDevice, stream));
+    cudaCheck(cudaStreamSynchronize(stream));
     tensor->t = device_ptr;
     tensor->device = CUDA;
     free_cpu(host_ptr);
@@ -66,12 +75,14 @@ void create_tensor_data_cuda(tensor_t *tensor) {
     tensor->t = (float*)alloc_cuda(tensor->length * sizeof(float));
 }
 
+
 void zeros_tensor_data_cuda(tensor_t *tensor) {
     CHECK_ERROR(tensor == NULL, "Expected *tensor to be a tensor_t pointer. Got NULL");
     if (!tensor->t) create_tensor_data_cuda(tensor);
     const int block_size = num_threads();
     const int grid_size = (tensor->length + block_size - 1) / block_size;
-    fill_tensor_data_cuda_kernel_impl<<<grid_size, block_size>>>(tensor->t, tensor->length, 0.0f);
+    cudaStream_t stream = get_cuda_stream();
+    fill_tensor_data_cuda_kernel_impl<<<grid_size, block_size, 0, stream>>>(tensor->t, tensor->length, 0.0f);
     cudaCheck(cudaGetLastError());
 }
 
@@ -80,7 +91,8 @@ void ones_tensor_data_cuda(tensor_t *tensor) {
     if (!tensor->t) create_tensor_data_cuda(tensor);
     const int block_size = num_threads();
     const int grid_size = (tensor->length + block_size - 1) / block_size;
-    fill_tensor_data_cuda_kernel_impl<<<grid_size, block_size>>>(tensor->t, tensor->length, 1.0f);
+    cudaStream_t stream = get_cuda_stream();
+    fill_tensor_data_cuda_kernel_impl<<<grid_size, block_size, 0, stream>>>(tensor->t, tensor->length, 1.0f);
     cudaCheck(cudaGetLastError());
 }
 
@@ -89,7 +101,8 @@ void fill_tensor_data_cuda(tensor_t *tensor, const float value) {
     if (!tensor->t) create_tensor_data_cuda(tensor);
     const int block_size = num_threads();
     const int grid_size = (tensor->length + block_size - 1) / block_size;
-    fill_tensor_data_cuda_kernel_impl<<<grid_size, block_size>>>(tensor->t, tensor->length, value);
+    cudaStream_t stream = get_cuda_stream();
+    fill_tensor_data_cuda_kernel_impl<<<grid_size, block_size, 0, stream>>>(tensor->t, tensor->length, value);
     cudaCheck(cudaGetLastError());
 }
 
@@ -98,7 +111,8 @@ void arange_tensor_data_cuda(tensor_t *tensor, const int start, const int end, c
     if (!tensor->t) create_tensor_data_cuda(tensor);
     const int block_size = num_threads();
     const int grid_size = (tensor->length + block_size - 1) / block_size;
-    arange_tensor_data_cuda_kernel_impl<<<grid_size, block_size>>>(tensor->t, tensor->length, start, steps);
+    cudaStream_t stream = get_cuda_stream();
+    arange_tensor_data_cuda_kernel_impl<<<grid_size, block_size, 0, stream>>>(tensor->t, tensor->length, start, steps);
     cudaCheck(cudaGetLastError());
 }
 
@@ -108,7 +122,11 @@ void copy_tensor_data_cuda(tensor_t *dst, const tensor_t *src) {
     CHECK_ERROR(dst->t == NULL, "Expected *dst->t to be a float pointer. Got NULL");
     CHECK_ERROR(src->t == NULL, "Expected *src->t to be a float pointer. Got NULL");
     CHECK_ERROR(src->length != dst->length, "Expected src and dst tensors to be of same length. Got %d != %d", src->length, dst->length);
-    cudaCheck(cudaMemcpy(dst->t, src->t, dst->length * sizeof(float), cudaMemcpyDeviceToDevice));
+    cudaStream_t stream = get_cuda_stream();
+    const int block_size = num_threads();
+    const int grid_size = (dst->length + block_size - 1) / block_size;
+    copy_tensor_data_cuda_kernel_impl<<<grid_size, block_size, 0, stream>>>(dst->t, src->t, dst->length);
+    cudaCheck(cudaGetLastError());
 }
 
 void saxpy_cuda(
@@ -116,9 +134,9 @@ void saxpy_cuda(
     const tensor_t *x, const int offsetx, const int incx, 
     tensor_t *y, const int offsety, const int incy
 ) { 
-    cublasHandle_t cublas_handle = get_cublas_handle();
     const float *_x = x->t + offsetx;
     float *_y = y->t + offsety;
+    cublasHandle_t cublas_handle = get_cublas_handle();
     cublasCheck(cublasSaxpy(cublas_handle, n, &alpha, _x, incx, _y, incy));
 }
 

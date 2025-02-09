@@ -170,14 +170,25 @@ void uniform(tensor_t *tensor, const float low, const float high) {
 }
 
 tensor_t *tensor_load(FILE *fp, const int *shape, int n, const device_t device) {
-    tensor_t *tensor = create_tensor(shape, n, device);
+    tensor_t *tensor = create_tensor(shape, n, CPU);
     freadCheck(tensor->t, sizeof(float), tensor->length, fp);
+    tensor->to(tensor, device);
     return tensor;
 }
 
 void tensor_save(FILE *fp, const tensor_t *tensor) {
     CHECK_ERROR(tensor == NULL, "Expected *tensor to be a tensor_t pointer, but got NULL.");
-    fwrite(tensor->t, sizeof(float), tensor->length, fp);
+    if (tensor->device != CPU) {
+        // If tensor is not present on host, then we need to copy the tensor
+        // to host and then perform the file write operation.
+        tensor_t *tmp = create_tensor(tensor->shape, tensor->ndims, tensor->device);
+        tensor_copy(tmp, tensor);
+        tmp->to(tmp, CPU);
+        fwrite(tmp->t, sizeof(float), tmp->length, fp);
+        free_tensor(tmp);
+    } else {
+        fwrite(tensor->t, sizeof(float), tensor->length, fp);
+    }
 }
 
 void free_tensor(tensor_t *tensor) {
