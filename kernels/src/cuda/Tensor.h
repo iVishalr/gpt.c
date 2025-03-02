@@ -15,7 +15,6 @@ void ones_tensor_data_cuda(tensor_t *tensor);
 void fill_tensor_data_cuda(tensor_t *tensor, const float value);
 void arange_tensor_data_cuda(tensor_t *tensor, const int start, const int end, const int steps);
 void copy_tensor_data_cuda(tensor_t *dst, const tensor_t *src);
-void add_tensor_data_dispatch(tensor_t *dest, tensor_t *src);
 void saxpy_cuda(
     const int n, const float alpha, 
     const tensor_t *x, const int offsetx, const int incx, 

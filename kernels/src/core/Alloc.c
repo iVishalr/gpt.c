@@ -10,7 +10,7 @@ void *alloc_dispatch(const size_t nbytes, const size_t alignment, const device_t
     } else if (device == CUDA) {
         allocation = alloc_cuda(nbytes);
     } else {
-        CHECK_ERROR(1, "Failed to allocate memory. Unknow device.");
+        CHECK_ERROR(1, "Failed to allocate memory. Unknown device.");
     }
     return allocation;
 }
@@ -21,6 +21,6 @@ void free_dispatch(float *ptr, const device_t device) {
     } else if (device == CUDA) {
         free_cuda(ptr);
     } else {
-        CHECK_ERROR(1, "Failed to allocate memory. Unknow device.");
+        CHECK_ERROR(1, "Failed to allocate memory. Unknown device.");
     }
 }

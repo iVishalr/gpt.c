@@ -1,6 +1,7 @@
 CC = gcc
 NVCC = nvcc -ccbin=gcc
 BUILD = release
+DEVICE = CPU
 CFLAGS_RELEASE = -O3 -Ofast -march=native -Wno-unused-result -Wno-ignored-pragmas -Wno-unknown-attributes -ggdb3 -fPIC
 CFLAGS_DEBUG = -Wno-unused-result -O0 -ggdb3 -fPIC
 NVCC_CFLAGS_RELEASE = -t=0 -std=c++17 --generate-code arch=compute_86,code=[compute_86,sm_86] --generate-line-info -Xcompiler="-O3 -Ofast -march=native -Wno-unused-result -Wno-ignored-pragmas -Wno-unknown-attributes -ggdb3 -fPIC" --expt-relaxed-constexpr
@@ -56,6 +57,20 @@ LDFLAGS += -L $(BREW_PATH)/opt/libomp/lib -L $(BREW_PATH)/opt/argp-standalone/li
 LDLIBS += -largp
 endif
 
+# If DEVICE is set to CUDA, check that nvcc is available; otherwise, use stub code.
+DEVICE_UPPER := $(shell echo $(DEVICE) | tr a-z A-Z)
+ifeq ($(DEVICE_UPPER),CUDA)
+    NVCC_FOUND := $(shell which nvcc 2>/dev/null)
+    ifeq ($(NVCC_FOUND),)
+        $(error "DEVICE is set to CUDA but nvcc was not found on your system!")
+    endif
+	USE_CUDA = 1
+else
+	USE_CUDA = 0
+	NVCC_LDFLAGS = 
+	NVCC_LDLIBS = 
+endif
+
 ifeq ($(PLATFORM), Linux)
 SHARED_SUFFIX = so
 ifeq ($(_CC), clang)
@@ -85,14 +100,20 @@ SRCS = $(wildcard $(SRC_DIR)/*.c)
 COMMON_SRCS = $(wildcard $(KERNELS_DIR)/src/common/*.c)
 CORE_SRCS = $(wildcard $(KERNELS_DIR)/src/core/*.c)
 CPU_SRCS = $(wildcard $(KERNELS_DIR)/src/cpu/*.c)
-CUDA_SRCS = $(wildcard $(KERNELS_DIR)/src/cuda/*.cu)
 
 # Generate object file names from source file names
 OBJS = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(SRCS))
 COMMON_OBJS = $(patsubst $(KERNELS_DIR)/src/common/%.c, $(KERNELS_DIR)/build/common/%.o, $(COMMON_SRCS))
 CORE_OBJS = $(patsubst $(KERNELS_DIR)/src/core/%.c, $(KERNELS_DIR)/build/core/%.o, $(CORE_SRCS))
 CPU_OBJS = $(patsubst $(KERNELS_DIR)/src/cpu/%.c, $(KERNELS_DIR)/build/cpu/%.o, $(CPU_SRCS))
-CUDA_OBJS = $(patsubst $(KERNELS_DIR)/src/cuda/%.cu, $(KERNELS_DIR)/build/cuda/%.o, $(CUDA_SRCS))
+
+ifeq ($(USE_CUDA),1)
+	CUDA_SRCS = $(wildcard $(KERNELS_DIR)/src/cuda/*.cu)
+	CUDA_OBJS = $(patsubst $(KERNELS_DIR)/src/cuda/%.cu, $(KERNELS_DIR)/build/cuda/%.o, $(CUDA_SRCS))
+else
+	CUDA_SRCS = $(wildcard $(KERNELS_DIR)/src/stubs/cuda/*.c)
+	CUDA_OBJS = $(patsubst $(KERNELS_DIR)/src/stubs/cuda/%.c, $(KERNELS_DIR)/build/stubs/cuda/%.o, $(CUDA_SRCS))
+endif
 
 # Find all C files in the project root directory
 ROOT_SRCS = $(wildcard ./*.c)
@@ -132,9 +153,15 @@ $(KERNELS_DIR)/build/core/%.o: $(KERNELS_DIR)/src/core/%.c
 $(KERNELS_DIR)/build/cpu/%.o: $(KERNELS_DIR)/src/cpu/%.c
 	$(CC) $(CFLAGS) $(INCLUDES) $(KERNELS_INCLUDES) -c $< -o $@
 
+ifeq ($(USE_CUDA),1)
 # Compile rule for object files in kernels/src/cuda/
 $(KERNELS_DIR)/build/cuda/%.o: $(KERNELS_DIR)/src/cuda/%.cu
 	$(NVCC) $(NVCC_CFLAGS) $(INCLUDES) $(KERNELS_INCLUDES) -c $< -o $@
+else
+# Compile CUDA stub code
+$(KERNELS_DIR)/build/stubs/cuda/%.o: $(KERNELS_DIR)/src/stubs/cuda/%.c
+	$(CC) $(CFLAGS) $(INCLUDES) $(KERNELS_INCLUDES) -c $< -o $@
+endif
 
 # Rule to create the shared library
 $(SHARED_LIB): $(OBJS) $(COMMON_OBJS) $(CORE_OBJS) $(CPU_OBJS) $(CUDA_OBJS)
@@ -211,6 +238,9 @@ setup: third_party
 	fi
 	@if ! test -d $(KERNELS_DIR)/build/cuda;\
 		then echo "\033[93mSetting up $(KERNELS_DIR)/build/cuda directory...\033[0m"; mkdir -p kernels/build/cuda;\
+	fi
+	@if ! test -d $(KERNELS_DIR)/build/stubs/cuda;\
+		then echo "\033[93mSetting up $(KERNELS_DIR)/build/stubs/cuda directory...\033[0m"; mkdir -p kernels/build/stubs/cuda;\
 	fi
 
 # Clean rule to remove all generated files
