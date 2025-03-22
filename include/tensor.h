@@ -33,49 +33,48 @@
 
 #pragma once
 
+#include <stdio.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+typedef enum {CPU, CUDA} device_t;
+
 typedef struct tensor {
-    float *t;       // 8 bytes
-    int ndims;      // 4 bytes
-    int length;     // 4 bytes
-    int shape[8];   // 32 bytes
+    float *t;                                           // 8 bytes
+    int ndims;                                          // 4 bytes
+    int length;                                         // 4 bytes
+    int shape[8];                                       // 16 bytes
+    void (*to)(struct tensor *, const device_t device); // 8 bytes
+    device_t device;                                    // 4 bytes
 } __attribute__((aligned(64))) tensor_t;
 
-tensor_t *create_tensor(const int *shape, const int n);
-tensor_t *randn(const int *shape, const int n);
-tensor_t *zeros(const int *shape, const int n);
-tensor_t *ones(const int *shape, const int n);
-tensor_t *fill(const int *shape, const int n, const float value);
-tensor_t *empty(const int *shape, const int n);
+tensor_t *create_tensor(const int *shape, const int n, const device_t device);
+tensor_t *randn(const int *shape, const int n, const device_t device);
+tensor_t *zeros(const int *shape, const int n, const device_t device);
+tensor_t *ones(const int *shape, const int n, const device_t device);
+tensor_t *fill(const int *shape, const int n, const float value, const device_t device);
+tensor_t *arange(const int start, const int end, const int steps, const device_t device);
 
-void *transpose(
-    const int CORDER, const int CTRANS,
-    const int crows, const int ccols,
-    const float calpha, const tensor_t *A, const int clda,
-    tensor_t *B, const int cldb
-);
-
-void *matmul(
-    int Order,
-    int TransA,
-    int TransB,
-    int M, int N, int K,
-    const float alpha, const tensor_t *A, const int lda, const tensor_t *B, const int ldb, const float beta, tensor_t *C, const int ldc
-);
-
-void mul_(tensor_t *x, const float s);
-void pow_(tensor_t *x, const float p);
 void tensor_copy(tensor_t *dest, const tensor_t *src);
+
+void saxpy(const int n, const float alpha, const tensor_t *x, const int offsetx, const int incx, tensor_t *y, const int offsety, const int incy);
+void sgemm(
+    const int TransA, const int TransB, const int M, const int N, const int K,
+    const float alpha, const tensor_t *A, const int offsetA, const int lda,
+    const tensor_t *B, const int offsetB, const int ldb,
+    const float beta, tensor_t *C, const int offsetC, const int ldc
+);
+
 void uniform(tensor_t *tensor, const float low, const float high);
 void shape(const tensor_t *tensor, char *shape);
 void view(tensor_t *tensor, const int *shape, const int n);
 
-tensor_t *tensor_load(FILE *fp, const int *shape, int n);
+tensor_t *tensor_load(FILE *fp, const int *shape, int n, const device_t device);
 void tensor_save(FILE *fp, const tensor_t *tensor);
 void free_tensor(tensor_t *tensor);
+void get_tensor_device(const tensor_t *tensor, char *device);
 void print_tensor(const tensor_t *tensor, const int compact);
 void print_shape(const tensor_t *tensor);
 

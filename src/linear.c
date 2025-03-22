@@ -4,6 +4,7 @@
 #include <math.h>
 #include <cblas.h>
 #include <omp.h>
+#include "dispatch.h"
 #include "utils.h"
 #include "linear.h"
 
@@ -19,6 +20,7 @@ void free_cache_linear(linear_t *linear);
 tensor_t **parameters_linear(const linear_t *linear);
 tensor_t **gradients_linear(const linear_t *linear);
 void load_state_dict_linear(linear_t *linear, tensor_t **state);
+void to_linear(linear_t *linear, const device_t device);
 
 
 // Linear Class
@@ -28,8 +30,8 @@ linear_t *Linear(const int in_features, const int out_features, const int use_bi
     int w_shape[2] = {out_features, in_features};
     int b_shape[1] = {out_features};
 
-    tensor_t *W = zeros(w_shape, 2);
-    tensor_t *b = use_bias > 0 ? zeros(b_shape, 1) : NULL;
+    tensor_t *W = zeros(w_shape, 2, CPU);
+    tensor_t *b = use_bias > 0 ? zeros(b_shape, 1, CPU) : NULL;
 
     // init weights
     kaiming_uniform(W, sqrtf(5.0f), "fan_in", "leaky_relu");
@@ -48,8 +50,8 @@ linear_t *Linear(const int in_features, const int out_features, const int use_bi
     linear->in_features = in_features;
     linear->out_features = out_features;
     linear->use_bias = use_bias;
-    linear->dW = zeros(w_shape, 2);
-    linear->db = use_bias > 0 ? zeros(b_shape, 1) : NULL;
+    linear->dW = zeros(w_shape, 2, CPU);
+    linear->db = use_bias > 0 ? zeros(b_shape, 1, CPU) : NULL;
     linear->cache = NULL;
     linear->forward = forward_linear;
     linear->backward = backward_linear;
@@ -60,13 +62,13 @@ linear_t *Linear(const int in_features, const int out_features, const int use_bi
     linear->parameters = parameters_linear;
     linear->gradients = gradients_linear;
     linear->load_state_dict = load_state_dict_linear;
+    linear->to = to_linear;
     linear->_num_param_tensors = use_bias > 0 ? 2 : 1;
     return linear;
 }
 
 
-void _calculate_fan_in_and_fan_out(tensor_t *t, int *result)
-{
+void _calculate_fan_in_and_fan_out(tensor_t *t, int *result) {
 
     if (t == NULL) {
         printf("Expected required arugment *t to be of type tensor_t ptr, but got NULL.\n");
@@ -123,16 +125,9 @@ void kaiming_uniform(tensor_t *t, float a, const char *mode, const char *non_lin
 
 
 tensor_t *forward_linear(linear_t *linear, tensor_t *x) {
-    
-    if (linear == NULL) {
-        printf("Expected required arugment *linear to be of type linear_t ptr, but got NULL.\n");
-        return NULL;
-    }
 
-    if (x == NULL) {
-        printf("Expected required argument *x to be of type tensor_t ptr, but got NULL.\n");
-        return NULL;
-    }
+    CHECK_ERROR(linear == NULL, "Expected *linear to be a linear_t pointer, but got NULL.");
+    CHECK_ERROR(x == NULL, "Expected *x to be a tensor_t pointer, but got NULL.");
 
     // Shape Analysis
     // --------------
@@ -141,34 +136,17 @@ tensor_t *forward_linear(linear_t *linear, tensor_t *x) {
     // b: (out_features)
     // y = x @ W.T + b
     // y: (B * T, in_features) @ (in_features, out_features) -> (B * T, out_features) + (out_features)
-        
-    int B, T, in_features;
+    
+    device_t device = x->device;
+    int B, T;
     B = x->shape[0];
     T = x->shape[1];
-    in_features = x->shape[2];
-
-    tensor_t *out, *ret;
 
     int out_shape[3] = {B, T, linear->out_features};
-    out = create_tensor(out_shape, 3);
+    tensor_t *out = create_tensor(out_shape, 3, device);
 
-    cblas_sgemm(
-        CblasRowMajor, CblasNoTrans, CblasTrans, 
-        B * T, linear->out_features, linear->in_features, 
-        1.0f, x->t, linear->in_features, 
-        linear->W->t, linear->in_features, 
-        0.0f, out->t, linear->out_features
-    );
-
-    // add bias to out tensor (B * T, out_features) + (out_features)
-    if (linear->b) {
-        int row_size = linear->out_features;
-        for (int row = 0; row < B * T; row++) {
-            for (int j = 0; j < row_size; j++) {
-                out->t[row * row_size + j] += linear->b->t[j];
-            }
-        }
-    }
+    // trigger the kernel that implements forward pass
+    linear_forward_dispatch(linear->W, linear->b, x, out);
 
     // cache the input to the layer
     linear->cache = x;
@@ -177,16 +155,9 @@ tensor_t *forward_linear(linear_t *linear, tensor_t *x) {
 
 
 tensor_t *backward_linear(linear_t *linear, tensor_t *global_grad) {
-    
-    if (linear == NULL) {
-        printf("Expected required arugment *linear to be of type linear_t ptr, but got NULL.\n");
-        return NULL;
-    }
 
-    if (global_grad == NULL) {
-        printf("Expected required argument *global_grad to be of type tensor_t ptr, but got NULL.\n");
-        return NULL;
-    }
+    CHECK_ERROR(linear == NULL, "Expected *linear to be a linear_t pointer, but got NULL.");
+    CHECK_ERROR(global_grad == NULL, "Expected *global_grad to be a tensor_t pointer, but got NULL.");
 
     /*
         Backprop Analysis
@@ -224,47 +195,22 @@ tensor_t *backward_linear(linear_t *linear, tensor_t *global_grad) {
         db += sum(global_grad)  # (B * T, out_features)
     */
 
+    device_t device = global_grad->device;
+
     if (!linear->dW) 
-        linear->dW = zeros(linear->W->shape, linear->W->ndims);
+        linear->dW = zeros(linear->W->shape, linear->W->ndims, device);
 
     if (!linear->db)
-        linear->db = linear->use_bias > 0 ? zeros(linear->b->shape, linear->b->ndims) : NULL;
+        linear->db = linear->use_bias > 0 ? zeros(linear->b->shape, linear->b->ndims, device) : NULL;
 
-    tensor_t *dout, *ret;
-    dout = zeros(linear->cache->shape, linear->cache->ndims);
+    tensor_t *dout = zeros(linear->cache->shape, linear->cache->ndims, device);
 
     int B, T, out_features;
     B = global_grad->shape[0];
     T = global_grad->shape[1];
     out_features = global_grad->shape[2];
 
-    // backprop into dx
-    cblas_sgemm(
-        CblasRowMajor, CblasNoTrans, CblasNoTrans,
-        B * T, linear->in_features, linear->out_features,
-        1.0f, global_grad->t, linear->out_features, 
-        linear->W->t, linear->in_features, 
-        1.0f, dout->t, linear->in_features
-    );
-
-    // backprop into dW
-    cblas_sgemm(
-        CblasRowMajor, CblasTrans, CblasNoTrans,
-        linear->out_features, linear->in_features, B * T,
-        1.0f, global_grad->t, linear->out_features, 
-        linear->cache->t, linear->in_features, 
-        1.0f, linear->dW->t, linear->in_features
-    );
-
-    // backprop into db
-    if (linear->use_bias > 0) {
-        int row_size = linear->db->shape[linear->db->ndims - 1];
-        for (int i = 0; i < B * T; i++) {
-            for (int j = 0; j < row_size; j++) {
-                linear->db->t[j] += global_grad->t[i * row_size + j];
-            }
-        }
-    }
+    linear_backward_dispatch(global_grad, linear->cache, linear->W, linear->dW, linear->db, dout);
 
     free_tensor(linear->cache);
     free_tensor(global_grad);
@@ -327,7 +273,7 @@ void free_cache_linear(linear_t *linear) {
 
 tensor_t **parameters_linear(const linear_t * linear) {
     if (linear == NULL)
-        return NULL;
+        exit(EXIT_FAILURE);
 
     tensor_t **parameters = (tensor_t **)mallocCheck(sizeof(tensor_t *) * linear->_num_param_tensors);
     parameters[0] = linear->W;
@@ -340,7 +286,7 @@ tensor_t **parameters_linear(const linear_t * linear) {
 
 tensor_t **gradients_linear(const linear_t *linear) {
     if (linear == NULL)
-        return NULL;
+        exit(EXIT_FAILURE);
 
     tensor_t **gradients = (tensor_t **)mallocCheck(sizeof(tensor_t *) * linear->_num_param_tensors);
     gradients[0] = linear->dW;
@@ -352,33 +298,38 @@ tensor_t **gradients_linear(const linear_t *linear) {
 
 
 void load_state_dict_linear(linear_t *linear, tensor_t **state) {
-    if (linear == NULL)
-    {
-        printf("Expected required arugment *linear to be of type linear_t ptr, but got NULL.\n");
-        return;
-    }
-
-    if (state == NULL)
-    {
-        printf("Expected required argument **state to be of type tensor_t ** ptr, but got NULL.\n");
-        return;
-    }
+    CHECK_ERROR(linear == NULL, "Expected *linear to be a linear_t pointer, but got NULL.");
+    CHECK_ERROR(state == NULL, "Expected **state to be a tensor_t pointer, but got NULL.");
 
     // check parameter and state length
     tensor_t *W = state[0];
     tensor_t *b = linear->use_bias > 0 ? state[0] : NULL;
 
-    if (linear->W->length != W->length) {
-        printf("Cannot load linear.weight as linear.W.length != state.W.length. Got %d != %d\n", linear->W->length, W->length);
-        return;
-    }
-
-    if (linear->use_bias > 0 && linear->b->length != b->length) {
-        printf("Cannot load linear.bias as linear.b.length != state.b.length. Got %d != %d\n", linear->b->length, b->length);
-        return;
-    }
+    CHECK_ERROR(
+        linear->W->length != W->length, 
+        "Cannot load linear weight. Expected a tensor of size %d, but got %d.", linear->W->length, W->length
+    );
+    CHECK_ERROR(
+        linear->use_bias > 0 && linear->b->length != b->length, 
+        "Cannot load linear bias. Expected a tensor of size %d, but got %d.", linear->b->length, b->length
+    );
 
     memcpy(linear->W->t, W->t, linear->W->length * sizeof(float));
     if (linear->use_bias > 0)
         memcpy(linear->b->t, b->t, linear->b->length * sizeof(float));
+}
+
+
+void to_linear(linear_t *linear, const device_t device) {
+    CHECK_ERROR(linear == NULL, "Expected *linear to be a linear_t pointer, but got NULL.");
+
+    linear->W->to(linear->W, device);
+    if (linear->dW)
+        linear->dW->to(linear->dW, device);
+    if (linear->b)
+        linear->b->to(linear->b, device);
+    if (linear->db)
+        linear->db->to(linear->db, device);
+    if (linear->cache)
+        linear->cache->to(linear->cache, device);
 }

@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include "utils.h"
+#include "dispatch.h"
 #include "loss.h"
 
 
@@ -11,12 +12,12 @@ int num_parameters_cross_entropy_loss(const cross_entropy_loss_t *loss);
 void description_cross_entropy_loss(const cross_entropy_loss_t *loss);
 void free_layer_cross_entropy_loss(cross_entropy_loss_t *loss);
 void free_cache_cross_entropy_loss(cross_entropy_loss_t *loss);
+void to_cross_entropy_loss(cross_entropy_loss_t *loss, const device_t device);
 
 
 // CrossEntropyLoss Class
 cross_entropy_loss_t *CrossEntropyLoss() {
     cross_entropy_loss_t *loss = (cross_entropy_loss_t *)mallocCheck(sizeof(cross_entropy_loss_t));
-    loss->softmax = Softmax();
     loss->cache[0] = NULL;
     loss->cache[1] = NULL;
     loss->forward = forward_cross_entropy_loss;
@@ -25,26 +26,15 @@ cross_entropy_loss_t *CrossEntropyLoss() {
     loss->num_parameters = num_parameters_cross_entropy_loss;
     loss->free_layer = free_layer_cross_entropy_loss;
     loss->free_cache = free_cache_cross_entropy_loss;
+    loss->to = to_cross_entropy_loss;
     return loss;
 }
 
-
 tensor_t *forward_cross_entropy_loss(cross_entropy_loss_t *loss, tensor_t *logits, tensor_t *targets) {
 
-    if (loss == NULL) {
-        printf("Expected required arugment *loss to be of type cross_entropy_loss ptr, but got NULL.\n");
-        return NULL;
-    }
-
-    if (logits == NULL) {
-        printf("Expected required argument *logits to be of type tensor_t ptr, but got NULL.\n");
-        return NULL;
-    }
-
-    if (targets == NULL) {
-        printf("Expected required argument *targets to be of type tensor_t ptr, but got NULL.\n");
-        return NULL;
-    }
+    CHECK_ERROR(loss == NULL, "Expected *loss to be a cross_entropy_loss_t pointer, but got NULL.");
+    CHECK_ERROR(logits == NULL, "Expected *logits to be a tensor_t pointer, but got NULL.");
+    CHECK_ERROR(targets == NULL, "Expected *targets to be a tensor_t pointer, but got NULL.");
 
     /*
         Explanation
@@ -67,22 +57,14 @@ tensor_t *forward_cross_entropy_loss(cross_entropy_loss_t *loss, tensor_t *logit
         loss[i] <--- -log(V_i[idx])
     */
 
-    int B, T, C;
-    B = logits->shape[0];
-    T = logits->shape[1];
-    C = logits->shape[2];
-    tensor_t *probs = loss->softmax->forward(loss->softmax, logits);
+    device_t device = logits->device;
+    int out_shape[1] = {1};
+    tensor_t *out = zeros(out_shape, 1, device);
 
-    tensor_t *out = zeros(targets->shape, targets->ndims);
-    for (int b = 0; b < B; b++) {
-        for (int t = 0; t < T; t++) {
-            float *probs_bt = probs->t + b * T * C + t * C;
-            int ix = (int)targets->t[b * T + t];
-            out->t[b * T + t] = -logf(probs_bt[ix]);
-        }
-    }
-    
-    loss->cache[0] = probs; 
+    loss->cache[0] = create_tensor(logits->shape, logits->ndims, device);
+
+    cross_entropy_forward_dispatch(logits, targets, loss->cache, out);
+
     loss->cache[1] = targets;
     return out;
 }
@@ -90,15 +72,8 @@ tensor_t *forward_cross_entropy_loss(cross_entropy_loss_t *loss, tensor_t *logit
 
 tensor_t *backward_cross_entropy_loss(cross_entropy_loss_t *loss, tensor_t *global_grad) {
 
-    if (loss == NULL) {
-        printf("Expected required arugment *loss to be of type cross_entropy_loss_t ptr, but got NULL.\n");
-        return NULL;
-    }
-
-    if (global_grad == NULL) {
-        printf("Expected required argument *global_grad to be of type tensor_t ptr, but got NULL.\n");
-        return NULL;
-    }
+    CHECK_ERROR(loss == NULL, "Expected *loss to be a cross_entropy_loss_t pointer, but got NULL.");
+    CHECK_ERROR(global_grad == NULL, "Expected *global_grad to be a tensor_t pointer, but got NULL.");
 
     /*
         Explanation
@@ -118,30 +93,11 @@ tensor_t *backward_cross_entropy_loss(cross_entropy_loss_t *loss, tensor_t *glob
 
     */
 
-    int B, T, C;
-    tensor_t *probs = loss->cache[0];
-    tensor_t *targets = loss->cache[1];
+    device_t device = global_grad->device;
+    tensor_t *log_softmax_output = loss->cache[0];
+    tensor_t *dout = zeros(log_softmax_output->shape, log_softmax_output->ndims, device);
 
-    B = probs->shape[0];
-    T = probs->shape[1];
-    C = probs->shape[2];
-
-    tensor_t *out = zeros(probs->shape, probs->ndims);
-
-    for (int b = 0; b < B; b++) {
-        for (int t = 0; t < T; t++) {
-            float *out_bt = out->t + b * T * C + t * C;
-            float *prob_bt = probs->t + b * T * C + t * C;
-            float dloss = global_grad->t[b * T + t];
-            int ix = (int)targets->t[b * T + t]; 
-
-            for (int i = 0; i < C; i++) {
-                float p = prob_bt[i];
-                float indicator = i == ix ? 1.0f : 0.0f;
-                out_bt[i] += (p - indicator) * dloss;
-            }
-        }
-    }
+    cross_entropy_backward_dispatch(global_grad, (const tensor_t **)loss->cache, dout);
 
     free_tensor(global_grad);
     free_tensor(loss->cache[0]);
@@ -149,7 +105,7 @@ tensor_t *backward_cross_entropy_loss(cross_entropy_loss_t *loss, tensor_t *glob
     global_grad = NULL;
     loss->cache[0] = NULL;
     loss->cache[1] = NULL;
-    return out;
+    return dout;
 }
 
 
@@ -167,7 +123,6 @@ void free_layer_cross_entropy_loss(cross_entropy_loss_t *loss) {
     if (loss == NULL)
         return;
 
-    loss->softmax->free_layer(loss->softmax);
     free_tensor(loss->cache[0]);
     free_tensor(loss->cache[1]);
     free(loss);
@@ -182,4 +137,13 @@ void free_cache_cross_entropy_loss(cross_entropy_loss_t *loss) {
     free_tensor(loss->cache[1]);
     loss->cache[0] = NULL;
     loss->cache[1] = NULL;
+}
+
+void to_cross_entropy_loss(cross_entropy_loss_t *loss, const device_t device) {
+    CHECK_ERROR(loss == NULL, "Expected *loss to be a cross_entropy_loss_t pointer, but got NULL.");
+
+    if (loss->cache[0])
+        loss->cache[0]->to(loss->cache[0], device);
+    if (loss->cache[1])
+        loss->cache[1]->to(loss->cache[1], device);
 }

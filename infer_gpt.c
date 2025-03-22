@@ -11,6 +11,9 @@
 #include "transformer.h"
 #include "tokenizer.h"
 #include "utils.h"
+#include "runtime.h"
+#include "activation.h"
+
 
 // define command line options
 const char *argp_program_version = "infer_gpt version 1.0";
@@ -23,10 +26,10 @@ static struct argp_option options[] = {
     {"max-tokens", 204, "MAX_TOKENS", OPTION_ARG_OPTIONAL, "Max number of tokens to generate. Default: 1024"},
     {"temperature", 205, "TEMPERATURE", OPTION_ARG_OPTIONAL, "Temperature to use during generation. Default: 1.0f"},
     {"rand-seed", 206, "RAND_SEED", OPTION_ARG_OPTIONAL, "Seed to initialize random generator. Default: 1337"},
-    {"interactive", 207, "INTERACTIVE", OPTION_ARG_OPTIONAL, "Set this flag to enable live token generation. Default: disabled"},
+    {"interactive", 207, "INTERACTIVE", OPTION_ARG_OPTIONAL, "Set this flag to enable live token generation. Default: 0"},
+    {"device", 208, "DEVICE", OPTION_ARG_OPTIONAL, "Specify the device to use for training and validation [cpu | cuda]. Default: cpu"},
     {0}
 };
-
 
 struct arguments {
     char *load_checkpoint;
@@ -37,6 +40,7 @@ struct arguments {
     float temperature;
     int rand_seed;
     int interactive;
+    char *device;
 };
 
 
@@ -50,6 +54,7 @@ static void init_arguments(struct arguments *args) {
     args->temperature = 1.0f;
     args->rand_seed = 1337;
     args->interactive = 0;
+    args->device = "cpu";
 }
 
 
@@ -142,6 +147,10 @@ static error_t parse_options(int key, char *arg, struct argp_state *state) {
         case 207:
             arguments->interactive = 1;
             break;
+        case 208:
+            if (arg != NULL)
+                arguments->device = arg;
+            break;
         case ARGP_KEY_ARG:
             return 0;
         default:
@@ -183,6 +192,7 @@ gpt2_t* load_model(const char *file_path) {
         "checkpoint_path",
         "steps_trained"
     };
+
     char vals[7][1024];
     sprintf(vals[0], "%zu", max_block_size);
     sprintf(vals[1], "%zu", vocab_size);
@@ -227,7 +237,7 @@ gpt2_t* load_model(const char *file_path) {
         for (int i = 0; i < ndims; i++)
             shape[i] = shape_buffer[shape_index + 1 + i];
         
-        parameters[param_index++] = tensor_load(fp, shape, ndims);
+        parameters[param_index++] = tensor_load(fp, shape, ndims, CPU);
         shape_index += ndims + 1;
     }
 
@@ -289,13 +299,23 @@ int main(int argc, char **argv) {
     // create Tokenizer
     tokenizer_t *tokenizer = Tokenizer(inference_args.tokenizer_checkpoint);
     uint64_t rng_state = inference_args.rand_seed;
+    
+    device_t device = CPU;
+    if (strcmp(inference_args.device, "cuda") == 0)
+        device = CUDA;
+    runtime_init(device);
+
+    // move model to device
+    gpt->to(gpt, device);
+
+    softmax_t *softmax = Softmax();
 
     int total_tokens = inference_args.num_init_tokens + inference_args.max_tokens;
     int block_size_multiple = total_tokens / gpt->block_size;
     block_size_multiple = total_tokens % gpt->block_size == 0 ? block_size_multiple : block_size_multiple + 1;
     
     int input_shape[2] = {1, gpt->block_size * block_size_multiple};
-    tensor_t *X = fill(input_shape, 2, 50256.0f);
+    tensor_t *X = fill(input_shape, 2, 50256.0f, CPU);
 
     // We need to hack the tensor here because model can only process block_size
     // tokens at a time. If max_tokens + num_init_tokens is greater than block_size,
@@ -320,50 +340,70 @@ int main(int argc, char **argv) {
 
     for (int i = inference_args.num_init_tokens; i < total_tokens; i++) {
         int window_input_shape[2] = {1, gpt->block_size};
-        tensor_t *window_input = create_tensor(window_input_shape, 2);
+        tensor_t *window_input = create_tensor(window_input_shape, 2, CPU);
 
         start_index += i < gpt->block_size ? 0 : 1;
         memcpy(window_input->t, X->t + start_index, gpt->block_size * sizeof(float));
 
+        // move input to device
+        window_input->to(window_input, device);
+
         tensor_t *logits = gpt->forward(gpt, window_input);
+        
+        // wait for all GPU task complete
+        synchronize(device);
         gpt->free_cache(gpt); // frees up window_input and other cached tensors
 
         // we only care about the (i-1)th prediction 
         // pluck out logits[:, [i-1], :]
         int logits_offset = i < gpt->block_size ? i - 1 : gpt->block_size - 1;
-
         float *logits_last_idx = logits->t + (logits_offset) * gpt->vocab_size;
 
+        int token_logits_shape[3] = {1, 1, gpt->vocab_size};
+        tensor_t *token_logits = create_tensor(token_logits_shape, 3, device);
+        
+        // override logits shape as we need only the last idx logits
+        float *_logits_t = logits->t;
+        logits->t = logits_last_idx;
+        logits->shape[0] = 1;
+        logits->shape[1] = 1;
+        logits->length = token_logits->length;
+
+        tensor_copy(token_logits, logits);
+
         // scale by temperature
-        for (int j = 0; j < gpt->vocab_size; j++)
-            logits_last_idx[j] = logits_last_idx[j] / inference_args.temperature;
+        tensor_t *scaled_token_logits = zeros(token_logits_shape, 3, device);
+        saxpy(token_logits->length, 1.0f / inference_args.temperature, token_logits, 0, 1, scaled_token_logits, 0, 1);
         
-        // calculate softmax
-        float maxval = -INFINITY;
-        for (int j = 0; j < gpt->vocab_size; j++)
-            if (logits_last_idx[j] > maxval)
-                maxval = logits_last_idx[j];
-        
-        float sum = 0.0f;
-        for (int j = 0; j < gpt->vocab_size; j++) {
-            logits_last_idx[j] = expf(logits_last_idx[j] - maxval);
-            sum += logits_last_idx[j];
-        }
-        for (int j = 0; j < gpt->vocab_size; j++)
-            logits_last_idx[j] /= sum;
+        // softmax
+        tensor_t *out = softmax->forward(softmax, scaled_token_logits);
+        out->to(out, CPU);
 
         // sample
         float coin = random_f32(&rng_state);
-        int next_token = sample_mult(logits_last_idx, gpt->vocab_size, coin);
+        int next_token = sample_mult(out->t, gpt->vocab_size, coin);
         X->t[i] = (float)next_token;
         
         if (inference_args.interactive == 1) {
+            // print user prompt first
+            for (int j = 0; j < inference_args.num_init_tokens && i == inference_args.num_init_tokens; j++) {
+                safe_printf(tokenizer->decode(tokenizer, X->t[j]));
+                fflush(stdout);
+            }
             safe_printf(tokenizer->decode(tokenizer, next_token));
             fflush(stdout);
         }
 
+        // restore original logits and free the tensor
+        logits->t = _logits_t;
         free_tensor(logits);
+        free_tensor(out);
+        free_tensor(token_logits);
+        free_tensor(scaled_token_logits);
+        out = NULL;
         logits = NULL;
+        token_logits = NULL;
+        scaled_token_logits = NULL;
         logits_last_idx = NULL;
     }
     

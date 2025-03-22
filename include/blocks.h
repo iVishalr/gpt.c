@@ -55,15 +55,16 @@ typedef struct mlp {
     linear_t *c_proj; // 8 bytes
 
     // Function pointers grouped together
-    tensor_t *(*forward)(struct mlp *, tensor_t *);     // 8 bytes
-    tensor_t *(*backward)(struct mlp *, tensor_t *);    // 8 bytes
-    void (*description)(const struct mlp *);            // 8 bytes
-    int (*num_parameters)(const struct mlp *);          // 8 bytes
-    void (*free_layer)(struct mlp *);                   // 8 bytes
-    void (*free_cache)(struct mlp *);                   // 8 bytes
-    tensor_t **(*parameters)(const struct mlp *);       // 8 bytes
-    tensor_t **(*gradients)(const struct mlp *);        // 8 bytes
-    void (*load_state_dict)(struct mlp *, tensor_t **); // 8 bytes
+    tensor_t *(*forward)(struct mlp *, tensor_t *);         // 8 bytes
+    tensor_t *(*backward)(struct mlp *, tensor_t *);        // 8 bytes
+    void (*description)(const struct mlp *);                // 8 bytes
+    int (*num_parameters)(const struct mlp *);              // 8 bytes
+    void (*free_layer)(struct mlp *);                       // 8 bytes
+    void (*free_cache)(struct mlp *);                       // 8 bytes
+    tensor_t **(*parameters)(const struct mlp *);           // 8 bytes
+    tensor_t **(*gradients)(const struct mlp *);            // 8 bytes
+    void (*load_state_dict)(struct mlp *, tensor_t **);     // 8 bytes
+    void (*to)(struct mlp *, const device_t device);        // 8 bytes
 } __attribute__((aligned(64))) mlp_t;                    // Ensure the structure is aligned to 8 bytes
 
 typedef struct self_attention {
@@ -92,6 +93,7 @@ typedef struct self_attention {
     tensor_t **(*parameters)(const struct self_attention *);       // 8 bytes
     tensor_t **(*gradients)(const struct self_attention *);        // 8 bytes
     void (*load_state_dict)(struct self_attention *, tensor_t **); // 8 bytes
+    void (*to)(struct self_attention *, const device_t device);    // 8 bytes
 } __attribute__((aligned(64))) self_attention_t;                    // Ensure the structure is aligned to 8 bytes
 
 typedef struct block
@@ -113,15 +115,16 @@ typedef struct block
     self_attention_t *attn; // 8 bytes
 
     // Function pointers grouped together
-    tensor_t *(*forward)(struct block *, tensor_t *);     // 8 bytes
-    tensor_t *(*backward)(struct block *, tensor_t *);    // 8 bytes
-    void (*description)(const struct block *);            // 8 bytes
-    int (*num_parameters)(const struct block *);          // 8 bytes
-    void (*free_layer)(struct block *);                   // 8 bytes
-    void (*free_cache)(struct block *);                   // 8 bytes
-    tensor_t **(*parameters)(const struct block *);       // 8 bytes
-    tensor_t **(*gradients)(const struct block *);        // 8 bytes
-    void (*load_state_dict)(struct block *, tensor_t **); // 8 bytes
+    tensor_t *(*forward)(struct block *, tensor_t *);       // 8 bytes
+    tensor_t *(*backward)(struct block *, tensor_t *);      // 8 bytes
+    void (*description)(const struct block *);              // 8 bytes
+    int (*num_parameters)(const struct block *);            // 8 bytes
+    void (*free_layer)(struct block *);                     // 8 bytes
+    void (*free_cache)(struct block *);                     // 8 bytes
+    tensor_t **(*parameters)(const struct block *);         // 8 bytes
+    tensor_t **(*gradients)(const struct block *);          // 8 bytes
+    void (*load_state_dict)(struct block *, tensor_t **);   // 8 bytes
+    void (*to)(struct block *, const device_t device);      // 8 bytes
 } __attribute__((aligned(64))) block_t;                    // Ensure the structure is aligned to 8 bytes
 
 mlp_t *MLP(const int in_features, int expansion_factor, const int use_bias);

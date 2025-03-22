@@ -55,6 +55,7 @@ typedef struct embedding {
     tensor_t **(*parameters)(const struct embedding *);       // 8 bytes
     tensor_t **(*gradients)(const struct embedding *);        // 8 bytes
     void (*load_state_dict)(struct embedding *, tensor_t **); // 8 bytes
+    void (*to)(struct embedding *, const device_t);           // 8 bytes
 
     // Integers grouped together
     int num_embeddings;                    // 4 bytes

@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include <cblas.h>
 #include "utils.h"
 #include "transformer.h"
 
@@ -17,6 +16,7 @@ tensor_t **parameters_transformer(const gpt2_t *gpt);
 tensor_t **gradients_transformer(const gpt2_t *gpt);
 void load_state_dict_transformer(gpt2_t *gpt, tensor_t **state);
 void fast_load_state_dict_transformer(gpt2_t *gpt, tensor_t **state);
+void to_transformer(gpt2_t *gpt, const device_t device);
 
 
 // GPT2 Class
@@ -54,6 +54,7 @@ gpt2_t *GPT2(GPT2Config_t *config) {
     gpt->gradients = gradients_transformer;
     gpt->load_state_dict = load_state_dict_transformer;
     gpt->fast_load_state_dict = fast_load_state_dict_transformer;
+    gpt->to = to_transformer;
 
     gpt->_num_param_tensors = gpt->wpe->_num_param_tensors;
     for (int i = 0; i < gpt->n_layers; i++)
@@ -66,16 +67,11 @@ gpt2_t *GPT2(GPT2Config_t *config) {
 
 
 tensor_t *forward_transformer(gpt2_t *gpt, tensor_t *x) {
-    if (gpt == NULL) {
-        printf("Expected required arugment *gpt to be of type gpt2_t ptr, but got NULL.\n");
-        return NULL;
-    }
 
-    if (x == NULL) {
-        printf("Expected required argument *x to be of type tensor_t ptr, but got NULL.\n");
-        return NULL;
-    }
+    CHECK_ERROR(gpt == NULL, "Expected *gpt to be a gpt2_t pointer, but got NULL.");
+    CHECK_ERROR(x == NULL, "Expected *x to be a tensor_t pointer, but got NULL.");
 
+    device_t device = x->device;
     int B, T, C;
     B = x->shape[0];
     T = x->shape[1];
@@ -94,16 +90,11 @@ tensor_t *forward_transformer(gpt2_t *gpt, tensor_t *x) {
 
     tensor_t *tok_emb = wte->forward(wte, x);
 
-    int pos_shape[2] = {1, T};
-    tensor_t *pos = create_tensor(pos_shape, 2);
-    
-    for (int t = 0; t < T; t++)
-        pos->t[t] = t;
-
+    tensor_t *pos = arange(0, T, 1, device);
     tensor_t *pos_emb = wpe->forward(wpe, pos);
 
     for (int b = 0; b < B; b++)
-        cblas_saxpy(T * C, 1.0f, pos_emb->t, 1, tok_emb->t + b * T * C, 1);
+        saxpy(T * C, 1.0f, pos_emb, 0, 1, tok_emb, b * T * C, 1);
 
     free_tensor(pos_emb);
     pos_emb = NULL;
@@ -120,16 +111,11 @@ tensor_t *forward_transformer(gpt2_t *gpt, tensor_t *x) {
 
 
 tensor_t *backward_transformer(gpt2_t *gpt, tensor_t *global_grad) {
-    if (gpt == NULL) {
-        printf("Expected required arugment *gpt to be of type gpt2_t ptr, but got NULL.\n");
-        return NULL;
-    }
 
-    if (global_grad == NULL) {
-        printf("Expected required argument *global_grad to be of type tensor_t ptr, but got NULL.\n");
-        return NULL;
-    }
+    CHECK_ERROR(gpt == NULL, "Expected *gpt to be a gpt2_t pointer, but got NULL.");
+    CHECK_ERROR(global_grad == NULL, "Expected *global_grad to be a tensor_t pointer, but got NULL.");
 
+    device_t device = global_grad->device;
     block_t **layers;
     embedding_t *wpe, *wte;
     linear_t *lm_head;
@@ -158,27 +144,16 @@ tensor_t *backward_transformer(gpt2_t *gpt, tensor_t *global_grad) {
     for (int i = gpt->n_layers - 1; i >= 0; i--)
         out = layers[i]->backward(layers[i], out);
 
-    int gg_pos_emb_shape[3] = {1, T, n_embd};
-    tensor_t *gg_pos_emb = zeros(gg_pos_emb_shape, 3);
+    tensor_t *out2 = create_tensor(out->shape, out->ndims, device);
+    tensor_copy(out2, out);
 
-    for (int b = 0; b < B; b++) {
-        for (int t = 0; t < T; t++) {
-            float *global_grad_bt = out->t + b * T * n_embd + t * n_embd;
-            for (int i = 0; i < n_embd; i++) {
-                gg_pos_emb->t[t * n_embd + i] += global_grad_bt[i];
-            }
-        }
-    }
-
-    tensor_t *d_pos_emb = wpe->backward(wpe, gg_pos_emb);
+    tensor_t *d_pos_emb = wpe->backward(wpe, out2);
     tensor_t *d_tok_emb = wte->backward(wte, out);
 
-    // add up gradients of wte.W (wte->dW) to lm_head->dW 
+    // add up gradients of lm_head.W (wte->dW) to wte->dW 
     // We need to do this because both the layers are sharing weights
     // wte.W = lm_head.W: (vocab_size, C)
-    for (int v = 0; v < gpt->vocab_size; v++)
-        cblas_saxpy(n_embd, 1.0f, lm_head->dW->t + v * n_embd, 1, wte->dW->t + v * n_embd, 1);
-    
+    saxpy(wte->dW->length, 1.0f, lm_head->dW, 0, 1, wte->dW, 0, 1);
     return d_tok_emb;
 }
 
@@ -307,8 +282,7 @@ void free_cache_transformer(gpt2_t *gpt) {
 
 
 tensor_t **parameters_transformer(const gpt2_t *gpt) {
-    if (gpt == NULL)
-        return NULL;
+    CHECK_ERROR(gpt == NULL, "Expected *gpt to be a gpt2_t pointer, but got NULL.");
 
     block_t **layers;
     embedding_t *wpe, *wte;
@@ -355,8 +329,7 @@ tensor_t **parameters_transformer(const gpt2_t *gpt) {
 
 
 tensor_t **gradients_transformer(const gpt2_t *gpt) {
-    if (gpt == NULL)
-        return NULL;
+    CHECK_ERROR(gpt == NULL, "Expected *gpt to be a gpt2_t pointer, but got NULL.");
 
     block_t **layers;
     embedding_t *wpe, *wte;
@@ -403,17 +376,8 @@ tensor_t **gradients_transformer(const gpt2_t *gpt) {
 
 
 void load_state_dict_transformer(gpt2_t *gpt, tensor_t **state) {
-    if (gpt == NULL)
-    {
-        printf("Expected required arugment *gpt to be of type gpt2_t ptr, but got NULL.\n");
-        return;
-    }
-
-    if (state == NULL)
-    {
-        printf("Expected required argument **state to be of type tensor_t ** ptr, but got NULL.\n");
-        return;
-    }
+    CHECK_ERROR(gpt == NULL, "Expected *gpt to be a gpt2_t pointer, but got NULL.");
+    CHECK_ERROR(state == NULL, "Expected **state to be a tensor_t pointer, but got NULL.");
 
     block_t **layers;
     embedding_t *wpe, *wte;
@@ -445,17 +409,8 @@ void load_state_dict_transformer(gpt2_t *gpt, tensor_t **state) {
 
 
 void fast_load_state_dict_transformer(gpt2_t *gpt, tensor_t **state) {
-    if (gpt == NULL)
-    {
-        printf("Expected required arugment *gpt to be of type gpt2_t ptr, but got NULL.\n");
-        return;
-    }
-
-    if (state == NULL)
-    {
-        printf("Expected required argument **state to be of type tensor_t ** ptr, but got NULL.\n");
-        return;
-    }
+    CHECK_ERROR(gpt == NULL, "Expected *gpt to be a gpt2_t pointer, but got NULL.");
+    CHECK_ERROR(state == NULL, "Expected **state to be a tensor_t pointer, but got NULL.");
 
     tensor_t **parameters = gpt->parameters(gpt);
     for (int i = 0; i < gpt->_num_param_tensors; i++) {
@@ -473,4 +428,29 @@ void fast_load_state_dict_transformer(gpt2_t *gpt, tensor_t **state) {
         memcpy(model_param->t, state_param->t, model_param->length * sizeof(float));
     }
     free(parameters);
+}
+
+
+void to_transformer(gpt2_t *gpt, const device_t device) {
+    CHECK_ERROR(gpt == NULL, "Expected *gpt to be a gpt2_t pointer, but got NULL.");
+
+    block_t **layers;
+    embedding_t *wpe, *wte;
+    linear_t *lm_head;
+    layer_norm_t *ln;
+
+    wpe = gpt->wpe;
+    wte = gpt->wte;
+    lm_head = gpt->lm_head;
+    layers = gpt->layers;
+    ln = gpt->ln_f;
+
+    wpe->to(wpe, device);
+    wte->to(wte, device);
+
+    for (int i = 0; i < gpt->n_layers; i++)
+        layers[i]->to(layers[i], device);
+
+    ln->to(ln, device);
+    lm_head->to(lm_head, device);
 }

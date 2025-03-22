@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <cblas.h>
 #include "utils.h"
 #include "blocks.h"
 
@@ -14,6 +13,7 @@ void free_cache_block(block_t *blk);
 tensor_t **parameters_block(const block_t *blk);
 tensor_t **gradients_block(const block_t *blk);
 void load_state_dict_block(block_t *blk, tensor_t **state);
+void to_block(block_t *blk, const device_t device);
 
 
 // Block Class
@@ -40,6 +40,7 @@ block_t *Block(const int n_embd, const int n_heads, const int block_size, const 
     blk->parameters = parameters_block;
     blk->gradients = gradients_block;
     blk->load_state_dict = load_state_dict_block;
+    blk->to = to_block;
 
     blk->_num_param_tensors = 0;
     blk->_num_param_tensors += blk->ln1->_num_param_tensors;
@@ -52,16 +53,10 @@ block_t *Block(const int n_embd, const int n_heads, const int block_size, const 
 
 tensor_t *forward_block(block_t *blk, tensor_t *x) {
 
-    if (blk == NULL) {
-        printf("Expected required arugment *blk to be of type block_t ptr, but got NULL.\n");
-        return NULL;
-    }
+    CHECK_ERROR(blk == NULL, "Expected *blk to be a block_t pointer, but got NULL.");
+    CHECK_ERROR(x == NULL, "Expected *x to be a tensor_t pointer, but got NULL.");
 
-    if (x == NULL) {
-        printf("Expected required argument *x to be of type tensor_t ptr, but got NULL.\n");
-        return NULL;
-    }
-
+    device_t device = x->device;
     self_attention_t *attn;
     layer_norm_t *ln1, *ln2;
     mlp_t *mlp;
@@ -71,7 +66,7 @@ tensor_t *forward_block(block_t *blk, tensor_t *x) {
     attn = blk->attn;
     mlp = blk->mlp;
 
-    tensor_t *resid = create_tensor(x->shape, x->ndims);
+    tensor_t *resid = create_tensor(x->shape, x->ndims, device);
     tensor_copy(resid, x);
 
     tensor_t *out = x;
@@ -79,7 +74,7 @@ tensor_t *forward_block(block_t *blk, tensor_t *x) {
     out = attn->forward(attn, out);
 
     // out = resid + out
-    cblas_saxpy(out->length, 1.0f, resid->t, 1, out->t, 1);
+    saxpy(out->length, 1.0f, resid, 0, 1, out, 0, 1);
 
     tensor_copy(resid, out);
 
@@ -87,7 +82,7 @@ tensor_t *forward_block(block_t *blk, tensor_t *x) {
     out = mlp->forward(mlp, out);
 
     // out = resid + out
-    cblas_saxpy(out->length, 1.0f, resid->t, 1, out->t, 1);
+    saxpy(out->length, 1.0f, resid, 0, 1, out, 0, 1);
     free_tensor(resid);
 
     return out;
@@ -95,17 +90,11 @@ tensor_t *forward_block(block_t *blk, tensor_t *x) {
 
 
 tensor_t *backward_block(block_t *blk, tensor_t *global_grad) {
-    
-    if (blk == NULL) {
-        printf("Expected required arugment *blk to be of type block_t ptr, but got NULL.\n");
-        return NULL;
-    }
 
-    if (global_grad == NULL) {
-        printf("Expected required argument *global_grad to be of type tensor_t ptr, but got NULL.\n");
-        return NULL;
-    }
+    CHECK_ERROR(blk == NULL, "Expected *blk to be a block_t pointer, but got NULL.");
+    CHECK_ERROR(global_grad == NULL, "Expected *global_grad to be a tensor_t pointer, but got NULL.");
 
+    device_t device = global_grad->device;
     self_attention_t *attn;
     layer_norm_t *ln1, *ln2;
     mlp_t *mlp;
@@ -116,15 +105,15 @@ tensor_t *backward_block(block_t *blk, tensor_t *global_grad) {
     mlp = blk->mlp;
 
     tensor_t *out;
-    tensor_t *gg1 = create_tensor(global_grad->shape, global_grad->ndims);
-    tensor_t *gg2 = create_tensor(global_grad->shape, global_grad->ndims);
+    tensor_t *gg1 = create_tensor(global_grad->shape, global_grad->ndims, device);
+    tensor_t *gg2 = create_tensor(global_grad->shape, global_grad->ndims, device);
     tensor_copy(gg1, global_grad);
 
     out = mlp->backward(mlp, gg1);
     out = ln2->backward(ln2, out);
 
     // out = global grad + out
-    cblas_saxpy(out->length, 1.0f, global_grad->t, 1, out->t, 1);
+    saxpy(out->length, 1.0f, global_grad, 0, 1, out, 0, 1);
     free_tensor(global_grad);
     
     tensor_copy(gg2, out);
@@ -133,7 +122,7 @@ tensor_t *backward_block(block_t *blk, tensor_t *global_grad) {
     out = ln1->backward(ln1, out);
 
     // out = gg2 + out
-    cblas_saxpy(out->length, 1.0f, gg2->t, 1, out->t, 1);
+    saxpy(out->length, 1.0f, gg2, 0, 1, out, 0, 1);
     free_tensor(gg2);
 
     return out;
@@ -306,17 +295,9 @@ tensor_t **gradients_block(const block_t *blk) {
 
 
 void load_state_dict_block(block_t *blk, tensor_t **state) {
-    if (blk == NULL)
-    {
-        printf("Expected required arugment *blk to be of type block_t ptr, but got NULL.\n");
-        return;
-    }
 
-    if (state == NULL)
-    {
-        printf("Expected required argument **state to be of type tensor_t ** ptr, but got NULL.\n");
-        return;
-    }
+    CHECK_ERROR(blk == NULL, "Expected *blk to be a block_t pointer, but got NULL.");
+    CHECK_ERROR(state == NULL, "Expected **state to be a tensor_t pointer, but got NULL.");
 
     self_attention_t *attn;
     layer_norm_t *ln1, *ln2;
@@ -334,4 +315,23 @@ void load_state_dict_block(block_t *blk, tensor_t **state) {
     ln2->load_state_dict(ln2, state);
     state += ln2->_num_param_tensors;
     mlp->load_state_dict(mlp, state);
+}
+
+
+void to_block(block_t *blk, const device_t device) {
+    CHECK_ERROR(blk == NULL, "Expected *blk to be a block_t pointer, but got NULL.");
+
+    self_attention_t *attn;
+    layer_norm_t *ln1, *ln2;
+    mlp_t *mlp;
+
+    ln1 = blk->ln1;
+    ln2 = blk->ln2;
+    attn = blk->attn;
+    mlp = blk->mlp;
+
+    ln1->to(ln1, device);
+    ln2->to(ln2, device);
+    attn->to(attn, device);
+    mlp->to(mlp, device);
 }

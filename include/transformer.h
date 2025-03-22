@@ -68,6 +68,7 @@ typedef struct gpt2 {
     tensor_t **(*gradients)(const struct gpt2 *);             // 8 bytes
     void (*load_state_dict)(struct gpt2 *, tensor_t **);      // 8 bytes
     void (*fast_load_state_dict)(struct gpt2 *, tensor_t **); // 8 bytes
+    void (*to)(struct gpt2 *, const device_t);                // 8 bytes
 } gpt2_t; // Ensure the structure is aligned to 8 bytes
 
 typedef struct {

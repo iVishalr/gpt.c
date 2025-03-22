@@ -67,3 +67,11 @@ dkms.conf
 # Third Party
 third_party/OpenBLAS/include/*
 third_party/OpenBLAS/lib/*
+
+# CUDA excludes
+*.ncu-rep
+*.nsys-rep
+*.sqlite
+
+# Data files
+*.data

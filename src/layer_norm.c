@@ -3,6 +3,7 @@
 #include <string.h>
 #include <math.h>
 #include "utils.h"
+#include "dispatch.h"
 #include "layer_norm.h"
 
 #define DEFAULT_EPS 1e-5f
@@ -17,16 +18,13 @@ void free_cache_layer_norm(layer_norm_t *norm);
 tensor_t **parameters_layer_norm(const layer_norm_t *norm);
 tensor_t **gradients_layer_norm(const layer_norm_t *norm);
 void load_state_dict_layer_norm(layer_norm_t *norm, tensor_t **state);
+void to_layer_norm(layer_norm_t *norm, const device_t device);
 
 
 // LayerNorm Class
 layer_norm_t *LayerNorm(int in_features, const float eps, const int use_bias) {
 
-    if (in_features == 0)
-    {
-        printf("Expected in_features to be a value > 0, but got 0.\n");
-        return NULL;
-    }
+    CHECK_ERROR(in_features <= 0, "Expected in_features to be a positive integer, but got %d", in_features);
 
     layer_norm_t *norm = (layer_norm_t *)mallocCheck(sizeof(layer_norm_t));
 
@@ -38,11 +36,11 @@ layer_norm_t *LayerNorm(int in_features, const float eps, const int use_bias) {
     norm->in_features = in_features;
 
     int param_shape[1] = {in_features};
-    norm->W = ones(param_shape, 1);
-    norm->b = use_bias > 0 ? zeros(param_shape, 1) : NULL;
+    norm->W = ones(param_shape, 1, CPU);
+    norm->b = use_bias > 0 ? zeros(param_shape, 1, CPU) : NULL;
 
-    norm->dW = zeros(param_shape, 1);
-    norm->db = use_bias > 0 ? zeros(param_shape, 1) : NULL;
+    norm->dW = zeros(param_shape, 1, CPU);
+    norm->db = use_bias > 0 ? zeros(param_shape, 1, CPU) : NULL;
 
     norm->forward = forward_layer_norm;
     norm->backward = backward_layer_norm;
@@ -53,63 +51,27 @@ layer_norm_t *LayerNorm(int in_features, const float eps, const int use_bias) {
     norm->parameters = parameters_layer_norm;
     norm->gradients = gradients_layer_norm;
     norm->load_state_dict = load_state_dict_layer_norm;
+    norm->to = to_layer_norm;
     norm->_num_param_tensors = use_bias > 0 ? 2 : 1;
     return norm;
 }
 
 
 tensor_t *forward_layer_norm(layer_norm_t *norm, tensor_t *x) {
-    
-    if (norm == NULL) {
-        printf("Expected required arugment *norm to be of type layer_norm_t ptr, but got NULL.\n");
-        return NULL;
-    }
+    CHECK_ERROR(norm == NULL, "Expected *norm to be a layer_norm_t pointer, but got NULL.");
+    CHECK_ERROR(x == NULL, "Expected *x to be a tensor_t pointer, but got NULL.");
 
-    if (x == NULL) {
-        printf("Expected required argument *x to be of type tensor_t ptr, but got NULL.\n");
-        return NULL;
-    }
-
+    device_t device = x->device;
     int B, T, in_features;
     B = x->shape[0];
     T = x->shape[1];
     in_features = x->shape[2];
 
-    tensor_t *out = create_tensor(x->shape, x->ndims); // (B, T, C)
-    norm->cache[0] = create_tensor(x->shape, x->ndims - 1); // (B, T)
-    norm->cache[1] = create_tensor(x->shape, x->ndims - 1); // (B, T)
+    tensor_t *out = create_tensor(x->shape, x->ndims, device); // (B, T, C)
+    norm->cache[0] = create_tensor(x->shape, x->ndims - 1, device); // (B, T)
+    norm->cache[1] = create_tensor(x->shape, x->ndims - 1, device); // (B, T)
 
-    int row_size = in_features;
-
-    for (int i = 0; i < B * T; i++) {
-        float mean = 0.0f;
-        for (int j = 0; j < row_size; j++) {
-            mean += x->t[i * row_size + j];
-        }
-        mean = mean / row_size;
-
-        // calculate variance
-        float variance = 0.0f;
-        for (int j = 0; j < row_size; j++) {
-            float xshift = x->t[i * row_size + j] - mean;
-            variance += xshift * xshift;
-        }
-        variance = variance / row_size;
-
-        // calculate rstd (reciprocal standard deviation)
-        float rstd = 1.0f / sqrtf(variance + norm->eps);
-
-        for (int j = 0; j < row_size; j++) {
-            float n = rstd * (x->t[i * row_size + j] - mean);
-            float o = n * norm->W->t[j];
-            if (norm->b)
-                o += norm->b->t[j];
-            out->t[i * row_size + j] = o;
-        }
-
-        norm->cache[0]->t[i] = mean;
-        norm->cache[1]->t[i] = rstd;
-    }
+    layer_norm_forward_dispatch(norm->W, norm->b, x, norm->eps, norm->cache, out);
 
     norm->cache[2] = x;
     return out;
@@ -118,15 +80,8 @@ tensor_t *forward_layer_norm(layer_norm_t *norm, tensor_t *x) {
 
 tensor_t *backward_layer_norm(layer_norm_t *norm, tensor_t *global_grad) {
 
-    if (norm == NULL) {
-        printf("Expected required arugment *norm to be of type layer_norm_t ptr, but got NULL.\n");
-        return NULL;
-    }
-
-    if (global_grad == NULL) {
-        printf("Expected required argument *global_grad to be of type tensor_t ptr, but got NULL.\n");
-        return NULL;
-    }
+    CHECK_ERROR(norm == NULL, "Expected *norm to be a layer_norm_t pointer, but got NULL.");
+    CHECK_ERROR(global_grad == NULL, "Expected *global_grad to be a tensor_t pointer, but got NULL.");
 
     /*
         Backprop Analysis
@@ -158,54 +113,26 @@ tensor_t *backward_layer_norm(layer_norm_t *norm, tensor_t *global_grad) {
         dval *= rstd
         dX += dval
     */
+
+    device_t device = global_grad->device;
     int B, T, in_features;
     B = global_grad->shape[0];
     T = global_grad->shape[1];
     in_features = global_grad->shape[2];
 
-    tensor_t *mean, *rstd, *x, *out;
+    tensor_t *mean, *rstd, *x, *dout;
     mean = norm->cache[0];
     rstd = norm->cache[1];
     x = norm->cache[2];
-    out = zeros(x->shape, x->ndims);
+    dout = zeros(x->shape, x->ndims, device);
 
     if (!norm->dW)
-        norm->dW = zeros(norm->W->shape, norm->W->ndims);
+        norm->dW = zeros(norm->W->shape, norm->W->ndims, device);
     
     if (!norm->db)
-        norm->db = norm->use_bias > 0 ? zeros(norm->b->shape, norm->b->ndims) : NULL;
+        norm->db = norm->use_bias > 0 ? zeros(norm->b->shape, norm->b->ndims, device) : NULL;
 
-    int row_size = in_features;
-
-    for(int i = 0; i < B * T; i++) {
-        float dnorm_mean = 0.0f;
-        float dnorm_norm_mean = 0.0f;
-        for (int j = 0; j < row_size; j++) {
-            float norm_i = (x->t[i * row_size + j] - mean->t[i]) * rstd->t[i];
-            float dnorm_i = norm->W->t[j] * global_grad->t[i * row_size + j];
-            dnorm_mean += dnorm_i;
-            dnorm_norm_mean += dnorm_i * norm_i;
-        }
-        dnorm_mean = dnorm_mean / row_size;
-        dnorm_norm_mean = dnorm_norm_mean / row_size;
-
-        for (int j = 0; j < row_size; j++) {
-            float norm_i = (x->t[i * row_size + j] - mean->t[i]) * rstd->t[i];
-            float dnorm_i = norm->W->t[j] * global_grad->t[i * row_size + j];
-            
-            if (norm->db)
-                norm->db->t[j] += global_grad->t[i * row_size + j];
-            // gradient to weight
-            norm->dW->t[j] += norm_i * global_grad->t[i * row_size + j];
-            // gradient to input
-            float dval = 0.0f;
-            dval += dnorm_i;
-            dval -= dnorm_mean;
-            dval -= norm_i * dnorm_norm_mean;
-            dval *= rstd->t[i];
-            out->t[i * row_size + j] += dval;
-        }
-    }
+    layer_norm_backward_dispatch(global_grad, (const tensor_t **)norm->cache, norm->W, norm->dW, norm->db, dout);
 
     free_tensor(global_grad);
     free_tensor(norm->cache[0]);
@@ -215,7 +142,7 @@ tensor_t *backward_layer_norm(layer_norm_t *norm, tensor_t *global_grad) {
     norm->cache[0] = NULL;
     norm->cache[1] = NULL;
     norm->cache[2] = NULL;
-    return out;
+    return dout;
 }
 
 
@@ -286,8 +213,7 @@ void free_cache_layer_norm(layer_norm_t *norm) {
 }
 
 tensor_t **parameters_layer_norm(const layer_norm_t *norm) {
-    if (norm == NULL)
-        return NULL;
+    CHECK_ERROR(norm == NULL, "Expected *norm to be a layer_norm_t pointer, but got NULL.");
 
     tensor_t **parameters = (tensor_t **)mallocCheck(sizeof(tensor_t *) * norm->_num_param_tensors);
     parameters[0] = norm->W;
@@ -298,8 +224,7 @@ tensor_t **parameters_layer_norm(const layer_norm_t *norm) {
 
 
 tensor_t **gradients_layer_norm(const layer_norm_t *norm) {
-    if (norm == NULL)
-        return NULL;
+    CHECK_ERROR(norm == NULL, "Expected *norm to be a layer_norm_t pointer, but got NULL.");
 
     tensor_t **gradients = (tensor_t **)mallocCheck(sizeof(tensor_t *) * norm->_num_param_tensors);
     gradients[0] = norm->dW;
@@ -311,35 +236,41 @@ tensor_t **gradients_layer_norm(const layer_norm_t *norm) {
 
 
 void load_state_dict_layer_norm(layer_norm_t *norm, tensor_t **state) {
-    if (norm == NULL)
-    {
-        printf("Expected required arugment *norm to be of type layer_norm_t ptr, but got NULL.\n");
-        return;
-    }
-
-    if (state == NULL)
-    {
-        printf("Expected required argument **state to be of type tensor_t ** ptr, but got NULL.\n");
-        return;
-    }
+    CHECK_ERROR(norm == NULL, "Expected *norm to be a layer_norm_t pointer, but got NULL.");
+    CHECK_ERROR(state == NULL, "Expected **state to be a tensor_t pointer, but got NULL.");
 
     // check parameter and state length
     tensor_t *W = state[0];
     tensor_t *b = norm->use_bias > 0 ? state[0] : NULL;
 
-    if (norm->W->length != W->length)
-    {
-        printf("Cannot load layer_norm.weight as norm.W.length != state.W.length. Got %d != %d\n", norm->W->length, W->length);
-        return;
-    }
-
-    if (norm->use_bias > 0 && norm->b->length != b->length)
-    {
-        printf("Cannot load layer_norm.bias as norm.b.length != state.b.length. Got %d != %d\n", norm->b->length, b->length);
-        return;
-    }
+    CHECK_ERROR(
+        norm->W->length != W->length, 
+        "Cannot load layer_norm weights. Expected a tensor of size %d, but got %d.", norm->W->length, W->length
+    );
+    CHECK_ERROR(
+        norm->use_bias > 0 && norm->b->length != b->length, 
+        "Cannot load layer_norm bias. Expected a tensor of size %d, but got %d.", norm->b->length, b->length
+    );
 
     memcpy(norm->W->t, W->t, norm->W->length * sizeof(float));
     if (norm->use_bias > 0)
         memcpy(norm->b->t, b->t, norm->b->length * sizeof(float));
+}
+
+
+void to_layer_norm(layer_norm_t *norm, const device_t device) {
+    CHECK_ERROR(norm == NULL, "Expected *norm to be a layer_norm_t pointer, but got NULL.");
+
+    norm->W->to(norm->W, device);
+    norm->dW->to(norm->dW, device);
+    if (norm->b)
+        norm->b->to(norm->b, device);
+    if (norm->db)
+        norm->db->to(norm->db, device);
+    if (norm->cache[0])
+        norm->cache[0]->to(norm->cache[0], device);
+    if (norm->cache[1])
+        norm->cache[1]->to(norm->cache[1], device);
+    if (norm->cache[2])
+        norm->cache[2]->to(norm->cache[2], device);
 }
