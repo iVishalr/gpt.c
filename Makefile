@@ -4,7 +4,7 @@ BUILD = release
 DEVICE = CPU
 CFLAGS_RELEASE = -O3 -Ofast -march=native -Wno-unused-result -Wno-ignored-pragmas -Wno-unknown-attributes -ggdb3 -fPIC
 CFLAGS_DEBUG = -Wno-unused-result -O0 -ggdb3 -fPIC
-NVCC_CFLAGS_RELEASE = -t=0 -std=c++17 --generate-code arch=compute_86,code=[compute_86,sm_86] --generate-line-info -Xcompiler="-O3 -Ofast -march=native -Wno-unused-result -Wno-ignored-pragmas -Wno-unknown-attributes -ggdb3 -fPIC" --expt-relaxed-constexpr
+NVCC_CFLAGS_RELEASE = -t=0 -std=c++17 --generate-line-info -Xcompiler="-O3 -Ofast -march=native -Wno-unused-result -Wno-ignored-pragmas -Wno-unknown-attributes -ggdb3 -fPIC" --expt-relaxed-constexpr
 NVCC_CFLAGS_DEBUG = -O0 -Xcompiler -fPIC
 
 INCLUDES = -I include/ -I kernels/include/ -I third_party/OpenBLAS/include/
