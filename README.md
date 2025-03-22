@@ -4,7 +4,7 @@
 <img src="docs/images/banner.svg", alt="banner.svg"></img>
 </p>
 
-gpt.c is a simple C implementation of OpenAI's popular GPT-2 model. This project was originally inspired by Andrej Karpathy's [llm.c](https://github.com/karpathy/llm.c). However, llm.c has evolved into a great, but complex and slightly confusing codebase over time. This project aims to build GPT-2 from scratch in C, keeping it as simple as possible while still achieving very good performance, preferrably on par with Pytorch. To enhance understanding, most layers in gpt.c are designed in a way that makes building models very similar to doing so in PyTorch. 
+gpt.c is a simple C implementation of OpenAI's popular GPT-2 model, originally inspired by Andrej Karpathy's [llm.c](https://github.com/karpathy/llm.c). llm.c has grown into a sophisticated yet complex and slightly confusing codebase over time. This project aims to build GPT-2 from scratch in C, keeping it as simple as possible while still delivering good performance, ideally comparable to PyTorch. Most layers in gpt.c are designed in a way that makes building models very similar to doing so in PyTorch. 
 
 ## Table of Contents<!-- omit from toc -->
 
