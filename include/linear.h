@@ -48,7 +48,7 @@ typedef struct linear {
     tensor_t *cache; // 8 bytes
 
     // Function pointers grouped together (8 bytes each on a 64-bit system)
-    tensor_t *(*forward)(struct linear *, const tensor_t *);     // 8 bytes
+    tensor_t *(*forward)(struct linear *,  tensor_t *);     // 8 bytes
     tensor_t *(*backward)(struct linear *, tensor_t *);    // 8 bytes
     void (*description)(const struct linear *);            // 8 bytes
     int (*num_parameters)(const struct linear *);          // 8 bytes

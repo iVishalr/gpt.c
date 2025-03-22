@@ -97,7 +97,7 @@ tensor_t *backward_cross_entropy_loss(cross_entropy_loss_t *loss, tensor_t *glob
     tensor_t *log_softmax_output = loss->cache[0];
     tensor_t *dout = zeros(log_softmax_output->shape, log_softmax_output->ndims, device);
 
-    cross_entropy_backward_dispatch(global_grad, loss->cache, dout);
+    cross_entropy_backward_dispatch(global_grad, (const tensor_t **)loss->cache, dout);
 
     free_tensor(global_grad);
     free_tensor(loss->cache[0]);

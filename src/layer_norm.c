@@ -132,7 +132,7 @@ tensor_t *backward_layer_norm(layer_norm_t *norm, tensor_t *global_grad) {
     if (!norm->db)
         norm->db = norm->use_bias > 0 ? zeros(norm->b->shape, norm->b->ndims, device) : NULL;
 
-    layer_norm_backward_dispatch(global_grad, norm->cache, norm->W, norm->dW, norm->db, dout);
+    layer_norm_backward_dispatch(global_grad, (const tensor_t **)norm->cache, norm->W, norm->dW, norm->db, dout);
 
     free_tensor(global_grad);
     free_tensor(norm->cache[0]);

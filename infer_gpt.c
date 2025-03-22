@@ -349,6 +349,9 @@ int main(int argc, char **argv) {
         window_input->to(window_input, device);
 
         tensor_t *logits = gpt->forward(gpt, window_input);
+        
+        // wait for all GPU task complete
+        synchronize(device);
         gpt->free_cache(gpt); // frees up window_input and other cached tensors
 
         // we only care about the (i-1)th prediction 
