@@ -27,6 +27,7 @@ Clone the project along with submodules
 
 ```bash
 git clone https://github.com/iVishalr/gpt.c.git
+cd gpt.c
 git submodule update --init --recursive
 ```
 
